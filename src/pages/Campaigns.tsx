@@ -16,6 +16,8 @@ import {
 } from '@/lib/api';
 import type { MessageCreditSummary } from '@/lib/api';
 import { validateMediaUpload } from '@/lib/media-upload';
+import { parseSpreadsheetContacts, renderSpreadsheetMessage, missingSpreadsheetVariables, SPREADSHEET_CONTACT_LIMIT, VARIABLE_FIELDS, type SpreadsheetContact, type SpreadsheetStats, type SpreadsheetImport } from '@/lib/campaign-spreadsheet';
+import { SpreadsheetPreview, SpreadsheetContactPicker } from '@/components/campaigns/SpreadsheetPreview';
 import type { WhatsAppTemplate } from '@/components/whatsapp/TemplateCatalog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNavigate } from 'react-router-dom';
@@ -122,11 +124,11 @@ const renderPreviewMessage = (value: string) => value
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const renderTemplatePreview = (template: WhatsAppTemplate | undefined, mappings: string[]) => {
+const renderTemplatePreview = (template: WhatsAppTemplate | undefined, mappings: string[], render = renderPreviewMessage) => {
   const body = getTemplateBodyText(template) || 'Selecione um template aprovado.';
   return getTemplateVariableTokens(template).reduce((preview, token, index) => {
-    const sample = renderPreviewMessage(mappings[index] || '{{nome}}');
-    return preview.replace(new RegExp(`\\{\\{\\s*${escapeRegExp(token)}\\s*\\}\\}`, 'g'), sample);
+    const sample = render(mappings[index] || '{{nome}}');
+    return preview.replace(new RegExp(`\\{\\{\\s*${escapeRegExp(token)}\\s*\\}\\}`, 'g'), () => sample);
   }, body);
 };
 
@@ -141,7 +143,6 @@ const STATUS_MAP: Record<string, { label: string; color: string; icon: string }>
   canceled: { label: 'Cancelada', color: 'bg-slate-100 text-slate-500', icon: 'cancel' },
 };
 
-const SPREADSHEET_CONTACT_LIMIT = 5000;
 const SPREADSHEET_TEMPLATE_FILE = 'modelo-disparo-sellclin.csv';
 const SPREADSHEET_TEMPLATE_ROWS = [
   ['nome', 'telefone', 'data', 'hora', 'especialista'],
@@ -150,110 +151,6 @@ const SPREADSHEET_TEMPLATE_ROWS = [
   ['Clinica Exemplo', '11977776666', '17/07/2026', '11:15', 'Equipe SellClin'],
 ];
 
-type SpreadsheetContact = {
-  name: string;
-  phone: string;
-  date?: string;
-  time?: string;
-  specialist?: string;
-};
-
-type SpreadsheetStats = {
-  totalImported: number;
-  validRows: number;
-  duplicateRows: number;
-  invalidRows: number;
-  truncated: boolean;
-  missingPhoneColumn?: boolean;
-};
-
-function splitSpreadsheetLine(line: string, delimiter: string) {
-  const result: string[] = [];
-  let current = '';
-  let insideQuotes = false;
-
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    const next = line[i + 1];
-    if (char === '"' && next === '"') {
-      current += '"';
-      i++;
-    } else if (char === '"') {
-      insideQuotes = !insideQuotes;
-    } else if (char === delimiter && !insideQuotes) {
-      result.push(current.trim());
-      current = '';
-    } else {
-      current += char;
-    }
-  }
-
-  result.push(current.trim());
-  return result;
-}
-
-function parseSpreadsheetContacts(text: string): { contacts: SpreadsheetContact[]; stats: SpreadsheetStats } {
-  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-  const emptyStats: SpreadsheetStats = {
-    totalImported: Math.max(0, lines.length - 1),
-    validRows: 0,
-    duplicateRows: 0,
-    invalidRows: 0,
-    truncated: false,
-  };
-  if (lines.length < 2) return { contacts: [], stats: emptyStats };
-
-  const firstLine = lines[0];
-  const delimiter = firstLine.includes(';') ? ';' : firstLine.includes('\t') ? '\t' : ',';
-  const headers = splitSpreadsheetLine(firstLine, delimiter)
-    .map(h => h.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
-  const nameIndex = headers.findIndex(h => ['nome', 'name', 'cliente', 'contato'].includes(h));
-  const phoneIndex = headers.findIndex(h => ['telefone', 'phone', 'whatsapp', 'celular', 'numero'].includes(h));
-  const dateIndex = headers.findIndex(h => ['data', 'date', 'dia', 'data_agendamento', 'data_consulta', 'consulta_data'].includes(h));
-  const timeIndex = headers.findIndex(h => ['hora', 'horario', 'time', 'hora_agendamento', 'hora_consulta', 'consulta_hora'].includes(h));
-  const specialistIndex = headers.findIndex(h => ['especialista', 'profissional', 'dr', 'dra', 'doutor', 'doutora', 'medico', 'medica', 'doctor'].includes(h));
-
-  if (phoneIndex === -1) {
-    return { contacts: [], stats: { ...emptyStats, missingPhoneColumn: true } };
-  }
-
-  const seen = new Set<string>();
-  const contacts: SpreadsheetContact[] = [];
-  const dataLines = lines.slice(1);
-  const rowsToProcess = dataLines.slice(0, SPREADSHEET_CONTACT_LIMIT);
-  let duplicateRows = 0;
-  let invalidRows = 0;
-
-  for (const line of rowsToProcess) {
-    const columns = splitSpreadsheetLine(line, delimiter);
-    const phone = String(columns[phoneIndex] || '').replace(/\D/g, '');
-    const name = nameIndex >= 0 ? String(columns[nameIndex] || '').trim() : '';
-    const date = dateIndex >= 0 ? String(columns[dateIndex] || '').trim() : '';
-    const time = timeIndex >= 0 ? String(columns[timeIndex] || '').trim() : '';
-    const specialist = specialistIndex >= 0 ? String(columns[specialistIndex] || '').trim() : '';
-    if (!phone) {
-      invalidRows++;
-      continue;
-    }
-    if (seen.has(phone)) {
-      duplicateRows++;
-      continue;
-    }
-    seen.add(phone);
-    contacts.push({ name: name || 'Contato', phone, date, time, specialist });
-  }
-
-  return {
-    contacts,
-    stats: {
-      totalImported: dataLines.length,
-      validRows: contacts.length,
-      duplicateRows,
-      invalidRows,
-      truncated: dataLines.length > SPREADSHEET_CONTACT_LIMIT,
-    },
-  };
-}
 
 function downloadSpreadsheetTemplate() {
   const csv = SPREADSHEET_TEMPLATE_ROWS
@@ -321,6 +218,8 @@ export default function Campaigns() {
   const [spreadsheetContacts, setSpreadsheetContacts] = useState<SpreadsheetContact[]>([]);
   const [spreadsheetFileName, setSpreadsheetFileName] = useState('');
   const [spreadsheetStats, setSpreadsheetStats] = useState<SpreadsheetStats | null>(null);
+  const [spreadsheetImport, setSpreadsheetImport] = useState<SpreadsheetImport | null>(null);
+  const [previewContactIndex, setPreviewContactIndex] = useState(0);
 
   const loadCampaigns = useCallback(async () => {
     setIsLoading(true);
@@ -460,6 +359,7 @@ export default function Campaigns() {
     setCampaignProvider(metaStatus?.connected ? 'meta' : uazapiStatus?.connected ? 'uazapi' : '');
     setMetaTemplateId(''); setMetaTemplateMappings([]);
     setAttachments([]); setSpreadsheetContacts([]); setSpreadsheetFileName(''); setSpreadsheetStats(null);
+    setSpreadsheetImport(null); setPreviewContactIndex(0);
     setIsCreating(false);
   };
 
@@ -471,8 +371,15 @@ export default function Campaigns() {
       return;
     }
 
-    const text = await file.text();
-    const { contacts, stats } = parseSpreadsheetContacts(text);
+    setSpreadsheetImport(null); setSpreadsheetContacts([]); setSpreadsheetStats(null); setSpreadsheetFileName(''); setPreviewContactIndex(0);
+    let imported: SpreadsheetImport;
+    try {
+      imported = parseSpreadsheetContacts(await file.text());
+    } catch (error) {
+      toast({ title: 'Não foi possível importar', description: error instanceof Error ? error.message : 'Confira o arquivo e tente novamente.', variant: 'destructive' });
+      return;
+    }
+    const { contacts, stats } = imported;
     if (stats.missingPhoneColumn) {
       toast({ title: 'Coluna de telefone ausente', description: 'Use uma coluna chamada telefone, whatsapp, celular, phone ou numero.', variant: 'destructive' });
       return;
@@ -483,6 +390,7 @@ export default function Campaigns() {
     }
 
     setSpreadsheetContacts(contacts);
+    setSpreadsheetImport(imported);
     setSpreadsheetFileName(file.name);
     setSpreadsheetStats(stats);
     setPreviewRecipients(contacts.length);
@@ -679,9 +587,20 @@ export default function Campaigns() {
   const selectedTemplateTokens = getTemplateVariableTokens(selectedMetaTemplate);
   const selectedTemplateHeaderMediaType = getTemplateHeaderMediaType(selectedMetaTemplate);
   const metaParameterValues = metaTemplateMappings;
+  const previewContact = audienceType === 'spreadsheet' ? spreadsheetContacts[previewContactIndex] : undefined;
+  const renderCurrentPreview = audienceType === 'spreadsheet'
+    ? (value: string) => previewContact ? renderSpreadsheetMessage(value, previewContact) : ''
+    : renderPreviewMessage;
+  const previewVariableText = campaignProvider === 'meta'
+    ? selectedTemplateTokens.map((_, index) => metaTemplateMappings[index] || '{{nome}}').join(' ')
+    : message;
+  const missingPreviewValues = previewContact ? missingSpreadsheetVariables(previewVariableText, previewContact) : [];
+  const contactsWithMissingValues = audienceType === 'spreadsheet'
+    ? spreadsheetContacts.filter(contact => missingSpreadsheetVariables(previewVariableText, contact).length > 0).length
+    : 0;
   const messagePreview = campaignProvider === 'meta'
-    ? renderTemplatePreview(selectedMetaTemplate, metaTemplateMappings)
-    : renderPreviewMessage(message || 'Sua mensagem aparecerá aqui.');
+    ? renderTemplatePreview(selectedMetaTemplate, metaTemplateMappings, renderCurrentPreview)
+    : renderCurrentPreview(message || 'Sua mensagem aparecerá aqui.');
   const estimatedCampaignCostCents = previewRecipients * (messageCredits?.unitCostCents ?? 5);
   const hasEnoughCredits = !messageCredits || messageCredits.balanceCents >= estimatedCampaignCostCents;
 
@@ -1067,22 +986,7 @@ export default function Campaigns() {
                               A planilha passou de {SPREADSHEET_CONTACT_LIMIT} contatos. Apenas os primeiros {SPREADSHEET_CONTACT_LIMIT} foram considerados.
                             </p>
                           )}
-                          <div className="mt-2 max-h-24 overflow-y-auto rounded-lg bg-white/70 p-2 text-[11px] text-slate-600">
-                            {spreadsheetContacts.slice(0, 5).map((contact, index) => (
-                              <div key={`${contact.phone}-${index}`} className="grid grid-cols-[1fr_auto] gap-3 py-1">
-                                <span className="truncate font-semibold">{contact.name}</span>
-                                <span className="font-mono">{contact.phone}</span>
-                                {(contact.date || contact.time || contact.specialist) && (
-                                  <span className="col-span-2 truncate text-[10px] text-slate-500">
-                                    {[contact.date, contact.time, contact.specialist].filter(Boolean).join(' - ')}
-                                  </span>
-                                )}
-                              </div>
-                            ))}
-                            {spreadsheetContacts.length > 5 && (
-                              <div className="pt-1 text-muted-foreground">+ {spreadsheetContacts.length - 5} contatos</div>
-                            )}
-                          </div>
+                          {spreadsheetImport && <SpreadsheetPreview data={spreadsheetImport} index={previewContactIndex} onSelect={setPreviewContactIndex} fileName={spreadsheetFileName} />}
                         </div>
                       )}
                     </div>
@@ -1167,6 +1071,9 @@ export default function Campaigns() {
 
                 <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
                 <div className="min-w-0 space-y-5">
+                {audienceType === 'spreadsheet' && spreadsheetImport && (
+                  <SpreadsheetPreview data={spreadsheetImport} index={previewContactIndex} onSelect={setPreviewContactIndex} fileName={spreadsheetFileName} />
+                )}
                 {campaignProvider === 'uazapi' && (
                 <div className="rounded-xl border border-slate-200 bg-white p-5 lg:col-start-1">
                   <div className="mb-3 flex items-start justify-between gap-3">
@@ -1210,7 +1117,7 @@ export default function Campaigns() {
                         <div>
                           <label className="mb-1.5 block text-xs font-bold text-slate-700">Template aprovado</label>
                           <Select value={metaTemplateId} onValueChange={selectApprovedTemplate}>
-                            <SelectTrigger className="h-11 min-w-0 rounded-lg bg-white"><SelectValue className="truncate" placeholder="Selecione um template aprovado">{selectedMetaTemplate ? `${selectedMetaTemplate.name} · ${selectedMetaTemplate.language}` : undefined}</SelectValue></SelectTrigger>
+                            <SelectTrigger className="h-11 min-w-0 rounded-lg bg-white"><SelectValue placeholder="Selecione um template aprovado">{selectedMetaTemplate ? `${selectedMetaTemplate.name} · ${selectedMetaTemplate.language}` : undefined}</SelectValue></SelectTrigger>
                             <SelectContent>{approvedTemplates.map((template) => <SelectItem key={template.id} value={String(template.id)}>{template.name} · {template.language} · {template.category}</SelectItem>)}</SelectContent>
                           </Select>
                         </div>
@@ -1237,6 +1144,12 @@ export default function Campaigns() {
                                   <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="Escolha o dado" /></SelectTrigger>
                                   <SelectContent>{availableMessageVariables.map(variable => <SelectItem key={variable.key} value={variable.key}>{variable.label}</SelectItem>)}</SelectContent>
                                 </Select>
+                                {previewContact && (
+                                  <div className="mt-2 break-words text-xs text-slate-600">
+                                    <p>Coluna: {spreadsheetImport?.columns.find(column => column.field === VARIABLE_FIELDS[(metaParameterValues[index] || '').slice(2, -2)])?.header || 'Não encontrada'}</p>
+                                    <p className="mt-1 font-medium">Valor: {renderCurrentPreview(metaParameterValues[index] || '') || <span className="text-amber-800">Vazio</span>}</p>
+                                  </div>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -1585,12 +1498,15 @@ export default function Campaigns() {
                   <div className="flex items-center justify-between gap-3 px-1 pb-3">
                     <div>
                       <p className="text-sm font-black text-slate-950">Prévia no WhatsApp</p>
-                      <p className="mt-0.5 text-[11px] text-slate-500">Exemplo com dados preenchidos</p>
+                      <p className="mt-0.5 text-[11px] text-slate-500">{previewContact ? 'Dados reais da planilha' : 'Exemplo com dados fictícios'}</p>
                     </div>
                     <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-wide ${campaignProvider === 'meta' ? 'bg-blue-50 text-blue-700' : 'bg-emerald-50 text-emerald-700'}`}>
                       {campaignProvider === 'meta' ? 'Template oficial' : 'Mensagem livre'}
                     </span>
                   </div>
+                  {audienceType === 'spreadsheet' && spreadsheetImport && (
+                    <div className="mb-3"><SpreadsheetContactPicker data={spreadsheetImport} index={previewContactIndex} onSelect={setPreviewContactIndex} /></div>
+                  )}
                   <div className="min-h-60 rounded-xl bg-[#efeae2] p-4 shadow-inner">
                     <div className="ml-auto max-w-[92%] rounded-lg rounded-tr-sm bg-[#d9fdd3] p-3 shadow-sm">
                       {attachments.length > 0 && (
@@ -1598,14 +1514,16 @@ export default function Campaigns() {
                           {attachments[0].type === 'image' ? <ImageIcon className="h-7 w-7" /> : attachments[0].type === 'video' ? <Video className="h-7 w-7" /> : <Volume2 className="h-7 w-7" />}
                         </div>
                       )}
-                      <p className="break-words whitespace-pre-wrap text-[13px] leading-5 text-slate-900">{messagePreview}</p>
+                      <p data-message-preview className="break-words whitespace-pre-wrap text-[13px] leading-5 text-slate-900">{messagePreview}</p>
                       <p className="mt-1 text-right text-[9px] font-medium text-slate-500">agora <span className="text-blue-500">✓✓</span></p>
                     </div>
                   </div>
                   <div className="mt-3 flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-[11px] leading-5 text-slate-500">
                     <Info className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-                    A prévia usa dados fictícios. Cada destinatário receberá seus próprios dados.
+                    <span className="min-w-0 break-words">{previewContact ? `Origem: ${spreadsheetFileName} · registro ${spreadsheetImport?.rows[previewContactIndex]?.record}.` : 'A prévia usa dados fictícios. Cada destinatário receberá seus próprios dados.'}</span>
                   </div>
+                  {missingPreviewValues.length > 0 && <p role="status" className="mt-3 break-words text-xs text-amber-800">Dados ausentes neste contato: {missingPreviewValues.join(', ')}.</p>}
+                  {contactsWithMissingValues > 0 && <p className="mt-2 text-xs text-amber-800">{contactsWithMissingValues} de {spreadsheetContacts.length} contatos com campos da mensagem ausentes.</p>}
                 </aside>
 
                 </div>
@@ -1702,7 +1620,9 @@ export default function Campaigns() {
                   <p className="mt-3 text-2xl font-black">{previewRecipients} contatos</p>
                   <p className="mt-1 text-xs text-slate-400">{AUDIENCE_OPTIONS.find(option => option.value === audienceType)?.label}</p>
                   <div className="mt-5 rounded-lg bg-white/10 p-4">
-                    <p className="line-clamp-6 whitespace-pre-wrap text-sm leading-6 text-slate-100">{messagePreview}</p>
+                    {previewContact && <p className="mb-2 break-words text-xs text-slate-300">Prévia: {previewContact.name} · {previewContact.phone}</p>}
+                    <p className="break-words whitespace-pre-wrap text-sm leading-6 text-slate-100">{messagePreview}</p>
+                    {contactsWithMissingValues > 0 && <p className="mt-2 text-xs text-amber-200">{contactsWithMissingValues} contatos com campos da mensagem ausentes.</p>}
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
                     <div className="rounded-lg bg-white/5 p-3"><p className="text-slate-500">Canal</p><p className="mt-1 font-bold">{campaignProvider === 'meta' ? 'WhatsApp Oficial' : 'WhatsApp Não Oficial'}</p></div>
