@@ -346,7 +346,7 @@ export default function Campaigns() {
   }, [loadCampaigns, loadMessageCredits]);
 
   useEffect(() => {
-    void whatsappTemplatesApi.list('APPROVED').then((response) => {
+    void whatsappTemplatesApi.list('APPROVED', true).then((response) => {
       if (response.success) setApprovedTemplates(response.data || []);
     });
   }, []);

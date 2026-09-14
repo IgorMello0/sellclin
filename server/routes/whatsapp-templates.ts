@@ -7,6 +7,8 @@ import {
   deleteMetaTemplate,
   listWhatsAppTemplates,
   syncMetaTemplates,
+  getMetaTemplateAccount,
+  resubmitMetaTemplate,
 } from '../services/whatsapp-templates.js'
 
 export const router = Router()
@@ -28,8 +30,10 @@ router.get('/', auth(), requireModule('conversas'), async (req, res) => {
     const companyId = await getRequestCompanyId(req)
     if (!companyId) return res.status(404).json(createErrorResponse('Empresa nao encontrada', 404))
 
+    if (req.query.refresh === 'true') await syncMetaTemplates(companyId)
     const templates = await listWhatsAppTemplates(companyId, String(req.query.status || ''))
-    return res.json(createSuccessResponse(templates))
+    const account = await getMetaTemplateAccount(companyId).catch(() => null)
+    return res.json({ ...createSuccessResponse(templates), templateAccount: account })
   } catch (error: any) {
     return res.status(500).json(createErrorResponse(error.message || 'Erro ao listar templates', 500))
   }
@@ -41,7 +45,8 @@ router.post('/sync', auth(), requireModule('conversas'), requireCompanyOwner(), 
     if (!companyId) return res.status(404).json(createErrorResponse('Empresa nao encontrada', 404))
 
     const templates = await syncMetaTemplates(companyId)
-    return res.json(createSuccessResponse(templates))
+    const account = await getMetaTemplateAccount(companyId)
+    return res.json({ ...createSuccessResponse(templates), templateAccount: account })
   } catch (error: any) {
     console.error('[WhatsApp Templates] Erro ao sincronizar:', error)
     return res.status(400).json(createErrorResponse(error.message || 'Erro ao sincronizar templates', 400))
@@ -83,6 +88,21 @@ router.post('/', auth(), requireModule('conversas'), requireCompanyOwner(), asyn
   } catch (error: any) {
     console.error('[WhatsApp Templates] Erro ao criar:', error)
     return res.status(400).json(createErrorResponse(error.message || 'Erro ao criar template', 400))
+  }
+})
+
+router.post('/:id/resubmit', auth(), requireModule('conversas'), requireCompanyOwner(), async (req, res) => {
+  try {
+    const companyId = await getRequestCompanyId(req)
+    if (!companyId) return res.status(404).json(createErrorResponse('Empresa nao encontrada', 404))
+    const templateId = Number(req.params.id)
+    if (!Number.isInteger(templateId) || templateId <= 0) {
+      return res.status(400).json(createErrorResponse('Template invalido', 400))
+    }
+    const template = await resubmitMetaTemplate(companyId, templateId)
+    return res.json(createSuccessResponse(template))
+  } catch (error: any) {
+    return res.status(400).json(createErrorResponse(error.message || 'Erro ao reenviar template', 400))
   }
 })
 

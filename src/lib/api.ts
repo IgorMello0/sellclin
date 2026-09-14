@@ -2,6 +2,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/a
 
 export interface ApiResponse<T> {
   success: boolean
+  templateAccount?: { wabaId: string } | null
   data?: T
   error?: {
     message: string
@@ -930,9 +931,14 @@ export const whatsappMetaApi = {
 }
 
 export const whatsappTemplatesApi = {
-  list: async (status?: string) =>
-    apiRequest<any[]>(`/whatsapp/templates${status ? `?status=${encodeURIComponent(status)}` : ''}`),
+  list: async (status?: string, refresh = false) => {
+    const query = new URLSearchParams()
+    if (status) query.set('status', status)
+    if (refresh) query.set('refresh', 'true')
+    return apiRequest<any[]>(`/whatsapp/templates?${query}`)
+  },
   sync: async () => apiRequest<any[]>('/whatsapp/templates/sync', { method: 'POST' }),
+  resubmit: async (id: number) => apiRequest<any>(`/whatsapp/templates/${id}/resubmit`, { method: 'POST' }),
   create: async (data: import('@/types/whatsapp-template').CreateWhatsAppTemplateInput) =>
     apiRequest<any>('/whatsapp/templates', { method: 'POST', body: JSON.stringify(data) }),
   createAppointmentReminder: async () =>

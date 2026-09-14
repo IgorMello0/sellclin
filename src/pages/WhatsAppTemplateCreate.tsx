@@ -166,7 +166,7 @@ export default function WhatsAppTemplateCreate() {
     try {
       const response = await whatsappTemplatesApi.create(payload)
       if (!response.success) throw new Error(response.error?.message || 'Não foi possível enviar o template.')
-      toast({ title: 'Template enviado para análise', description: 'Acompanhe o status na página de templates.' })
+      toast({ title: 'Template confirmado na Meta', description: `ID ${response.data.externalId}. Acompanhe o status na página de templates.` })
       navigate('/templates')
     } catch (error: any) {
       toast({ title: 'Erro ao criar template', description: error.message, variant: 'destructive' })

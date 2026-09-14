@@ -3,6 +3,7 @@ import { prisma } from '../prisma.js'
 import { auth, requireModule } from '../middleware/auth.js'
 import { createErrorResponse, createSuccessResponse, parsePagination } from '../utils/response.js'
 import { sendUazapiRequest } from '../services/uazapi-whatsapp.js'
+import { getApprovedWhatsAppTemplate } from '../services/whatsapp-templates.js'
 import {
   MESSAGE_DISPATCH_PRICE_CENTS,
   MessageCreditError,
@@ -305,9 +306,14 @@ router.post('/', auth(), async (req, res) => {
       return res.status(400).json(createErrorResponse('Escolha um canal de WhatsApp para a campanha'))
     }
 
-    const selectedTemplate = templateId
-      ? await prisma.whatsAppTemplate.findFirst({ where: { id: Number(templateId), companyId } })
-      : null
+    let selectedTemplate: Awaited<ReturnType<typeof getApprovedWhatsAppTemplate>> | null = null
+    if (templateId) {
+      try {
+        selectedTemplate = await getApprovedWhatsAppTemplate(companyId, Number(templateId), true)
+      } catch (error: any) {
+        return res.status(400).json(createErrorResponse(error.message, 400))
+      }
+    }
     if (templateId && (!selectedTemplate || selectedTemplate.status.toUpperCase() !== 'APPROVED')) {
       return res.status(400).json(createErrorResponse('Selecione um template aprovado desta clinica'))
     }
@@ -535,6 +541,14 @@ router.post('/:id/send', auth(), async (req, res) => {
       return res.status(400).json(createErrorResponse(
         'WhatsApp API não configurada. Vá em Configurações → Integração WhatsApp para configurar.'
       ))
+    }
+
+    if (provider === 'meta' && campaign.templateId) {
+      try {
+        campaign.template = await getApprovedWhatsAppTemplate(companyId!, campaign.templateId, true)
+      } catch (error: any) {
+        return res.status(400).json(createErrorResponse(error.message, 400))
+      }
     }
 
     let creditReservation

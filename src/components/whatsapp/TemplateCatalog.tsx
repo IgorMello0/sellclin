@@ -14,15 +14,16 @@ export function TemplateCatalog({ compact = false }: { compact?: boolean }) {
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = async () => {
-    const response = await whatsappTemplatesApi.list();
+    const response = await whatsappTemplatesApi.list(undefined, true);
     if (!response.success) throw new Error(response.error?.message || 'Nao foi possivel carregar os templates.');
     setTemplates(response.data || []);
   };
 
   useEffect(() => {
-    void load().catch(() => undefined).finally(() => setLoading(false));
+    void load().catch((error: Error) => setLoadError(error.message)).finally(() => setLoading(false));
   }, []);
 
   const sync = async () => {
@@ -31,8 +32,10 @@ export function TemplateCatalog({ compact = false }: { compact?: boolean }) {
       const response = await whatsappTemplatesApi.sync();
       if (!response.success) throw new Error(response.error?.message || 'Nao foi possivel sincronizar.');
       setTemplates(response.data || []);
+      setLoadError(null);
       toast({ title: 'Templates sincronizados', description: `${response.data?.length || 0} template(s) encontrado(s).` });
     } catch (error: any) {
+      setLoadError(error.message);
       toast({ title: 'Erro ao sincronizar templates', description: error.message, variant: 'destructive' });
     } finally {
       setSyncing(false);
@@ -55,6 +58,7 @@ export function TemplateCatalog({ compact = false }: { compact?: boolean }) {
       </div>
 
       <div className={`mt-4 space-y-2 ${compact ? 'max-h-52' : 'max-h-72'} overflow-y-auto pr-1`}>
+        {loadError && <p role="alert" className="text-sm text-red-600">{loadError}</p>}
         {loading && <p className="py-4 text-center text-sm text-slate-500">Carregando templates...</p>}
         {!loading && templates.length === 0 && (
           <p className="rounded-xl bg-slate-50 px-3 py-4 text-center text-sm font-medium text-slate-500">
@@ -72,7 +76,7 @@ export function TemplateCatalog({ compact = false }: { compact?: boolean }) {
               </div>
               <span className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[10px] font-black uppercase ${approved ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
                 {approved ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-                {approved ? 'Aprovado' : template.status}
+                {({ APPROVED: 'Aprovado', PENDING: 'Em análise', NOT_FOUND: 'Não encontrado na Meta', UNKNOWN: 'A confirmar', REJECTED: 'Rejeitado', PAUSED: 'Pausado', DISABLED: 'Desativado', PENDING_DELETION: 'Exclusão pendente' } as Record<string, string>)[template.status.toUpperCase()] || template.status}
               </span>
             </div>
           );

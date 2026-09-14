@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   AlertCircle,
   CheckCircle2,
   Clock3,
   Eye,
+  ExternalLink,
+  Send,
   FileText,
   Loader2,
   Plus,
@@ -35,6 +37,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 const STATUS_META: Record<string, { label: string; className: string; icon: typeof CheckCircle2 }> = {
+  NOT_FOUND: { label: 'Não encontrado na Meta', className: 'border-red-200 bg-red-50 text-red-700', icon: AlertCircle },
+  UNKNOWN: { label: 'Status a confirmar', className: 'border-slate-200 bg-slate-50 text-slate-600', icon: Clock3 },
   APPROVED: { label: 'Aprovado', className: 'border-emerald-200 bg-emerald-50 text-emerald-700', icon: CheckCircle2 },
   PENDING: { label: 'Em análise', className: 'border-amber-200 bg-amber-50 text-amber-700', icon: Clock3 },
   PENDING_DELETION: { label: 'Exclusão pendente', className: 'border-slate-200 bg-slate-50 text-slate-600', icon: Clock3 },
@@ -121,19 +125,47 @@ export default function WhatsAppTemplates() {
   const [category, setCategory] = useState('all')
   const [preview, setPreview] = useState<WhatsAppTemplate | null>(null)
   const [pendingDelete, setPendingDelete] = useState<WhatsAppTemplate | null>(null)
+  const [syncError, setSyncError] = useState<string | null>(null)
+  const [wabaId, setWabaId] = useState<string | null>(null)
+  const [verifiedAt, setVerifiedAt] = useState<Date | null>(null)
+  const [resubmittingId, setResubmittingId] = useState<number | null>(null)
+  const syncInFlight = useRef(false)
   const canManage = localStorage.getItem('userType') === 'professional'
 
   const load = useCallback(async () => {
     const response = await whatsappTemplatesApi.list()
     if (!response.success) throw new Error(response.error?.message || 'Não foi possível carregar os templates.')
     setTemplates((response.data || []) as WhatsAppTemplate[])
+    setWabaId(response.templateAccount?.wabaId || null)
+  }, [])
+
+  const refresh = useCallback(async () => {
+    if (syncInFlight.current) return
+    syncInFlight.current = true
+    setSyncing(true)
+    try {
+      const response = await whatsappTemplatesApi.list(undefined, true)
+      if (!response.success) throw new Error(response.error?.message || 'Não foi possível consultar a Meta.')
+      setTemplates((response.data || []) as WhatsAppTemplate[])
+      setWabaId(response.templateAccount?.wabaId || null)
+      setVerifiedAt(new Date())
+      setSyncError(null)
+    } catch (error: any) {
+      setSyncError(error.message || 'Não foi possível consultar a Meta.')
+    } finally {
+      syncInFlight.current = false
+      setSyncing(false)
+    }
   }, [])
 
   useEffect(() => {
+    let active = true
     void load()
       .catch((error: Error) => toast({ title: 'Erro ao carregar templates', description: error.message, variant: 'destructive' }))
-      .finally(() => setLoading(false))
-  }, [load, toast])
+      .finally(() => { if (active) { setLoading(false); void refresh() } })
+    const timer = window.setInterval(() => { if (!document.hidden) void refresh() }, 60_000)
+    return () => { active = false; window.clearInterval(timer) }
+  }, [load, refresh, toast])
 
   const filtered = useMemo(() => {
     const search = query.trim().toLowerCase()
@@ -159,17 +191,18 @@ export default function WhatsAppTemplates() {
     { label: 'Rejeitados', value: counts.rejected, icon: <XCircle className="h-5 w-5 text-red-600" /> },
   ]
 
-  const sync = async () => {
-    setSyncing(true)
+  const resubmit = async (template: WhatsAppTemplate) => {
+    setResubmittingId(template.id)
     try {
-      const response = await whatsappTemplatesApi.sync()
-      if (!response.success) throw new Error(response.error?.message || 'Não foi possível sincronizar os templates.')
-      setTemplates((response.data || []) as WhatsAppTemplate[])
-      toast({ title: 'Templates atualizados', description: 'Os status foram sincronizados com a Meta.' })
+      const response = await whatsappTemplatesApi.resubmit(template.id)
+      if (!response.success) throw new Error(response.error?.message || 'Não foi possível reenviar o template.')
+      await load()
+      toast({ title: 'Template confirmado na Meta', description: `ID ${response.data.externalId}` })
+      await refresh()
     } catch (error: any) {
-      toast({ title: 'Erro ao sincronizar', description: error.message, variant: 'destructive' })
+      toast({ title: 'Erro ao reenviar', description: error.message, variant: 'destructive' })
     } finally {
-      setSyncing(false)
+      setResubmittingId(null)
     }
   }
 
@@ -196,8 +229,8 @@ export default function WhatsAppTemplates() {
       if (!response.success) throw new Error(response.error?.message || 'Não foi possível enviar o template para a Meta.')
       await load()
       toast({
-        title: 'Template enviado para a Meta',
-        description: 'O lembrete de agendamento ficará disponível após a aprovação.',
+        title: 'Template confirmado na Meta',
+        description: `ID ${response.data.externalId}. O lembrete ficará disponível após a aprovação.`,
       })
     } catch (error: any) {
       toast({ title: 'Erro ao criar template', description: error.message, variant: 'destructive' })
@@ -218,7 +251,7 @@ export default function WhatsAppTemplates() {
           <p className="mt-1 text-sm text-slate-600">Acompanhe a revisão da Meta e gerencie mensagens para contatos fora da janela de 24 horas.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => void sync()} disabled={syncing || !canManage}>
+          <Button variant="outline" onClick={() => void refresh()} disabled={syncing}>
             {syncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
             Sincronizar
           </Button>
@@ -230,6 +263,12 @@ export default function WhatsAppTemplates() {
           )}
         </div>
       </header>
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-600">
+        {wabaId && <a href={`https://business.facebook.com/wa/manage/message-templates/?waba_id=${encodeURIComponent(wabaId)}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-blue-700 hover:underline">Conta WhatsApp {wabaId}<ExternalLink className="h-3.5 w-3.5" /></a>}
+        <span>{syncing ? 'Consultando a Meta...' : verifiedAt ? `Última consulta: ${verifiedAt.toLocaleTimeString('pt-BR')}` : 'Status ainda não verificado nesta sessão'}</span>
+      </div>
+      {syncError && <div role="alert" className="border-l-4 border-amber-500 bg-amber-50 p-4 text-sm text-amber-900"><p className="font-semibold">Não foi possível atualizar os status na Meta.</p><p className="mt-1 break-words">{syncError}</p><p className="mt-1">Os status exibidos são da última consulta salva.</p></div>}
 
       <section className="grid grid-cols-2 border-y border-slate-200 bg-white md:grid-cols-4">
         {summaryItems.map((item, index) => (
@@ -250,17 +289,19 @@ export default function WhatsAppTemplates() {
             <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por nome, idioma ou categoria" className="pl-9" />
           </div>
           <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger className="w-full lg:w-48"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full lg:w-56"><SelectValue>{status === 'all' ? 'Todos os status' : statusMeta(status).label}</SelectValue></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os status</SelectItem>
               <SelectItem value="APPROVED">Aprovados</SelectItem>
               <SelectItem value="PENDING">Em análise</SelectItem>
               <SelectItem value="REJECTED">Rejeitados</SelectItem>
               <SelectItem value="PAUSED">Pausados</SelectItem>
+              <SelectItem value="NOT_FOUND">Não encontrados na Meta</SelectItem>
+              <SelectItem value="UNKNOWN">Status a confirmar</SelectItem>
             </SelectContent>
           </Select>
           <Select value={category} onValueChange={setCategory}>
-            <SelectTrigger className="w-full lg:w-48"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full lg:w-48"><SelectValue>{category === 'all' ? 'Todas as categorias' : categoryLabel(category)}</SelectValue></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas as categorias</SelectItem>
               <SelectItem value="UTILITY">Utilidade</SelectItem>
@@ -287,7 +328,7 @@ export default function WhatsAppTemplates() {
                   <TableRow key={template.id}>
                     <TableCell>
                       <p className="font-semibold text-slate-950">{template.name}</p>
-                      <p className="mt-1 text-xs text-slate-500">{template.externalId ? `ID ${template.externalId}` : 'Aguardando ID da Meta'}</p>
+                      <p className="mt-1 text-xs text-slate-500">{template.externalId ? `ID ${template.externalId}` : 'Sem confirmação de criação na Meta'}</p>
                       {template.rejectionReason && <p className="mt-1 max-w-xl text-xs text-red-600">{template.rejectionReason}</p>}
                     </TableCell>
                     <TableCell><Badge variant="secondary">{categoryLabel(template.category)}</Badge></TableCell>
@@ -296,6 +337,7 @@ export default function WhatsAppTemplates() {
                     <TableCell>
                       <div className="flex justify-end gap-1">
                         <Button variant="ghost" size="icon" title="Visualizar" onClick={() => setPreview(template)}><Eye className="h-4 w-4" /></Button>
+                        {canManage && template.status === 'NOT_FOUND' && <Button variant="ghost" size="icon" title="Reenviar para a Meta" aria-label="Reenviar para a Meta" disabled={resubmittingId !== null || syncing} onClick={() => void resubmit(template)}>{resubmittingId === template.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}</Button>}
                         {canManage && <Button variant="ghost" size="icon" title="Excluir" className="text-red-600 hover:text-red-700" onClick={() => setPendingDelete(template)}><Trash2 className="h-4 w-4" /></Button>}
                       </div>
                     </TableCell>
@@ -315,6 +357,7 @@ export default function WhatsAppTemplates() {
                 {template.rejectionReason && <p className="text-xs text-red-600">{template.rejectionReason}</p>}
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" size="sm" onClick={() => setPreview(template)}><Eye className="mr-2 h-4 w-4" />Visualizar</Button>
+                  {canManage && template.status === 'NOT_FOUND' && <Button variant="outline" size="icon" title="Reenviar para a Meta" aria-label="Reenviar para a Meta" disabled={resubmittingId !== null || syncing} onClick={() => void resubmit(template)}>{resubmittingId === template.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}</Button>}
                   {canManage && <Button variant="outline" size="sm" className="text-red-600" onClick={() => setPendingDelete(template)}><Trash2 className="h-4 w-4" /></Button>}
                 </div>
               </div>
