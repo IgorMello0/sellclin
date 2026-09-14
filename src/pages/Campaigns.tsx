@@ -878,8 +878,8 @@ export default function Campaigns() {
 
       {/* ═══ CREATE CAMPAIGN DIALOG ═══ */}
       <Dialog open={isCreating} onOpenChange={(o) => !o && resetForm()}>
-        <DialogContent className="h-[100dvh] max-h-[100dvh] w-full max-w-none gap-0 overflow-hidden bg-[#f7f9fc] p-0 sm:h-[min(900px,94vh)] sm:max-h-[94vh] sm:w-[calc(100vw-2rem)] sm:max-w-[1180px] sm:rounded-2xl">
-          <div className="border-b border-slate-200 bg-white px-5 py-4 sm:px-7 sm:py-5">
+        <DialogContent role="dialog" aria-modal="true" aria-label="Nova campanha" className="flex h-[100dvh] max-h-[100dvh] w-full max-w-none flex-col gap-0 overflow-hidden bg-[#f7f9fc] p-0 sm:h-[min(900px,94dvh)] sm:max-h-[94dvh] sm:w-[calc(100vw-2rem)] sm:max-w-[1180px] sm:rounded-2xl sm:p-0">
+          <div className="shrink-0 border-b border-slate-200 bg-white px-5 py-4 sm:px-7 sm:py-5">
             <DialogHeader className="pr-10">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
@@ -918,10 +918,11 @@ export default function Campaigns() {
               </div>
             </DialogHeader>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-7">
+          <div key={step} data-campaign-scroll className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 lg:p-7">
 
             {step === 1 && (
-              <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+              <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+                <div className="min-w-0 space-y-5">
                 <div className="rounded-xl border border-slate-200 bg-white p-5 lg:col-start-1">
                   <label className="mb-2 block text-xs font-bold text-slate-700">Nome da campanha</label>
                   <Input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Confirmação de consultas de julho" className="h-11 rounded-lg border-slate-200" />
@@ -1093,7 +1094,8 @@ export default function Campaigns() {
                     </p>
                   )}
                 </div>
-                <aside className="rounded-xl border border-slate-200 bg-white p-5 lg:col-start-2 lg:row-span-2 lg:row-start-1">
+                </div>
+                <aside className="min-w-0 rounded-xl border border-slate-200 bg-white p-5">
                   <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-orange-50 text-orange-600">
                     {audienceType === 'spreadsheet' ? <FileSpreadsheet className="h-5 w-5" /> : <Users className="h-5 w-5" />}
                   </div>
@@ -1112,29 +1114,12 @@ export default function Campaigns() {
                     </div>
                   )}
                 </aside>
-                <div className="flex items-center justify-between border-t border-slate-200 pt-4 lg:col-span-2">
-                  <p className="hidden text-xs text-slate-500 sm:block">Você poderá revisar tudo antes de criar.</p>
-                  <Button onClick={() => {
-                    if (!name || !audienceType) {
-                      toast({ title: 'Preencha todos os campos', variant: 'destructive' });
-                      return;
-                    }
-                    if (audienceType === 'spreadsheet' && spreadsheetContacts.length === 0) {
-                      toast({ title: 'Importe uma planilha', variant: 'destructive' });
-                      return;
-                    }
-                    setStep(2);
-                  }}
-                    className="h-11 rounded-lg bg-slate-950 px-5 font-bold text-white hover:bg-slate-800">
-                    Preparar mensagem <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </div>
               </div>
             )}
 
             {step === 2 && (
-              <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-                <section className="rounded-xl border border-slate-200 bg-white p-5 lg:col-span-2">
+              <div className="space-y-5">
+                <section className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-black text-slate-950">Canal de envio</p>
@@ -1146,12 +1131,12 @@ export default function Campaigns() {
                     </Button>
                   </div>
 
-                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <div className="mt-4 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2">
                     <button type="button" disabled={!metaStatus?.connected} onClick={() => setCampaignProvider('meta')}
-                      className={`flex min-h-28 items-start gap-3 rounded-xl border p-4 text-left transition ${campaignProvider === 'meta' ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-100' : 'border-slate-200 hover:border-blue-300'} disabled:cursor-not-allowed disabled:opacity-50`}>
+                      className={`flex min-h-28 min-w-0 items-start gap-3 rounded-lg border p-4 text-left transition ${campaignProvider === 'meta' ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-100' : 'border-slate-200 hover:border-blue-300'} disabled:cursor-not-allowed disabled:opacity-50`}>
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700"><ShieldCheck className="h-5 w-5" /></span>
                       <span className="min-w-0 flex-1">
-                        <span className="flex items-center justify-between gap-2">
+                        <span className="flex flex-wrap items-center justify-between gap-2">
                           <strong className="text-sm text-slate-950">WhatsApp Oficial</strong>
                           <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase ${metaStatus?.connected ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{metaStatus?.connected ? 'Conectado' : 'Não conectado'}</span>
                         </span>
@@ -1160,10 +1145,10 @@ export default function Campaigns() {
                     </button>
 
                     <button type="button" disabled={!uazapiStatus?.connected} onClick={() => setCampaignProvider('uazapi')}
-                      className={`flex min-h-28 items-start gap-3 rounded-xl border p-4 text-left transition ${campaignProvider === 'uazapi' ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-100' : 'border-slate-200 hover:border-emerald-300'} disabled:cursor-not-allowed disabled:opacity-50`}>
+                      className={`flex min-h-28 min-w-0 items-start gap-3 rounded-lg border p-4 text-left transition ${campaignProvider === 'uazapi' ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-100' : 'border-slate-200 hover:border-emerald-300'} disabled:cursor-not-allowed disabled:opacity-50`}>
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700"><MessageSquareText className="h-5 w-5" /></span>
                       <span className="min-w-0 flex-1">
-                        <span className="flex items-center justify-between gap-2">
+                        <span className="flex flex-wrap items-center justify-between gap-2">
                           <strong className="text-sm text-slate-950">WhatsApp Não Oficial</strong>
                           <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase ${uazapiStatus?.connected ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{uazapiStatus?.connected ? 'Conectado' : 'Não conectado'}</span>
                         </span>
@@ -1180,6 +1165,8 @@ export default function Campaigns() {
                   )}
                 </section>
 
+                <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+                <div className="min-w-0 space-y-5">
                 {campaignProvider === 'uazapi' && (
                 <div className="rounded-xl border border-slate-200 bg-white p-5 lg:col-start-1">
                   <div className="mb-3 flex items-start justify-between gap-3">
@@ -1223,7 +1210,7 @@ export default function Campaigns() {
                         <div>
                           <label className="mb-1.5 block text-xs font-bold text-slate-700">Template aprovado</label>
                           <Select value={metaTemplateId} onValueChange={selectApprovedTemplate}>
-                            <SelectTrigger className="h-11 rounded-lg bg-white"><SelectValue placeholder="Selecione um template aprovado" /></SelectTrigger>
+                            <SelectTrigger className="h-11 min-w-0 rounded-lg bg-white"><SelectValue className="truncate" placeholder="Selecione um template aprovado">{selectedMetaTemplate ? `${selectedMetaTemplate.name} · ${selectedMetaTemplate.language}` : undefined}</SelectValue></SelectTrigger>
                             <SelectContent>{approvedTemplates.map((template) => <SelectItem key={template.id} value={String(template.id)}>{template.name} · {template.language} · {template.category}</SelectItem>)}</SelectContent>
                           </Select>
                         </div>
@@ -1593,7 +1580,8 @@ export default function Campaigns() {
                 </details>
                 )}
 
-                <aside className="self-start rounded-xl border border-slate-200 bg-white p-4 lg:sticky lg:top-0 lg:col-start-2 lg:row-span-5 lg:row-start-1">
+                </div>
+                <aside className="min-w-0 self-start rounded-xl border border-slate-200 bg-white p-4 lg:sticky lg:top-0">
                   <div className="flex items-center justify-between gap-3 px-1 pb-3">
                     <div>
                       <p className="text-sm font-black text-slate-950">Prévia no WhatsApp</p>
@@ -1603,14 +1591,14 @@ export default function Campaigns() {
                       {campaignProvider === 'meta' ? 'Template oficial' : 'Mensagem livre'}
                     </span>
                   </div>
-                  <div className="min-h-[420px] rounded-xl bg-[#efeae2] p-4 shadow-inner">
+                  <div className="min-h-60 rounded-xl bg-[#efeae2] p-4 shadow-inner">
                     <div className="ml-auto max-w-[92%] rounded-lg rounded-tr-sm bg-[#d9fdd3] p-3 shadow-sm">
                       {attachments.length > 0 && (
                         <div className="mb-3 flex h-28 items-center justify-center rounded-md bg-white/70 text-emerald-700">
                           {attachments[0].type === 'image' ? <ImageIcon className="h-7 w-7" /> : attachments[0].type === 'video' ? <Video className="h-7 w-7" /> : <Volume2 className="h-7 w-7" />}
                         </div>
                       )}
-                      <p className="whitespace-pre-wrap text-[13px] leading-5 text-slate-900">{messagePreview}</p>
+                      <p className="break-words whitespace-pre-wrap text-[13px] leading-5 text-slate-900">{messagePreview}</p>
                       <p className="mt-1 text-right text-[9px] font-medium text-slate-500">agora <span className="text-blue-500">✓✓</span></p>
                     </div>
                   </div>
@@ -1620,20 +1608,13 @@ export default function Campaigns() {
                   </div>
                 </aside>
 
-                <div className="flex items-center justify-between border-t border-slate-200 pt-4 lg:col-span-2">
-                  <Button variant="outline" onClick={() => setStep(1)} className="h-11 rounded-lg">
-                    <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
-                  </Button>
-                  <Button onClick={validateMessageStep}
-                    className="h-11 rounded-lg bg-slate-950 px-5 font-bold text-white hover:bg-slate-800">
-                    Revisar campanha <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
                 </div>
               </div>
             )}
 
             {step === 3 && (
-              <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+              <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+                <div className="min-w-0 space-y-5">
                 <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 lg:col-start-1">
                   <div className="mb-4 flex items-center gap-3 border-b border-slate-100 pb-4">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-50 text-orange-600"><CheckCircle2 className="h-5 w-5" /></div>
@@ -1715,7 +1696,8 @@ export default function Campaigns() {
                   <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
                   <div><p className="text-xs font-bold text-amber-900">A campanha será criada como rascunho</p><p className="mt-1 text-xs leading-5 text-amber-700">O envio só começa quando você clicar em enviar na lista de campanhas.</p></div>
                 </div>
-                <aside className="self-start rounded-xl border border-slate-200 bg-slate-950 p-5 text-white lg:sticky lg:top-0 lg:col-start-2 lg:row-span-2 lg:row-start-1">
+                </div>
+                <aside className="min-w-0 self-start rounded-xl border border-slate-200 bg-slate-950 p-5 text-white">
                   <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-400">Resumo do disparo</p>
                   <p className="mt-3 text-2xl font-black">{previewRecipients} contatos</p>
                   <p className="mt-1 text-xs text-slate-400">{AUDIENCE_OPTIONS.find(option => option.value === audienceType)?.label}</p>
@@ -1753,19 +1735,36 @@ export default function Campaigns() {
                     )}
                   </div>
                 </aside>
-                <div className="flex items-center justify-between border-t border-slate-200 pt-4 lg:col-span-2">
-                  <Button variant="outline" onClick={() => setStep(2)} className="h-11 rounded-lg">
-                    <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
-                  </Button>
-                  <Button onClick={handleCreate} disabled={isSending}
-                    className="h-11 rounded-lg bg-orange-600 px-6 font-bold text-white shadow-lg shadow-orange-600/20 hover:bg-orange-700">
-                    {isSending ? <span className="material-symbols-outlined animate-spin mr-2">progress_activity</span> : <Send className="mr-2 h-4 w-4" />}
-                    Criar Campanha
-                  </Button>
-                </div>
               </div>
             )}
           </div>
+          <footer className="z-10 flex shrink-0 items-center justify-between gap-3 border-t border-slate-200 bg-white px-4 py-4 sm:px-7">
+            {step > 1 ? (
+              <Button variant="outline" onClick={() => setStep(step - 1)} disabled={isSending} className="h-11 rounded-lg">
+                <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
+              </Button>
+            ) : <span className="hidden text-xs text-slate-500 sm:block">Você poderá revisar tudo antes de criar.</span>}
+            {step === 1 && <Button onClick={() => {
+              if (!name || !audienceType) {
+                toast({ title: 'Preencha todos os campos', variant: 'destructive' });
+                return;
+              }
+              if (audienceType === 'spreadsheet' && spreadsheetContacts.length === 0) {
+                toast({ title: 'Importe uma planilha', variant: 'destructive' });
+                return;
+              }
+              setStep(2);
+            }} className="ml-auto h-11 rounded-lg bg-slate-950 px-5 font-bold text-white hover:bg-slate-800">
+              Preparar mensagem <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>}
+            {step === 2 && <Button onClick={validateMessageStep} className="h-11 rounded-lg bg-slate-950 px-4 font-bold text-white hover:bg-slate-800">
+              Revisar campanha <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>}
+            {step === 3 && <Button onClick={handleCreate} disabled={isSending} className="h-11 rounded-lg bg-orange-600 px-4 font-bold text-white hover:bg-orange-700">
+              {isSending ? <span className="material-symbols-outlined animate-spin mr-2">progress_activity</span> : <Send className="mr-2 h-4 w-4" />}
+              Criar Campanha
+            </Button>}
+          </footer>
         </DialogContent>
       </Dialog>
 
