@@ -951,11 +951,13 @@ export const whatsappUazapiApi = {
 }
 
 export const conversationsApi = {
-  list: async (filters?: { status?: string; assignment?: string; labelId?: number }) => {
+  list: async (filters?: { status?: string; assignment?: string; labelId?: number; conversion?: 'in_progress' | 'converted'; search?: string }) => {
     const query = new URLSearchParams({ page: '1', pageSize: '100' })
     if (filters?.status) query.set('status', filters.status)
     if (filters?.assignment) query.set('assignment', filters.assignment)
     if (filters?.labelId) query.set('labelId', String(filters.labelId))
+    if (filters?.conversion) query.set('conversion', filters.conversion)
+    if (filters?.search?.trim()) query.set('search', filters.search.trim())
     return apiRequest<any[]>(`/conversas?${query.toString()}`)
   },
   workspace: async () => apiRequest<any>('/conversas/workspace'),

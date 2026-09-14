@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { format, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -262,6 +262,7 @@ const Conversations = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [labelFilter, setLabelFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -296,23 +297,26 @@ const Conversations = () => {
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const conversationsRequestInFlight = useRef(false);
+  const conversationsRequestVersion = useRef(0);
+  const hasLoadedConversations = useRef(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingStreamRef = useRef<MediaStream | null>(null);
   const recordingTimerRef = useRef<number | null>(null);
   const cancelRecordingRef = useRef(false);
 
-  const loadConversations = async (silent = false) => {
-    if (conversationsRequestInFlight.current) return;
-    conversationsRequestInFlight.current = true;
+  const loadConversations = useCallback(async (silent = false) => {
+    const requestVersion = ++conversationsRequestVersion.current;
     if (silent) setRefreshing(true); else setLoading(true);
     try {
       const response = await conversationsApi.list({
         status: statusFilter === 'all' ? undefined : statusFilter,
         labelId: labelFilter === 'all' ? undefined : Number(labelFilter),
+        conversion: filter === 'all' ? undefined : filter as 'in_progress' | 'converted',
+        search: debouncedSearchTerm,
       });
       if (!response.success) throw new Error(response.error?.message || 'Nao foi possivel carregar as conversas.');
+      if (requestVersion !== conversationsRequestVersion.current) return;
       const items = (response.data || []).map((conversation: Conversation) => ({
         ...conversation,
         mensagens: [...(conversation.mensagens || [])].sort((a, b) => messageDate(a).getTime() - messageDate(b).getTime()),
@@ -326,14 +330,16 @@ const Conversations = () => {
       setSelectedId((current) => current && items.some((item) => item.id === current) ? current : items[0]?.id ?? null);
       setLoadError(null);
     } catch (error: any) {
+      if (requestVersion !== conversationsRequestVersion.current) return;
       setLoadError(error.message || 'Erro ao carregar conversas.');
       if (!silent) toast({ title: 'Erro nas conversas', description: error.message, variant: 'destructive' });
     } finally {
-      conversationsRequestInFlight.current = false;
-      setLoading(false);
-      setRefreshing(false);
+      if (requestVersion === conversationsRequestVersion.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
-  };
+  }, [debouncedSearchTerm, filter, labelFilter, statusFilter, toast]);
 
   const loadWorkspace = async () => {
     const response = await conversationsApi.workspace();
@@ -341,7 +347,6 @@ const Conversations = () => {
   };
 
   useEffect(() => {
-    void loadConversations();
     void aiAgentsApi.list().then((response) => {
       if (response.success) setAgents((response.data || []).filter((agent: AiAgent) => agent.isActive));
     });
@@ -349,12 +354,8 @@ const Conversations = () => {
       if (response.success) setTemplates(response.data || []);
     });
     void loadWorkspace();
-    const refreshTimer = window.setInterval(() => {
-      if (!document.hidden) void loadConversations(true);
-    }, 10000);
     const clockTimer = window.setInterval(() => setClock(Date.now()), 1000);
     return () => {
-      window.clearInterval(refreshTimer);
       window.clearInterval(clockTimer);
       if (recordingTimerRef.current) window.clearInterval(recordingTimerRef.current);
       recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -362,8 +363,18 @@ const Conversations = () => {
   }, []);
 
   useEffect(() => {
-    void loadConversations(true);
-  }, [statusFilter, labelFilter]);
+    const timeout = window.setTimeout(() => setDebouncedSearchTerm(searchTerm), 250);
+    return () => window.clearTimeout(timeout);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    void loadConversations(hasLoadedConversations.current);
+    hasLoadedConversations.current = true;
+    const refreshTimer = window.setInterval(() => {
+      if (!document.hidden) void loadConversations(true);
+    }, 10000);
+    return () => window.clearInterval(refreshTimer);
+  }, [loadConversations]);
 
   const selected = conversations.find((conversation) => conversation.id === selectedId) || null;
 
@@ -397,10 +408,14 @@ const Conversations = () => {
 
   const filtered = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
+    const phoneQuery = query.replace(/\D/g, '');
     return conversations.filter((conversation) => {
       const converted = isConverted(conversation);
       const matchesFilter = filter === 'all' || (filter === 'converted' ? converted : !converted);
-      const matchesSearch = !query || contactName(conversation).toLowerCase().includes(query) || contactPhone(conversation).includes(query);
+      const matchesSearch = !query
+        || contactName(conversation).toLowerCase().includes(query)
+        || contactPhone(conversation).includes(query)
+        || (phoneQuery.length >= 3 && contactPhone(conversation).replace(/\D/g, '').includes(phoneQuery));
       return matchesFilter && matchesSearch;
     });
   }, [conversations, filter, searchTerm]);

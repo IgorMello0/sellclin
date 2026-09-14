@@ -207,7 +207,7 @@ function withConversationState(item: any) {
 
 router.get('/', auth(), requireModule('conversas'), async (req, res) => {
   const { skip, take, page, pageSize } = parsePagination(req.query)
-  const { agentId, clientId, leadId, status, assignment, labelId } = req.query as any
+  const { agentId, clientId, leadId, status, assignment, labelId, conversion, search } = req.query as any
   
   const companyId = getCompanyId(req)
 
@@ -215,14 +215,16 @@ router.get('/', auth(), requireModule('conversas'), async (req, res) => {
     return res.json(createSuccessResponse([], { page, pageSize, total: 0 }));
   }
 
-  const where: any = { companyId };
+  const where: any = { companyId }
+  const andFilters: any[] = []
   if (agentId) where.agentId = Number(agentId)
   if (clientId) where.clientId = Number(clientId)
   if (leadId) where.leadId = Number(leadId)
   if (status && ['OPEN', 'PENDING', 'RESOLVED'].includes(String(status).toUpperCase())) {
     where.status = String(status).toUpperCase()
   }
-  if (labelId) where.labels = { some: { labelId: Number(labelId) } }
+  const parsedLabelId = Number(labelId)
+  if (Number.isInteger(parsedLabelId) && parsedLabelId > 0) where.labels = { some: { labelId: parsedLabelId } }
   if (assignment === 'unassigned') {
     where.assignedProfessionalId = null
     where.assignedUserId = null
@@ -230,6 +232,39 @@ router.get('/', auth(), requireModule('conversas'), async (req, res) => {
     if (req.user?.type === 'profissional') where.assignedProfessionalId = Number(req.user.id)
     if (req.user?.type === 'usuario') where.assignedUserId = Number(req.user.id)
   }
+
+  const convertedCondition = {
+    OR: [
+      { clientId: { not: null } },
+      { lead: { is: { convertedAt: { not: null } } } },
+      { lead: { is: { convertedToClientId: { not: null } } } },
+    ],
+  }
+  if (conversion === 'converted') andFilters.push(convertedCondition)
+  if (conversion === 'in_progress') andFilters.push({ NOT: convertedCondition })
+
+  const normalizedSearch = String(search || '').trim().slice(0, 120)
+  if (normalizedSearch) {
+    const contains = { contains: normalizedSearch, mode: 'insensitive' as const }
+    const normalizedPhoneSearch = normalizedSearch.replace(/\D/g, '')
+    const searchConditions: any[] = [
+      { phone: contains },
+      { client: { is: { OR: [{ name: contains }, { phone: contains }] } } },
+      { lead: { is: { OR: [{ name: contains }, { phone: contains }] } } },
+    ]
+    if (normalizedPhoneSearch.length >= 3 && normalizedPhoneSearch !== normalizedSearch) {
+      const phoneContains = { contains: normalizedPhoneSearch }
+      searchConditions.push(
+        { phone: phoneContains },
+        { client: { is: { phone: phoneContains } } },
+        { lead: { is: { phone: phoneContains } } },
+      )
+    }
+    andFilters.push({
+      OR: searchConditions,
+    })
+  }
+  if (andFilters.length) where.AND = andFilters
 
   const [items, total] = await Promise.all([
     prisma.conversa.findMany({
