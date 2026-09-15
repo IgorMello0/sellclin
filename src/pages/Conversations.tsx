@@ -18,6 +18,8 @@ import { useToast } from '@/hooks/use-toast';
 import { aiAgentsApi, campaignsApi, conversationsApi, whatsappTemplatesApi } from '@/lib/api';
 import { validateMediaUpload } from '@/lib/media-upload';
 import type { WhatsAppTemplate } from '@/components/whatsapp/TemplateCatalog';
+import { ChatTemplatePreview } from '@/components/whatsapp/ChatTemplatePreview';
+import { getChatTemplatePreview, getChatTemplateTokens } from '@/lib/chat-template-preview';
 
 type Message = {
   id: number;
@@ -668,21 +670,19 @@ const Conversations = () => {
   const officialWindowClosed = windowRemaining !== null && windowRemaining <= 0;
 
   const selectedTemplate = templates.find((template) => String(template.id) === selectedTemplateId);
-  const templateParameterCount = useMemo(() => {
-    if (!selectedTemplate) return 0;
-    return (selectedTemplate.components || []).reduce((total, component) => {
-      if (String(component.type || '').toUpperCase() !== 'BODY') return total;
-      return total + (String(component.text || '').match(/\{\{[^}]+\}\}/g) || []).length;
-    }, 0);
-  }, [selectedTemplate]);
+  const templateTokens = useMemo(() => getChatTemplateTokens(selectedTemplate), [selectedTemplate]);
+  const templateParameterCount = templateTokens.length;
+  const templatePreview = selectedTemplate && selected ? getChatTemplatePreview(selectedTemplate, templateParameters, {
+    name: contactName(selected), phone: contactPhone(selected),
+  }) : null;
 
   useEffect(() => {
-    setTemplateParameters((current) => Array.from({ length: templateParameterCount }, (_, index) => current[index] || ''));
-  }, [templateParameterCount]);
+    setTemplateParameters(Array.from({ length: templateParameterCount }, () => ''));
+  }, [selectedTemplateId, selectedId, templateParameterCount]);
 
   const sendTemplate = async () => {
     if (!selected || !selectedTemplate || sendingTemplate) return;
-    if (templateParameters.some((value) => !value.trim())) {
+    if (templatePreview?.incomplete || templateParameters.length !== templateParameterCount) {
       toast({ title: 'Preencha as variaveis', description: 'Todas as variaveis do template precisam de um valor.', variant: 'destructive' });
       return;
     }
@@ -1065,30 +1065,35 @@ const Conversations = () => {
       </Dialog>
 
       <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
+        <DialogContent role="dialog" aria-label="Enviar template aprovado" className="flex max-h-[100dvh] flex-col gap-0 overflow-hidden p-0 sm:max-h-[90dvh] sm:max-w-3xl sm:p-0">
+          <DialogHeader className="shrink-0 border-b p-4 pr-16 sm:p-6 sm:pr-16">
             <DialogTitle>Enviar template aprovado</DialogTitle>
             <DialogDescription>Use um template da Meta para iniciar ou retomar a conversa fora da janela de 24 horas.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Template</Label>
+          <div className="min-h-0 min-w-0 flex-1 space-y-5 overflow-y-auto p-4 sm:p-6">
+            <div className="min-w-0 space-y-2">
+              <Label htmlFor="chat-template">Template</Label>
               <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
-                <SelectTrigger><SelectValue placeholder="Selecione um template" /></SelectTrigger>
+                <SelectTrigger id="chat-template" className="h-auto min-h-10 min-w-0 text-left [&>span]:line-clamp-none [&>span]:break-all [&>svg]:shrink-0"><SelectValue placeholder="Selecione um template">{selectedTemplate ? `${selectedTemplate.name} · ${selectedTemplate.language}` : undefined}</SelectValue></SelectTrigger>
                 <SelectContent>{templates.map((template) => <SelectItem key={template.id} value={String(template.id)}>{template.name} · {template.language}</SelectItem>)}</SelectContent>
               </Select>
             </div>
+            <div className="grid min-w-0 items-start gap-5 sm:grid-cols-2">
+            <div className="min-w-0 space-y-4">
             {templateParameters.map((value, index) => (
               <div key={index} className="space-y-2">
-                <Label>Variavel {index + 1}</Label>
-                <Input value={value} onChange={(event) => setTemplateParameters((current) => current.map((item, itemIndex) => itemIndex === index ? event.target.value : item))} placeholder={`Valor de {{${index + 1}}}`} />
+                <Label htmlFor={`chat-template-value-${index}`}>Variável {templateTokens[index]}</Label>
+                <Input id={`chat-template-value-${index}`} value={value} onChange={(event) => setTemplateParameters((current) => current.map((item, itemIndex) => itemIndex === index ? event.target.value : item))} placeholder={`Valor de ${templateTokens[index]}`} />
               </div>
             ))}
             {selectedTemplate && templateParameterCount === 0 && <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">Este template nao exige variaveis.</p>}
+            </div>
+            {selectedTemplate && templatePreview && selected && <ChatTemplatePreview template={selectedTemplate} body={templatePreview.body} incomplete={templatePreview.incomplete} recipient={contactName(selected)} />}
+            </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="shrink-0 gap-2 border-t p-4 sm:gap-0 sm:px-6">
             <Button variant="outline" onClick={() => setShowTemplateDialog(false)}>Cancelar</Button>
-            <Button onClick={() => void sendTemplate()} disabled={!selectedTemplate || sendingTemplate || templateParameters.some((value) => !value.trim())}>{sendingTemplate && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Enviar template</Button>
+            <Button onClick={() => void sendTemplate()} disabled={!selectedTemplate || sendingTemplate || !templatePreview || templatePreview.incomplete || templateParameters.length !== templateParameterCount}>{sendingTemplate && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Enviar template</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
