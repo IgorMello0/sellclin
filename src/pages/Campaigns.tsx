@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { loadAllPages } from '@/lib/funnel';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -221,13 +222,21 @@ export default function Campaigns() {
   const [spreadsheetImport, setSpreadsheetImport] = useState<SpreadsheetImport | null>(null);
   const [previewContactIndex, setPreviewContactIndex] = useState(0);
 
+  const listRequest = useRef(0);
   const loadCampaigns = useCallback(async () => {
+    const request = ++listRequest.current;
     setIsLoading(true);
     try {
-      const res = await campaignsApi.getAll({ pageSize: 50 });
-      if (res.success) setCampaigns(res.data || []);
-    } catch (e) { console.error(e); }
-    finally { setIsLoading(false); }
+      const data = await loadAllPages(campaignsApi.getAll);
+      if (request === listRequest.current) setCampaigns(data);
+    } catch (error) {
+      if (request !== listRequest.current) return;
+      setCampaigns([]);
+      {
+        toast({ title: "Erro ao carregar campanhas", description: error instanceof Error ? error.message : "Tente novamente.", variant: "destructive" });
+      }
+    }
+    finally { if (request === listRequest.current) setIsLoading(false); }
   }, []);
 
   const loadMessageCredits = useCallback(async () => {

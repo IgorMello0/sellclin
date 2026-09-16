@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { leadsApi, clientsApi } from '@/lib/api';
+import { loadAllPages, requireApiSuccess } from '@/lib/funnel';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
@@ -24,6 +25,7 @@ interface ProposalDialogProps {
   services: any[];
   onSuccess: () => void;
   targetType?: 'lead' | 'client';
+  editingProposal?: any;
 }
 
 export function ProposalDialog({
@@ -33,6 +35,7 @@ export function ProposalDialog({
   professional,
   services,
   onSuccess,
+  editingProposal,
   targetType = 'lead'
 }: ProposalDialogProps) {
   const { toast } = useToast();
@@ -43,6 +46,8 @@ export function ProposalDialog({
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [proposals, setProposals] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const saving = useRef(false);
+  const savedClientProposals = useRef(new Set<number>());
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const isAdminOrGestor = professional?.role === 'profissional' || ['admin', 'manager', 'gestor', 'administrador'].some(r => 
@@ -58,40 +63,45 @@ export function ProposalDialog({
           const profRes = await professionalsApi.getAll();
           if (profRes.success) setAllProfessionals(profRes.data || []);
 
-          const usrRes = await usuariosApi.getAll();
-          if (usrRes.success && usrRes.data) {
-            setAllUsers(usrRes.data);
-            setSpecialists(usrRes.data.filter((u: any) => u.role?.isSpecialist));
-            setClosers(usrRes.data.filter((u: any) => u.role?.isCloser));
-            setSdrs(usrRes.data.filter((u: any) => u.role?.isSDR));
-          }
+          const users = await loadAllPages<any>(usuariosApi.getAll);
+          const members = users.flatMap(user => {
+            const access = user.companyAccess?.find((a: any) => a.companyId === professional?.companyId);
+            if (access?.isActive === false || (!access && user.companyId !== professional?.companyId)) return [];
+            return [{ ...user, role: access?.role || user.role }];
+          });
+          setAllUsers(members);
+          setSpecialists(members.filter(u => u.role?.isSpecialist));
+          setClosers(members.filter(u => u.role?.isCloser));
+          setSdrs(members.filter(u => u.role?.isSDR));
         } catch (e) {
           console.error('[ProposalDialog] Erro ao carregar dados:', e);
         }
       };
       loadData();
     }
-  }, [open]);
+  }, [open, professional?.companyId]);
 
   useEffect(() => {
     if (lead && open) {
+      savedClientProposals.current.clear();
+      setShowConfirmModal(false);
       setProposals([
         {
-          title: `Proposta para ${lead.name}`,
-          value: lead.value > 0 ? (lead.value * 100).toString() : '',
-          validUntil: '',
-          salesperson: lead.closerId?.toString() || '',
-          specialist: '',
-          sdr: lead.sdrId?.toString() || '',
+          title: editingProposal?.title || `Proposta para ${lead.name}`,
+          value: String(Math.round(Number(editingProposal?.value ?? lead.value ?? 0) * 100)),
+          validUntil: editingProposal?.validUntil ? new Date(editingProposal.validUntil).toISOString().slice(0, 10) : '',
+          salesperson: (editingProposal?.salespersonId ?? lead.closerId)?.toString() || '',
+          specialist: editingProposal?.specialistId?.toString() || '',
+          sdr: (editingProposal?.sdrId ?? lead.sdrId)?.toString() || '',
           treatment: '',
-          tags: lead.tags || [] as string[],
-          justification: '',
+          tags: editingProposal?.tags || lead.tags || [] as string[],
+          justification: editingProposal?.justification || '',
           showJustification: false,
           removedTags: [] as string[]
         }
       ]);
     }
-  }, [lead, open, professional]);
+  }, [lead?.id, open, editingProposal?.id]);
 
   const formatCurrency = (value: string) => {
     const numeric = value.replace(/\D/g, '');
@@ -138,14 +148,14 @@ export function ProposalDialog({
   };
 
   const handleSaveProposal = async () => {
-    if (!lead || isSaving) return;
+    if (!lead || saving.current) return;
 
     // Validar campos obrigatórios dinamicamente (só cobra se existem pessoas com a flag)
     for (let i = 0; i < proposals.length; i++) {
       const proposal = proposals[i];
       const newValue = parseCurrency(proposal.value);
       
-      if (newValue < lead.value && !proposal.justification) {
+      if (newValue < Number(editingProposal?.value ?? lead?.value ?? 0) && !proposal.justification) {
         toast({ 
           title: `Erro ao salvar proposta #${i + 1}`, 
           description: "O valor é menor que o atual do Lead. Por favor, informe o motivo.", 
@@ -182,47 +192,29 @@ export function ProposalDialog({
       }
     }
 
+    saving.current = true;
     setIsSaving(true);
     try {
-      // Usar um loop for...of em vez de Promise.all com map para podermos lançar erro de forma simples e interromper
-      for (let index = 0; index < proposals.length; index++) {
-        const proposalData = proposals[index];
-        const newValue = parseCurrency(proposalData.value);
-        const isLowerValue = newValue < lead.value;
-
-        // 1. Salvar a Proposta Oficial
-        const res = await (targetType === 'client' ? clientsApi : leadsApi).addProposal(Number(lead.id), {
-          title: proposalData.title || `Proposta para ${lead.name} (${index + 1})`,
-          value: newValue,
-          validUntil: proposalData.validUntil || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-          salespersonId: proposalData.salesperson ? Number(proposalData.salesperson) : null,
-          specialistId: proposalData.specialist ? Number(proposalData.specialist) : null,
-          sdrId: proposalData.sdr ? Number(proposalData.sdr) : null,
-          tags: proposalData.tags,
-          justification: proposalData.justification || null
-        });
-
-        if (!res.success) {
-          throw new Error(res.error?.message || 'Erro ao criar proposta no servidor');
-        }
-
-        // 2. Salvar Atividade
-        await (targetType === 'client' ? clientsApi : leadsApi).addActivity(Number(lead.id), {
-          type: 'proposta',
-          content: `${proposalData.treatment || proposalData.title} - Valor: ${formatCurrency(proposalData.value)}${isLowerValue && proposalData.justification ? ' (Motivo: ' + proposalData.justification + ')' : ''}`,
-          createdBy: professional?.name || 'Vendedor'
-        });
-      }
-
-      // 3. Atualizar Lead para comercial_proposal se ele não estiver numa fase mais avançada
-      const leadStatus = lead.status;
-      if (targetType === 'lead') {
-        const statusesBeforeProposal = ['prospect_lead', 'prospect_qualified', 'prospect_scheduled', 'prospect_attended'];
-        
-        if (statusesBeforeProposal.includes(leadStatus)) {
-          await leadsApi.update(Number(lead.id), {
-            status: 'comercial_proposal'
-          });
+      const payloads = proposals.map((proposalData, index) => ({
+        title: proposalData.title || `Proposta para ${lead.name} (${index + 1})`,
+        value: parseCurrency(proposalData.value),
+        validUntil: proposalData.validUntil || new Date(Date.now() + 7 * 86400000).toISOString(),
+        salespersonId: proposalData.salesperson ? Number(proposalData.salesperson) : null,
+        specialistId: proposalData.specialist ? Number(proposalData.specialist) : null,
+        sdrId: proposalData.sdr ? Number(proposalData.sdr) : null,
+        tags: proposalData.tags,
+        justification: proposalData.justification || null,
+      }));
+      if (editingProposal) {
+        requireApiSuccess(await leadsApi.updateProposal(Number(editingProposal.leadId || lead.id), Number(editingProposal.id), payloads[0]));
+      } else if (targetType === 'lead') {
+        requireApiSuccess(await leadsApi.addProposals(Number(lead.id), payloads));
+      } else {
+        // Client API creates one at a time: keep successful entries out of retries.
+        for (let i = 0; i < payloads.length; i++) {
+          if (savedClientProposals.current.has(i)) continue;
+          requireApiSuccess(await clientsApi.addProposal(Number(lead.id), payloads[i]));
+          savedClientProposals.current.add(i);
         }
       }
       toast({ title: "Propostas Salvas com Sucesso!" });
@@ -231,11 +223,20 @@ export function ProposalDialog({
       onOpenChange(false);
     } catch (e) {
       console.error('[ProposalDialog] Erro ao salvar propostas:', e);
-      toast({ title: 'Erro ao salvar propostas', variant: 'destructive' });
+      if (targetType === 'client' && savedClientProposals.current.size) {
+        const saved = new Set(savedClientProposals.current);
+        setProposals(prev => prev.filter((_, i) => !saved.has(i)));
+        // The unsaved rows become a new retry batch.
+        savedClientProposals.current = new Set();
+      }
+      toast({ title: 'Erro ao salvar propostas', description: e instanceof Error ? e.message : undefined, variant: 'destructive' });
     } finally {
+      saving.current = false;
       setIsSaving(false);
     }
   };
+
+  if (!lead) return null;
 
   return (
     <>
@@ -246,20 +247,20 @@ export function ProposalDialog({
             <h3 className="text-lg sm:text-2xl font-extrabold text-primary font-headline tracking-tight">Proposta Comercial</h3>
             <p className="text-slate-500 text-xs sm:text-sm mt-1">Defina os termos dos tratamentos para o paciente.</p>
           </div>
-          <Button 
+          {!editingProposal && <Button
             onClick={handleAddProposal}
             variant="outline"
             className="rounded-xl border-orange-200 text-primary hover:bg-orange-50 hover:text-primary gap-2"
           >
             <Plus className="w-4 h-4" />
             Adicionar Outra Proposta
-          </Button>
+          </Button>}
         </div>
 
         <div className="p-4 sm:p-8 space-y-8 divide-y divide-slate-100">
           {proposals.map((proposal, index) => {
             const newValue = parseCurrency(proposal.value);
-            const isLowerValue = newValue < lead.value;
+            const isLowerValue = newValue < Number(editingProposal?.value ?? lead?.value ?? 0);
 
             return (
               <div key={index} className={cn("space-y-6", index > 0 && "pt-8")}>
@@ -446,7 +447,7 @@ export function ProposalDialog({
               className="rounded-xl px-10 font-bold shadow-lg shadow-secondary/20 gap-2"
             >
               {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
-              Gerar e Salvar Propostas
+              {editingProposal ? "Salvar Alterações" : "Gerar e Salvar Propostas"}
             </Button>
           ) : (
             <Button 

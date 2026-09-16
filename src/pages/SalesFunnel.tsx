@@ -44,6 +44,8 @@ import {
 import { NewAppointmentModal } from '@/components/NewAppointmentModal';
 import { ConfirmPaymentModal } from '@/components/ConfirmPaymentModal';
 import { clientsApi, leadsApi, tasksApi, usuariosApi } from '@/lib/api';
+import { loadAllPages, requireApiSuccess } from '@/lib/funnel';
+import { loadDashboardTeam } from '@/lib/dashboard';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from "lucide-react";
 import { useEffect } from 'react';
@@ -109,6 +111,10 @@ interface Lead {
   isPaid?: boolean;
   subStatus?: string | null;
   appointments?: any[];
+  proposals?: any[];
+  rawDate?: string;
+  closedAt?: string;
+  createdAt?: string;
 }
 
 const initialLeads: Lead[] = [];
@@ -128,10 +134,9 @@ const SalesFunnel = () => {
 
   const loadSdrs = async () => {
     try {
-      const res = await usuariosApi.getAll({ pageSize: 50 });
-      if (res.success && res.data) {
-        setSdrs(res.data.filter((u: any) => u.isSdr || (u.role && u.role.isSDR) || (u.role && u.role.isSdr) || (u.role && u.role.isManager) || (u.role && u.role.isAdmin)));
-      }
+      if (!professional?.companyId) return;
+      const team = await loadDashboardTeam(professional.companyId, usuariosApi.getAll);
+      setSdrs(team.sdrs);
     } catch (e) {
       console.error("Error loading SDRs:", e);
     }
@@ -235,7 +240,7 @@ const SalesFunnel = () => {
 
   // Payment Confirmation State
   const [isConfirmingPayment, setIsConfirmingPayment] = useState(false);
-  const [paymentLead, setPaymentLead] = useState<{id: string, value: number} | null>(null);
+  const [paymentLead, setPaymentLead] = useState<{id: string, value: number, proposalId?: number} | null>(null);
   // Schedule from closed lead
   const [isSchedulingClosed, setIsSchedulingClosed] = useState(false);
   const [closedLeadToSchedule, setClosedLeadToSchedule] = useState<Lead | null>(null);
@@ -480,13 +485,15 @@ const SalesFunnel = () => {
     }
   };
 
+  const leadsRequest = useRef(0);
   const loadLeads = async () => {
+    const request = ++leadsRequest.current;
     if (!professional?.id) return;
     setIsLoading(true);
     try {
-      const res = await leadsApi.getAll({ pageSize: 1000 });
-      if (res.success) {
-        const mappedLeads = res.data.map((l: any) => ({
+      const data = await loadAllPages(leadsApi.getAll);
+      if (request === leadsRequest.current) {
+        const mappedLeads = data.map((l: any) => ({
           ...l,
           id: l.id.toString(),
           isScheduled: l.isScheduled || l.is_scheduled, // Handle both just in case
@@ -511,9 +518,9 @@ const SalesFunnel = () => {
         setLeads(mappedLeads);
       }
     } catch (error) {
-      console.error("Error loading leads:", error);
+      if (request === leadsRequest.current) toast({ title: "Erro ao carregar leads", description: error instanceof Error ? error.message : undefined, variant: "destructive" });
     } finally {
-      setIsLoading(false);
+      if (request === leadsRequest.current) setIsLoading(false);
     }
   };
 
@@ -604,17 +611,10 @@ const SalesFunnel = () => {
     setCurrentSchedulingLeadId(lead.id);
     
     try {
-      const searchRes = await clientsApi.getAll({ search: lead.phone || lead.name });
-      
-      if (searchRes.success && searchRes.data && searchRes.data.length > 0) {
-        setSchedulingClientId(searchRes.data[0].id.toString());
-        setSchedulingClientName(undefined);
-        setSchedulingClientPhone(undefined);
-      } else {
-        setSchedulingClientId(undefined);
-        setSchedulingClientName(lead.name);
-        setSchedulingClientPhone(lead.phone);
-      }
+      // Scheduling is linked by leadId; keep this lead's identity in the form.
+      setSchedulingClientId(undefined);
+      setSchedulingClientName(lead.name);
+      setSchedulingClientPhone(lead.phone);
 
       setIsScheduling(true);
     } catch (error) {
@@ -705,42 +705,30 @@ const SalesFunnel = () => {
     setIsViewingProposal(true);
   };
 
-  const moveLead = async (leadId: string, newStatus: string) => {
-    const finalStatus = newStatus;
-
-    setLeads(prev => prev.map(lead => {
-      if (lead.id.toString() === leadId.toString()) {
-        return { ...lead, status: finalStatus, lastUpdate: 'Agora mesmo' };
-      }
-      return lead;
-    }));
-
+  const movingLeads = useRef(new Set<string>());
+  const moveLead = async (leadId: string, newStatus: string, proposalId?: number) => {
+    const id = String(leadId);
+    if (movingLeads.current.has(id)) return false;
+    movingLeads.current.add(id);
     try {
-      const res = await leadsApi.update(Number(leadId), { status: finalStatus });
-
-      if (finalStatus === 'prospect_scheduled') {
-        setCurrentSchedulingLeadId(Number(leadId));
-        setIsSchedulingAppointment(true);
-      } else if (finalStatus === 'prospect_attended') {
-        setProposalLeadId(Number(leadId));
-        setProposalLeadValue(res.data.value ? Number(res.data.value) : 0);
-        setIsAddingProposal(true);
-      } else if (finalStatus === 'comercial_closed') {
-        setPaymentLead({ id: leadId, value: res.data.value ? Number(res.data.value) : 0 } as any);
+      const updated = requireApiSuccess(await leadsApi.update(Number(id), { status: newStatus, ...(proposalId ? { proposalId } : {}) }));
+      setLeads(prev => prev.map(lead => lead.id === id ? { ...lead, ...updated, id, lastUpdate: 'Agora mesmo' } : lead));
+      if (newStatus === 'prospect_scheduled') {
+        await handleScheduleAppointment({ ...updated, id });
+      } else if (newStatus === 'prospect_attended') {
+        setProposalLeadId(id);
+        setIsCreatingProposal(true);
+      } else if (newStatus === 'comercial_closed' || newStatus.startsWith('sales_')) {
+        setPaymentLead({ id, value: Number(updated.value) || 0, proposalId });
         setIsConfirmingPayment(true);
       }
-
-      // Se o lead foi convertido automaticamente em cliente
-      if (res.success && res.data?.converted) {
-        toast({ 
-          title: "🎉 Lead convertido em Cliente!", 
-          description: `${res.data.convertedClient.name} agora é um cliente ativo no sistema.`,
-        });
-        loadLeads(); // Recarregar para atualizar os dados
-      }
+      void loadLeads();
+      return true;
     } catch (error) {
-      toast({ title: "Erro ao mover lead", variant: "destructive" });
-      loadLeads();
+      toast({ title: "Erro ao mover lead", description: error instanceof Error ? error.message : undefined, variant: "destructive" });
+      return false;
+    } finally {
+      movingLeads.current.delete(id);
     }
   };
 
@@ -773,22 +761,11 @@ const SalesFunnel = () => {
   };
 
   const handleConfirmProposalSelection = async (proposalId: number) => {
-    setProposalSelectionOpen(false);
-    const stageId = targetStageForSelection;
-
-    try {
-      const res = await leadsApi.updateProposal(Number(leadForProposalSelection.id), proposalId, { stage: 'accepted' });
-      
-      await moveLead(leadForProposalSelection.id.toString(), stageId);
-
-      toast({ 
-        title: "Proposta Fechada!", 
-        description: `A proposta foi aceita e o lead avançou para a fase de fechamento.`,
-      });
-
-    } catch (error) {
-      toast({ title: "Erro ao fechar proposta", variant: "destructive" });
-      loadLeads();
+    if (!leadForProposalSelection) return;
+    const saved = await moveLead(String(leadForProposalSelection.id), targetStageForSelection, proposalId);
+    if (saved) {
+      setProposalSelectionOpen(false);
+      toast({ title: "Proposta Fechada!", description: "A proposta foi aceita e o lead avançou para a fase de fechamento." });
     }
   };
 
@@ -886,7 +863,7 @@ const SalesFunnel = () => {
         
         // Formatar e adicionar localmente a nova nota para atualizar na hora
         const newAct = res.data;
-        const mappedAct = {
+        const mappedAct: Activity = {
           id: newAct.id.toString(),
           type: 'task',
           user: newAct.createdBy || professional?.name || 'Consultor',
@@ -1016,8 +993,8 @@ const SalesFunnel = () => {
 
   const handleSubStatusChange = async (leadId: string, subStatus: string | null) => {
     try {
-      await leadsApi.update(Number(leadId), { subStatus });
-      setLeads(leads.map(l => l.id === leadId ? { ...l, subStatus } : l));
+      requireApiSuccess(await leadsApi.update(Number(leadId), { subStatus }));
+      setLeads(prev => prev.map(l => l.id === String(leadId) ? { ...l, subStatus } : l));
       toast({ title: "Status rápido atualizado!" });
     } catch (error) {
       toast({ title: "Erro ao atualizar status", variant: "destructive" });
@@ -1202,7 +1179,7 @@ const SalesFunnel = () => {
 
             {/* 2. Filtrar (Filter) */}
             <div className="relative">
-              <DropdownMenu modal={false}>
+              <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button 
                     variant="ghost"
@@ -1425,7 +1402,7 @@ const SalesFunnel = () => {
 
             {/* 3. Ordenar (Sort) */}
             <div className="relative">
-              <DropdownMenu modal={false}>
+              <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button 
                     variant="ghost"
@@ -1682,7 +1659,7 @@ const SalesFunnel = () => {
         onSubStatusChange={handleSubStatusChange}
         onScheduleAppointment={handleScheduleAppointment}
         onOpenProposal={(id) => {
-          setProposalLeadId(id);
+          setProposalLeadId(String(id));
           setIsCreatingProposal(true);
         }}
         onOpenPayment={(card) => {
@@ -1921,13 +1898,13 @@ const SalesFunnel = () => {
         initialLeadPhone={schedulingClientPhone}
         onSuccess={async () => {
           if (currentSchedulingLeadId) {
-            // Update in DB
-            await leadsApi.update(Number(currentSchedulingLeadId), { is_scheduled: true });
-            
-            // Update in UI
-            setLeads(prev => prev.map(l => 
-              l.id === currentSchedulingLeadId ? { ...l, isScheduled: true } : l
-            ));
+            try {
+              requireApiSuccess(await leadsApi.update(Number(currentSchedulingLeadId), { is_scheduled: true }));
+              await loadLeads();
+            } catch (error) {
+              toast({ title: "Agendamento criado, mas o funil não foi atualizado", description: error instanceof Error ? error.message : undefined, variant: "destructive" });
+              return;
+            }
           }
           toast({
             title: "Sucesso!",
@@ -2001,7 +1978,7 @@ const SalesFunnel = () => {
         onOpenChange={setIsConfirmingPayment}
         leadId={paymentLead?.id || null}
         leadValue={paymentLead?.value || 0}
-        proposalId={(paymentLead as any)?.proposalId || null}
+        proposalId={paymentLead?.proposalId || null}
         onSuccess={() => {
           loadLeads();
         }}

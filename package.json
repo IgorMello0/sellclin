@@ -20,7 +20,10 @@
     "create-admin": "ts-node server/scripts/create-admin.ts",
     "seed:modules": "node dist-server/scripts/seed-modules.js",
     "seed:modules:dev": "tsx server/scripts/seed-modules.ts",
-    "make-admin": "tsx server/scripts/make-admin.ts"
+    "make-admin": "tsx server/scripts/make-admin.ts",
+    "test:lists": "vitest run --config vitest.config.ts src/pages/list-pagination.test.ts",
+    "test:funnel": "vitest run --config vitest.config.ts src/lib/funnel.test.ts src/pages/SalesFunnel.test.tsx src/components/funnel/ProposalDialog.test.tsx server/routes/leads.test.ts",
+    "test:dashboard": "tsx --test server/services/dashboard.test.ts && vitest run --config vitest.config.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
@@ -70,6 +73,8 @@
     "@eslint/js": "^9.32.0",
     "@tailwindcss/typography": "^0.5.16",
     "@tailwindcss/vite": "^4.2.3",
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/react": "^16.3.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.5",
@@ -82,6 +87,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
+    "jsdom": "^26.1.0",
     "nodemon": "^3.1.10",
     "postcss": "^8.5.6",
     "prisma": "^6.18.0",
@@ -90,6 +96,7 @@
     "tsx": "^4.20.6",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",
-    "vite": "^5.4.19"
+    "vite": "^5.4.19",
+    "vitest": "^3.2.0"
   }
 }

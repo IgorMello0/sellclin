@@ -202,7 +202,7 @@ router.get('/', auth(), async (req, res) => {
     const [campaigns, total] = await Promise.all([
       prisma.messageCampaign.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip,
         take,
         include: {

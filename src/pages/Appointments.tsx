@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { loadAllPages } from '@/lib/funnel';
+import { useState, useEffect, useRef } from 'react';
 import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -40,13 +41,16 @@ const Appointments = () => {
     ]);
 
 
+  const listRequest = useRef(0);
   const loadAppointments = async () => {
     if (!selectedProfFilter) return;
+    const request = ++listRequest.current;
     setIsLoading(true);
     try {
-      const response = await appointmentsApi.getAll({ pageSize: 200, professionalId: Number(selectedProfFilter) });
-      if (response.success && response.data) {
-        const mapped = response.data.map((apt: any) => ({
+      const data = await loadAllPages(params => appointmentsApi.getAll({ ...params, professionalId: Number(selectedProfFilter) }));
+      if (request !== listRequest.current) return;
+      if (data) {
+        const mapped = data.map((apt: any) => ({
           id: apt.id,
           date: parseISO(apt.startTime),
           time: format(parseISO(apt.startTime), "HH:mm"),
@@ -61,9 +65,11 @@ const Appointments = () => {
         setAppointments(mapped);
       }
     } catch (error) {
+      if (request !== listRequest.current) return;
+      setAppointments([]);
       toast({ title: "Erro", description: "Não foi possível carregar os agendamentos.", variant: "destructive" });
     } finally {
-      setIsLoading(false);
+      if (request === listRequest.current) setIsLoading(false);
     }
   };
 

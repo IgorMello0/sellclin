@@ -1,3 +1,5 @@
+import { createLeadProposals, proposalInput, validateProposalTeam } from '../services/funnel-proposals.js'
+import { leadVisibility } from '../services/funnel-access.js'
 import { Router } from 'express'
 import { prisma } from '../prisma.js'
 import { auth, requireModule } from '../middleware/auth.js'
@@ -32,36 +34,11 @@ const PAYMENT_STATUS_ALIASES: Record<string, 'pago' | 'pendente' | 'atrasado' | 
 }
 
 async function assertLeadAccess(leadId: number, reqUser: any) {
-  const lead = await prisma.lead.findUnique({ 
-    where: { id: leadId }, 
-    select: { companyId: true, professionalId: true, sdrId: true, closerId: true } 
-  });
-  if (!lead) {
-    return { error: true, status: 404, message: 'Lead nÃ£o encontrado' };
-  }
-  
-  let _companyId = reqUser?.companyId;
-  if (reqUser?.type === 'profissional' && !_companyId) {
-    const _prof = await prisma.professional.findUnique({ where: { id: reqUser.id }, select: { companyId: true } });
-    _companyId = _prof?.companyId || undefined;
-  }
-  
-  if (_companyId && lead.companyId !== _companyId) {
-    return { error: true, status: 403, message: 'Acesso negado' };
-  } else if (!_companyId && reqUser?.id && lead.professionalId !== reqUser.id) {
-    return { error: true, status: 403, message: 'Acesso negado' };
-  }
-
-  // BOLA/IDOR Fix: Check if user is SDR or Closer
-  if (reqUser?.type === 'usuario') {
-    const dbUser = await prisma.usuario.findUnique({ where: { id: reqUser.id }, include: { role: true } });
-    if (dbUser?.role && !dbUser.role.isAdmin && !dbUser.role.isManager) {
-      if (lead.sdrId !== reqUser.id && lead.closerId !== reqUser.id && (lead.sdrId !== null || lead.closerId !== null)) {
-        return { error: true, status: 403, message: 'Acesso negado' };
-      }
-    }
-  }
-
+  const companyId = reqUser?.companyId;
+  if (!companyId) return { error: true, status: 403, message: 'Clínica não identificada' };
+  const visibility = await leadVisibility(prisma, reqUser, companyId);
+  const lead = await prisma.lead.findFirst({ where: { AND: [{ id: leadId }, visibility] } });
+  if (!lead) return { error: true, status: 404, message: 'Lead não encontrado ou acesso negado' };
   return { error: false, lead };
 }
 
@@ -84,40 +61,17 @@ router.get('/', auth(), async (req, res) => {
       return res.status(400).json(createErrorResponse('ClÃ­nica nÃ£o identificada.', 400));
     }
 
-    const where: any = { companyId: companyId };
-
-    // Regra de Visibilidade de Leads
-    if (req.user?.type === 'usuario') {
-      const dbUser = await prisma.usuario.findUnique({
-        where: { id: req.user.id },
-        include: { role: true }
-      });
-      if (dbUser?.role && !dbUser.role.isAdmin && !dbUser.role.isManager) {
-        // Se nÃ£o for Admin nem Gestor Comercial, sÃ³ vÃª leads atribuÃ­dos a si mesmo (como SDR ou Closer)
-        // OU leads antigos que ainda nÃ£o possuem nenhuma atribuiÃ§Ã£o
-        where.AND = [
-            {
-              OR: [
-                { sdrId: req.user.id },
-                { closerId: req.user.id },
-                { proposals: { some: { sdrId: req.user.id } } },
-                { proposals: { some: { salespersonId: req.user.id } } },
-                { sdrId: null, closerId: null }
-              ]
-            }
-        ];
-      }
-    }
+    const where: any = { AND: [await leadVisibility(prisma, req.user, companyId)] };
 
     if (search) {
       const searchStr = String(search);
       const numericSearch = searchStr.replace(/\D/g, '');
-      
+
       where.OR = [
         { name: { contains: searchStr, mode: 'insensitive' } },
         { phone: { contains: searchStr, mode: 'insensitive' } }
       ]
-      
+
       if (numericSearch.length > 0) {
         where.OR.push({ phone: { contains: numericSearch } });
       }
@@ -137,7 +91,7 @@ router.get('/', auth(), async (req, res) => {
           appointments: { orderBy: { startTime: 'desc' }, take: 1 },
           tasks: { where: { status: 'pending', cadenceStageCode: { not: null } }, orderBy: { dueDate: 'asc' }, take: 1 }
         },
-        orderBy: cadenceSort === 'asc' ? [{ contactCount: 'asc' }, { updatedAt: 'desc' }] : [{ updatedAt: 'desc' }]
+        orderBy: cadenceSort === 'asc' ? [{ contactCount: 'asc' }, { updatedAt: 'desc' }, { id: 'asc' }] : [{ id: 'asc' }]
       }),
       prisma.lead.count({ where })
     ])
@@ -175,7 +129,7 @@ router.get('/:id', auth(), async (req, res) => {
 router.post('/', auth(), async (req, res) => {
   try {
     let { name, value, origin, status, avatar, phone, email, notes, responsible, tags, sdrId: requestedSdrId, closerId: requestedCloserId, especialistaId: requestedEspecialistaId } = req.body
-    
+
     if (!name) {
       return res.status(400).json(createErrorResponse('O nome Ã© obrigatÃ³rio', 400))
     }
@@ -210,7 +164,7 @@ router.post('/', auth(), async (req, res) => {
     } else {
       return res.status(403).json(createErrorResponse('Acesso negado', 403));
     }
-    
+
     let sdrId: number | undefined = undefined;
     let closerId: number | undefined = requestedCloserId ? Number(requestedCloserId) : undefined;
     let especialistaId: number | undefined = requestedEspecialistaId ? Number(requestedEspecialistaId) : undefined;
@@ -232,17 +186,17 @@ router.post('/', auth(), async (req, res) => {
       });
       if (criador?.role) {
         const isSdrPuro = criador.role.isSDR && !criador.role.isAdmin && !criador.role.isManager;
-        
+
         if (isSdrPuro) {
           sdrId = req.user.id; // SDR puro nÃ£o pode delegar, sempre vai para ele
         } else if (criador.role.isSDR && requestedSdrId === undefined) {
           sdrId = req.user.id; // Para quem tambÃ©m Ã© admin, mas nÃ£o enviou sdrId
         }
-        
+
         if (criador.role.isCloser) closerId = req.user.id;
       }
     }
-    
+
     // Roteamento AutomÃ¡tico de SDRs (apenas se quem criou NÃƒO for um SDR)
     if (!sdrId && companyId) {
       const empresa = await prisma.empresa.findUnique({
@@ -297,25 +251,25 @@ router.post('/', auth(), async (req, res) => {
     }
 
     const created = await prisma.lead.create({
-      data: { 
-        professionalId, 
+      data: {
+        professionalId,
         companyId,
         sdrId,
         closerId,
         especialistaId,
-        name, 
-        value: Number(value) || 0, 
-        origin, 
-        status, 
-        avatar, 
-        phone, 
-        email, 
-        notes, 
+        name,
+        value: Number(value) || 0,
+        origin,
+        status,
+        avatar,
+        phone,
+        email,
+        notes,
         responsible,
-        tags: tags || [] 
+        tags: tags || []
       }
     })
-    
+
     if (sdrId) {
       const assignedSdr = await prisma.usuario.findUnique({ where: { id: sdrId }, select: { name: true }});
       if (assignedSdr) {
@@ -327,23 +281,23 @@ router.post('/', auth(), async (req, res) => {
           const p = await prisma.professional.findUnique({ where: { id: req.user.id }, select: { name: true }});
           if (p) actCreator = p.name;
         }
-        
+
         await prisma.leadActivity.create({
-          data: { 
-            leadId: created.id, 
-            type: 'system', 
+          data: {
+            leadId: created.id,
+            type: 'system',
             content: `O lead foi atribuído para o SDR ${assignedSdr.name}.`,
-            createdBy: actCreator 
+            createdBy: actCreator
           }
         });
       }
     }
-    
+
     // Disparar cadência ao criar o lead (se a etapa atual tiver uma configurada)
     await triggerCadenceForLead(created.id, created.companyId!, created.status, created.sdrId || created.closerId, created.professionalId).catch(console.error);
 
     logAudit(req.user, 'CRIAR_LEAD', 'Lead', created.id)
-    
+
     res.status(201).json(createSuccessResponse(created))
   } catch (error: any) {
     console.error('[Leads] Erro ao criar lead:', error)
@@ -361,7 +315,7 @@ router.post('/import', auth(), async (req, res) => {
     if (!Array.isArray(leads)) {
       return res.status(400).json(createErrorResponse('Formato inválido. Esperado um array de leads.', 400));
     }
-    
+
     let currentCompanyId = req.user?.companyId;
     if (req.user?.type === 'profissional') {
       const p = await prisma.professional.findUnique({ where: { id: req.user.id }});
@@ -374,7 +328,7 @@ router.post('/import', auth(), async (req, res) => {
 
     let createdCount = 0;
     let updatedCount = 0;
-    
+
     for (const leadData of leads) {
       if (!leadData.name) continue;
 
@@ -437,7 +391,7 @@ router.post('/:id/activities', auth(), async (req, res) => {
     const _companyId = _checkEntity.companyId;
 
     const { type, content, createdBy } = req.body
-    
+
     const activity = await prisma.leadActivity.create({
       data: {
         leadId: id,
@@ -446,7 +400,7 @@ router.post('/:id/activities', auth(), async (req, res) => {
         createdBy
       }
     })
-    
+
     res.status(201).json(createSuccessResponse(activity))
   } catch (error: any) {
     console.error('[Leads] Erro ao criar atividade:', error)
@@ -465,12 +419,12 @@ router.put('/:id/activities/:activityId', auth(), async (req, res) => {
     const _companyId = _checkEntity.companyId;
 
     const { content } = req.body
-    
+
     const updated = await prisma.leadActivity.update({
       where: { id: activityId },
       data: { content }
     })
-    
+
     res.json(createSuccessResponse(updated))
   } catch (error: any) {
     console.error('[Leads] Erro ao atualizar atividade:', error)
@@ -502,6 +456,8 @@ router.delete('/:id/activities/:activityId', auth(), async (req, res) => {
 router.get('/:id/proposals', auth(), async (req, res) => {
   try {
     const id = Number(req.params.id)
+    const access = await assertLeadAccess(id, req.user);
+    if (access.error) return res.status(access.status).json(createErrorResponse(access.message, access.status));
     const proposals = await prisma.proposal.findMany({
       where: { leadId: id },
       include: {
@@ -517,48 +473,33 @@ router.get('/:id/proposals', auth(), async (req, res) => {
   }
 })
 
-// Adicionar Proposta ao Lead
+// A batch is committed in full; failed attempts never leave half-created proposals.
+router.post('/:id/proposals/batch', auth(), async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const access = await assertLeadAccess(id, req.user);
+    if (access.error) return res.status(access.status).json(createErrorResponse(access.message, access.status));
+    const proposals = await createLeadProposals(prisma, id, req.body.proposals, String(req.user!.id));
+    if (['prospect_lead', 'prospect_qualified', 'prospect_scheduled', 'prospect_attended'].includes(access.lead!.status)) {
+      await triggerCadenceForLead(id, access.lead!.companyId!, 'comercial_proposal', access.lead!.sdrId || access.lead!.closerId, access.lead!.professionalId).catch(console.error);
+    }
+    res.status(201).json(createSuccessResponse(proposals));
+  } catch (error: any) {
+    res.status(400).json(createErrorResponse(error.message || 'Erro ao salvar propostas', 400));
+  }
+});
+
 router.post('/:id/proposals', auth(), async (req, res) => {
   try {
-    const id = Number(req.params.id)
-
-    const access = await assertLeadAccess(Number(req.params.id), req.user);
+    const id = Number(req.params.id);
+    const access = await assertLeadAccess(id, req.user);
     if (access.error) return res.status(access.status).json(createErrorResponse(access.message, access.status));
-    const _checkEntity = access.lead;
-    const _companyId = _checkEntity.companyId;
-
-    const { title, value, validUntil, salespersonId, specialistId, sdrId, tags, justification, discountApplied } = req.body
-    
-    const proposal = await prisma.proposal.create({
-      data: {
-        leadId: id,
-        title,
-        value: Number(value) || 0,
-        validUntil: new Date(validUntil),
-        salespersonId: salespersonId ? Number(salespersonId) : null,
-        specialistId: specialistId ? Number(specialistId) : null,
-        sdrId: sdrId ? Number(sdrId) : null,
-        tags: tags || [],
-        justification,
-        discountApplied: Boolean(discountApplied)
-      }
-    })
-    
-    const leadUpdateData: any = { value: Number(value) || 0 };
-    if (sdrId) leadUpdateData.sdrId = Number(sdrId);
-    if (salespersonId) leadUpdateData.closerId = Number(salespersonId);
-    
-    await prisma.lead.update({
-      where: { id },
-      data: leadUpdateData
-    })
-    
-    res.status(201).json(createSuccessResponse(proposal))
+    const proposals = await createLeadProposals(prisma, id, [req.body], String(req.user!.id));
+    res.status(201).json(createSuccessResponse(proposals[0]));
   } catch (error: any) {
-    console.error('[Leads] Erro ao criar proposta:', error)
-    res.status(500).json(createErrorResponse(error.message || 'Erro ao criar proposta', 500))
+    res.status(400).json(createErrorResponse(error.message || 'Erro ao salvar proposta', 400));
   }
-})
+});
 
 // Atualizar Proposta do Lead
 router.put('/:id/proposals/:proposalId', auth(), async (req, res) => {
@@ -572,7 +513,7 @@ router.put('/:id/proposals/:proposalId', auth(), async (req, res) => {
 
     const proposalId = Number(req.params.proposalId)
     const { title, value, validUntil, salespersonId, specialistId, sdrId, tags, justification, discountApplied, stage, status } = req.body
-    
+
     const updateData: any = {}
     if (title !== undefined) updateData.title = title
     if (value !== undefined) updateData.value = Number(value) || 0
@@ -587,26 +528,32 @@ router.put('/:id/proposals/:proposalId', auth(), async (req, res) => {
       updateData.status = stage || status
     }
 
-    const proposal = await prisma.proposal.update({
-      where: { id: proposalId },
-      data: updateData
-    })
-    
-    if (value !== undefined || sdrId !== undefined || salespersonId !== undefined) {
-      const leadUpdateData: any = {};
-      if (value !== undefined) leadUpdateData.value = Number(value) || 0;
-      if (sdrId !== undefined) leadUpdateData.sdrId = sdrId ? Number(sdrId) : null;
-      if (salespersonId !== undefined) leadUpdateData.closerId = salespersonId ? Number(salespersonId) : null;
-      
-      if (Object.keys(leadUpdateData).length > 0) {
-        await prisma.lead.update({
-          where: { id },
-          data: leadUpdateData
-        })
+    proposalInput.partial().parse(updateData);
+    const result = await prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM leads WHERE id = ${id} FOR UPDATE`;
+      await validateProposalTeam(tx, _companyId!, updateData);
+      const proposal = await tx.proposal.update({
+        where: { id: proposalId, leadId: id },
+        data: updateData
+      })
+
+      if (value !== undefined || sdrId !== undefined || salespersonId !== undefined) {
+        const leadUpdateData: any = {};
+        if (value !== undefined) leadUpdateData.value = Number(value) || 0;
+        if (sdrId !== undefined) leadUpdateData.sdrId = sdrId ? Number(sdrId) : null;
+        if (salespersonId !== undefined) leadUpdateData.closerId = salespersonId ? Number(salespersonId) : null;
+
+        if (Object.keys(leadUpdateData).length > 0) {
+          await tx.lead.update({
+            where: { id },
+            data: leadUpdateData
+          })
+        }
       }
-    }
-    
-    res.json(createSuccessResponse(proposal))
+
+      return proposal;
+    });
+    res.json(createSuccessResponse(result))
   } catch (error: any) {
     console.error('[Leads] Erro ao atualizar proposta:', error)
     res.status(500).json(createErrorResponse(error.message || 'Erro ao atualizar proposta', 500))
@@ -625,11 +572,9 @@ router.put('/:id', auth(), async (req, res) => {
     const data = req.body
 
     // Map snake_case to camelCase if needed for Prisma
-    const prismaData: any = { ...data }
-    if (data.professional_id) {
-      prismaData.professionalId = Number(data.professional_id)
-      delete prismaData.professional_id
-    }
+    const editableFields = ['name', 'value', 'origin', 'avatar', 'status', 'phone', 'email', 'responsible', 'isScheduled', 'is_scheduled', 'tags', 'contactCount', 'discountApplied', 'discount_applied', 'justification', 'remarketingProposals', 'remarketing_proposals', 'isPaid', 'notes', 'subStatus', 'sdrId', 'closerId', 'especialistaId'];
+    const prismaData: any = Object.fromEntries(Object.entries(data).filter(([key]) => editableFields.includes(key)));
+
     if (data.especialistaId !== undefined) {
       prismaData.especialistaId = data.especialistaId === null ? null : Number(data.especialistaId);
     }
@@ -653,152 +598,157 @@ router.put('/:id', auth(), async (req, res) => {
       delete prismaData.remarketing_proposals
     }
 
-    // Buscar lead atual para verificar se jÃ¡ foi convertido
-    const currentLead = await prisma.lead.findUnique({ where: { id } })
-    if (!currentLead) {
-      return res.status(404).json(createErrorResponse('Lead nÃ£o encontrado', 404))
-    }
-
-    // Regra de Negócio: Cancelamento/Rollback automático ao voltar estágio
-    if (prismaData.status && prismaData.status !== currentLead.status) {
-      const newStatus = prismaData.status;
-
-      let userName = 'Sistema';
-      if (req.user?.type === 'usuario') {
-        const u = await prisma.usuario.findUnique({ where: { id: req.user.id }, select: { name: true }});
-        if (u) userName = u.name;
-      } else if (req.user?.type === 'profissional') {
-        const p = await prisma.professional.findUnique({ where: { id: req.user.id }, select: { name: true }});
-        if (p) userName = p.name;
-      }
-
-      const getStageLabel = (s: string) => {
-        const map: any = { 'prospect_lead': 'Novos Leads', 'prospect_qualified': 'Qualificados', 'prospect_scheduled': 'Agendados', 'prospect_attended': 'Consulta Feita', 'comercial_lead': 'Novos Leads', 'comercial_consult': 'Avaliação', 'comercial_proposal': 'Proposta', 'comercial_follow': 'Follow-up', 'comercial_negotiation': 'Negociação', 'comercial_closed': 'Fechado', 'comercial_lost': 'Perdido', 'sales_payment': 'Pagamento Pendente', 'sales_contract': 'Contrato Assinado', 'sales_post': 'Pós-Venda' };
-        return map[s] || s;
-      };
-
-      await prisma.leadActivity.create({
-        data: {
-          leadId: id,
-          type: 'system',
-          content: `Estágio alterado de "${getStageLabel(currentLead.status)}" para "${getStageLabel(newStatus)}" por ${userName}.`,
-          createdBy: userName
-        }
-      });
-
-      // TIMESTAMP LOGIC & SUB-STATUS AUTOMATION
-      if (['prospect_attended', 'comercial_consult', 'comercial_proposal', 'comercial_follow', 'comercial_closed', 'sales_payment', 'sales_contract', 'sales_post'].includes(newStatus)) {
-        if (!currentLead.attendedAt) prismaData.attendedAt = new Date();
-      }
-      if (['comercial_proposal', 'comercial_follow', 'comercial_closed', 'sales_payment', 'sales_contract', 'sales_post'].includes(newStatus)) {
-        if (!currentLead.proposalAt) prismaData.proposalAt = new Date();
-      }
-      if (['comercial_closed', 'sales_payment', 'sales_contract', 'sales_post'].includes(newStatus)) {
-        if (!currentLead.closedAt) prismaData.closedAt = new Date();
-        // Se avançou para uma etapa de fechamento, marcar automaticamente como Ganho
-        prismaData.subStatus = 'won';
-      }
-
-      // 1. Se voltou para antes de Agendados (Novos Leads ou Qualificados)
-      if (newStatus === 'prospect_lead' || newStatus === 'prospect_qualified') {
-        // Cancelar todos os agendamentos ativos/confirmados deste lead
-        await prisma.appointment.updateMany({
-          where: { 
-            leadId: id,
-            status: { in: ['agendado', 'confirmado'] }
-          },
-          data: { status: 'cancelado' }
-        });
-        prismaData.isScheduled = false;
-      }
-
-      // 2. Se voltou para antes de Proposta (Novos Leads, Qualificados, Agendados, Consulta Feita)
-      const beforeProposalStatuses = ['prospect_lead', 'prospect_qualified', 'prospect_scheduled', 'prospect_attended'];
-      if (beforeProposalStatuses.includes(newStatus)) {
-        // Cancelar todas as propostas pendentes/ativas do lead
-        await prisma.proposal.updateMany({
-          where: {
-            leadId: id,
-            status: 'pending'
-          },
-          data: { status: 'rejected' }
-        });
-      }
-
-      // 3. Se voltou para antes de Fechado (Comercial ou ProspecÃ§Ã£o)
-      const beforeClosedStatuses = [
-        'prospect_lead', 'prospect_qualified', 'prospect_scheduled',
-        'prospect_attended', 'comercial_proposal', 'comercial_follow'
-      ];
-      if (beforeClosedStatuses.includes(newStatus)) {
-        // Resetar o estado de conversÃ£o do lead para que possa ser convertido novamente
-        prismaData.convertedToClientId = null;
-        prismaData.convertedAt = null;
-        prismaData.isPaid = false; // resetar flag de pago
+    for (const key of ['sdrId', 'closerId', 'especialistaId']) {
+      if (prismaData[key] != null) {
+        prismaData[key] = Number(prismaData[key]);
+        await assertUserBelongsToCompany(prismaData[key], access.lead!.companyId);
       }
     }
+    const result = await prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM leads WHERE id = ${id} FOR UPDATE`;
+      // Buscar lead atual para verificar se jÃ¡ foi convertido
+      const currentLead = await tx.lead.findUnique({ where: { id } })
+      if (!currentLead) {
+        throw Object.assign(new Error('Lead não encontrado'), { code: 'P2025' });
+      }
 
-    // ConversÃ£o automÃ¡tica: quando status muda para 'comercial_closed' OU quando hÃ¡ propostas de remarketing (fechamento parcial)
-    const isClosing = prismaData.status === 'comercial_closed' && currentLead.status !== 'comercial_closed'
-    const isPartialClosing = prismaData.remarketingProposals !== undefined
-    const alreadyConverted = !!currentLead.convertedToClientId
+      if (data.proposalId !== undefined) {
+        if (!['comercial_closed', 'sales_payment', 'sales_contract', 'sales_post'].includes(prismaData.status)) throw new Error('Selecione uma etapa de fechamento.');
+        const proposal = await tx.proposal.update({ where: { id: Number(data.proposalId), leadId: id }, data: { status: 'accepted' } });
+        prismaData.value = proposal.value;
+      }
 
-    if ((isClosing || isPartialClosing) && !alreadyConverted) {
-      // Criar cliente automaticamente a partir dos dados do lead
-      const newClient = await prisma.client.create({
-        data: {
-          professionalId: currentLead.professionalId,
-          companyId: currentLead.companyId,
-          name: currentLead.name,
-          email: currentLead.email || null,
-          phone: currentLead.phone || null,
-          notes: currentLead.notes || null,
-          avatar: currentLead.avatar || null,
+      // Regra de Negócio: Cancelamento/Rollback automático ao voltar estágio
+      if (prismaData.status && prismaData.status !== currentLead.status) {
+        const newStatus = prismaData.status;
+
+        let userName = 'Sistema';
+        if (req.user?.type === 'usuario') {
+          const u = await tx.usuario.findUnique({ where: { id: req.user.id }, select: { name: true }});
+          if (u) userName = u.name;
+        } else if (req.user?.type === 'profissional') {
+          const p = await tx.professional.findUnique({ where: { id: req.user.id }, select: { name: true }});
+          if (p) userName = p.name;
         }
-      })
 
-      // Atualizar lead com referÃªncia ao cliente criado
-      prismaData.convertedToClientId = newClient.id
-      prismaData.convertedAt = new Date()
+        const getStageLabel = (s: string) => {
+          const map: any = { 'prospect_lead': 'Novos Leads', 'prospect_qualified': 'Qualificados', 'prospect_scheduled': 'Agendados', 'prospect_attended': 'Consulta Feita', 'comercial_lead': 'Novos Leads', 'comercial_consult': 'Avaliação', 'comercial_proposal': 'Proposta', 'comercial_follow': 'Follow-up', 'comercial_negotiation': 'Negociação', 'comercial_closed': 'Fechado', 'comercial_lost': 'Perdido', 'sales_payment': 'Pagamento Pendente', 'sales_contract': 'Contrato Assinado', 'sales_post': 'Pós-Venda' };
+          return map[s] || s;
+        };
 
-      console.log(`[Leads] Lead #${id} convertido automaticamente para Cliente #${newClient.id}`)
+        await tx.leadActivity.create({
+          data: {
+            leadId: id,
+            type: 'system',
+            content: `Estágio alterado de "${getStageLabel(currentLead.status)}" para "${getStageLabel(newStatus)}" por ${userName}.`,
+            createdBy: userName
+          }
+        });
 
-      const updated = await prisma.lead.update({
+        // TIMESTAMP LOGIC & SUB-STATUS AUTOMATION
+        if (['prospect_attended', 'comercial_consult', 'comercial_proposal', 'comercial_follow', 'comercial_closed', 'sales_payment', 'sales_contract', 'sales_post'].includes(newStatus)) {
+          if (!currentLead.attendedAt) prismaData.attendedAt = new Date();
+        }
+        if (['comercial_proposal', 'comercial_follow', 'comercial_closed', 'sales_payment', 'sales_contract', 'sales_post'].includes(newStatus)) {
+          if (!currentLead.proposalAt) prismaData.proposalAt = new Date();
+        }
+        if (['comercial_closed', 'sales_payment', 'sales_contract', 'sales_post'].includes(newStatus)) {
+          if (!currentLead.closedAt) prismaData.closedAt = new Date();
+          // Se avançou para uma etapa de fechamento, marcar automaticamente como Ganho
+          prismaData.subStatus = 'won';
+        }
+
+        // 1. Se voltou para antes de Agendados (Novos Leads ou Qualificados)
+        if (newStatus === 'prospect_lead' || newStatus === 'prospect_qualified') {
+          // Cancelar todos os agendamentos ativos/confirmados deste lead
+          await tx.appointment.updateMany({
+            where: {
+              leadId: id,
+              status: { in: ['agendado', 'confirmado'] }
+            },
+            data: { status: 'cancelado' }
+          });
+          prismaData.isScheduled = false;
+        }
+
+        // 2. Se voltou para antes de Proposta (Novos Leads, Qualificados, Agendados, Consulta Feita)
+        const beforeProposalStatuses = ['prospect_lead', 'prospect_qualified', 'prospect_scheduled', 'prospect_attended'];
+        if (beforeProposalStatuses.includes(newStatus)) {
+          // Cancelar todas as propostas pendentes/ativas do lead
+          await tx.proposal.updateMany({
+            where: {
+              leadId: id,
+              status: 'pending'
+            },
+            data: { status: 'rejected' }
+          });
+        }
+
+        // 3. Se voltou para antes de Fechado (Comercial ou ProspecÃ§Ã£o)
+        const beforeClosedStatuses = [
+          'prospect_lead', 'prospect_qualified', 'prospect_scheduled',
+          'prospect_attended', 'comercial_lead', 'comercial_consult', 'comercial_proposal', 'comercial_follow', 'comercial_negotiation'
+        ];
+        if (beforeClosedStatuses.includes(newStatus)) {
+          // Preserve the existing client when reopening a sale.
+          prismaData.closedAt = null;
+          if (currentLead.subStatus === 'won') prismaData.subStatus = null;
+          prismaData.isPaid = false; // resetar flag de pago
+        }
+      }
+
+      // ConversÃ£o automÃ¡tica: quando status muda para 'comercial_closed' OU quando hÃ¡ propostas de remarketing (fechamento parcial)
+      const isClosing = ['comercial_closed', 'sales_payment', 'sales_contract', 'sales_post'].includes(prismaData.status)
+      const isPartialClosing = prismaData.remarketingProposals !== undefined
+      const alreadyConverted = !!currentLead.convertedToClientId
+
+      if ((isClosing || isPartialClosing) && !alreadyConverted) {
+        // Criar cliente automaticamente a partir dos dados do lead
+        const newClient = await tx.client.create({
+          data: {
+            professionalId: currentLead.professionalId,
+            companyId: currentLead.companyId,
+            name: currentLead.name,
+            email: currentLead.email || null,
+            phone: currentLead.phone || null,
+            notes: currentLead.notes || null,
+            avatar: currentLead.avatar || null,
+          }
+        })
+
+        // Atualizar lead com referÃªncia ao cliente criado
+        prismaData.convertedToClientId = newClient.id
+        prismaData.convertedAt = new Date()
+
+
+        const updated = await tx.lead.update({
+          where: { id },
+          data: prismaData
+        })
+
+
+
+        return {
+          ...updated,
+          converted: true,
+          convertedClient: newClient
+        };
+      }
+
+      const updated = await tx.lead.update({
         where: { id },
         data: prismaData
       })
-      
-      // Trigger Cadence if status changed
-      if (prismaData.status && prismaData.status !== currentLead.status) {
-        await triggerCadenceForLead(id, currentLead.companyId!, prismaData.status, currentLead.sdrId || currentLead.closerId, currentLead.professionalId).catch(console.error);
-      }
-      
-      if (req.user?.type === 'profissional') {
-        logAudit(req.user.id, 'CONVERTER_LEAD_EM_CLIENTE', 'Lead', id)
-      }
 
-      return res.json(createSuccessResponse({
-        ...updated,
-        converted: true,
-        convertedClient: newClient
-      }))
+
+
+      return updated;
+    });
+    if (prismaData.status && prismaData.status !== access.lead!.status) {
+      await triggerCadenceForLead(id, result.companyId!, result.status, result.sdrId || result.closerId, result.professionalId).catch(console.error);
     }
-    
-    const updated = await prisma.lead.update({
-      where: { id },
-      data: prismaData
-    })
-    
-    // Trigger Cadence if status changed
-    if (prismaData.status && prismaData.status !== currentLead.status) {
-      await triggerCadenceForLead(id, currentLead.companyId!, prismaData.status, currentLead.sdrId || currentLead.closerId, currentLead.professionalId).catch(console.error);
-    }
-    
-    if (req.user?.type === 'profissional') {
-      logAudit(req.user.id, 'ATUALIZAR_LEAD', 'Lead', id)
-    }
-    
-    res.json(createSuccessResponse(updated))
+    if (req.user?.type === 'profissional') logAudit(req.user.id, 'ATUALIZAR_LEAD', 'Lead', id);
+    res.json(createSuccessResponse(result));
   } catch (error: any) {
     console.error('[Leads] Erro ao atualizar lead:', error)
     if (error.code === 'P2025') {
@@ -861,100 +811,107 @@ router.post('/:id/confirm-payment', auth(), async (req, res) => {
       return res.status(400).json(createErrorResponse('Pagamento invalido. Confira valor, data e metodo.', 400))
     }
 
-    const lead = await prisma.lead.findUnique({ where: { id } })
-    if (!lead) return res.status(404).json(createErrorResponse('Lead nÃ£o encontrado', 404))
+    const result = await prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM leads WHERE id = ${id} FOR UPDATE`;
+      const lead = await tx.lead.findUnique({ where: { id } })
+      if (!lead) throw new Error('Lead não encontrado');
 
-    let clientId = lead.convertedToClientId
+      if (proposalId && !await tx.proposal.findFirst({ where: { id: Number(proposalId), leadId: id } })) {
+        throw new Error('Proposta não pertence a este lead.');
+      }
+      let clientId = lead.convertedToClientId
 
-    // Se o lead ainda nÃ£o foi convertido, criar cliente
-    if (!clientId) {
-      const newClient = await prisma.client.create({
-        data: {
-          professionalId: lead.professionalId,
-          companyId: lead.companyId,
-          name: lead.name,
-          email: lead.email,
-          phone: lead.phone,
-          notes: lead.notes,
-          avatar: lead.avatar || null,
+      // Se o lead ainda nÃ£o foi convertido, criar cliente
+      if (!clientId) {
+        const newClient = await tx.client.create({
+          data: {
+            professionalId: lead.professionalId,
+            companyId: lead.companyId,
+            name: lead.name,
+            email: lead.email,
+            phone: lead.phone,
+            notes: lead.notes,
+            avatar: lead.avatar || null,
+          }
+        })
+        clientId = newClient.id
+
+        await tx.lead.update({
+          where: { id },
+          data: {
+            convertedToClientId: clientId,
+            convertedAt: new Date()
+          }
+        })
+      }
+
+      // Criar os pagamentos no banco de dados
+      const paymentRecords = []
+      for (const p of normalizedPayments) {
+        const payment = await tx.payment.create({
+          data: {
+            clientId: clientId,
+            professionalId: lead.professionalId,
+            companyId: lead.companyId,
+            amount: p.amount,
+            date: p.date,
+            method: p.method,
+            status: p.status || 'pago'
+          }
+        })
+        paymentRecords.push(payment)
+      }
+
+      // Se uma proposta foi vinculada, marcar como aceita
+      if (proposalId) {
+        const updateData: any = { status: 'accepted' };
+        if (Number(discountValue) > 0 || Number(discountPercentage) > 0) {
+          updateData.discountApplied = true;
+          updateData.discountValue = Number(discountValue) || 0;
+          updateData.discountPercentage = Number(discountPercentage) || 0;
+          updateData.justification = justification;
         }
-      })
-      clientId = newClient.id
 
-      await prisma.lead.update({
-        where: { id },
-        data: { 
-          convertedToClientId: clientId,
-          convertedAt: new Date()
-        }
-      })
-    }
+        await tx.proposal.update({
+          where: { id: Number(proposalId), leadId: id },
+          data: updateData
+        });
+      }
 
-    // Criar os pagamentos no banco de dados
-    const paymentRecords = []
-    for (const p of normalizedPayments) {
-      const payment = await prisma.payment.create({
-        data: {
-          clientId: clientId,
-          professionalId: lead.professionalId,
-          companyId: lead.companyId,
-          amount: p.amount,
-          date: p.date,
-          method: p.method,
-          status: p.status || 'pago'
-        }
-      })
-      paymentRecords.push(payment)
-    }
-
-    // Se uma proposta foi vinculada, marcar como aceita
-    if (proposalId) {
-      const updateData: any = { status: 'accepted' };
       if (Number(discountValue) > 0 || Number(discountPercentage) > 0) {
-        updateData.discountApplied = true;
-        updateData.discountValue = Number(discountValue) || 0;
-        updateData.discountPercentage = Number(discountPercentage) || 0;
-        updateData.justification = justification;
-      }
-      
-      await prisma.proposal.update({
-        where: { id: Number(proposalId) },
-        data: updateData
-      });
-    }
-
-    if (Number(discountValue) > 0 || Number(discountPercentage) > 0) {
-      let userName = 'UsuÃ¡rio';
-      if (req.user?.type === 'usuario') {
-        const u = await prisma.usuario.findUnique({ where: { id: req.user.id }, select: { name: true }});
-        if (u) userName = u.name;
-      } else if (req.user?.type === 'profissional') {
-        const p = await prisma.professional.findUnique({ where: { id: req.user.id }, select: { name: true }});
-        if (p) userName = p.name;
-      }
-
-      await prisma.leadActivity.create({
-        data: {
-          leadId: id,
-          type: 'DESCONTO_APLICADO',
-          content: `${userName} deu ${Number(discountPercentage)}% (R$ ${Number(discountValue)}) de desconto. Justificativa: ${justification}`,
-          createdBy: String(req.user?.id)
+        let userName = 'UsuÃ¡rio';
+        if (req.user?.type === 'usuario') {
+          const u = await tx.usuario.findUnique({ where: { id: req.user.id }, select: { name: true }});
+          if (u) userName = u.name;
+        } else if (req.user?.type === 'profissional') {
+          const p = await tx.professional.findUnique({ where: { id: req.user.id }, select: { name: true }});
+          if (p) userName = p.name;
         }
-      });
-    }
 
-    // Atualiza status do Lead para pago e move para o funil pós-venda ou similar se quiser
-    const updatedLead = await prisma.lead.update({
-      where: { id },
-      data: { 
-        isPaid: true,
-        status: 'comercial_closed', // Garantir que não volte pra trás devido a race condition do drag and drop
-        closedAt: lead.closedAt || new Date(),
-        subStatus: 'won'
-      } 
-    })
+        await tx.leadActivity.create({
+          data: {
+            leadId: id,
+            type: 'DESCONTO_APLICADO',
+            content: `${userName} deu ${Number(discountPercentage)}% (R$ ${Number(discountValue)}) de desconto. Justificativa: ${justification}`,
+            createdBy: String(req.user?.id)
+          }
+        });
+      }
 
-    res.json(createSuccessResponse({ payments: paymentRecords, lead: updatedLead }))
+      // Atualiza status do Lead para pago e move para o funil pós-venda ou similar se quiser
+      const updatedLead = await tx.lead.update({
+        where: { id },
+        data: {
+          isPaid: true,
+          status: 'comercial_closed', // Garantir que não volte pra trás devido a race condition do drag and drop
+          closedAt: lead.closedAt || new Date(),
+          subStatus: 'won'
+        }
+      })
+
+      return { payments: paymentRecords, lead: updatedLead };
+    });
+    res.json(createSuccessResponse(result));
   } catch (error: any) {
     console.error('[Leads] Erro ao confirmar pagamento:', error)
     res.status(500).json(createErrorResponse(error.message || 'Erro ao confirmar pagamento', 500))
@@ -976,7 +933,7 @@ router.delete('/bulk', auth(), async (req, res) => {
     }
 
     await prisma.lead.deleteMany({ where: { id: { in: numericIds } } });
-    
+
     logAudit(req.user!, 'BULK_DELETAR_LEADS', 'Lead', 0);
     res.json(createSuccessResponse({ deleted: numericIds.length }));
   } catch (error: any) {
@@ -1058,11 +1015,11 @@ router.delete('/:id', auth(), async (req, res) => {
     const _companyId = _checkEntity.companyId;
 
     await prisma.lead.delete({ where: { id } })
-    
+
     if (req.user?.type === 'profissional') {
       logAudit(req.user.id, 'DELETAR_LEAD', 'Lead', id)
     }
-    
+
     res.json(createSuccessResponse({ id }))
   } catch (error: any) {
     console.error('[Leads] Erro ao deletar lead:', error)
@@ -1078,7 +1035,7 @@ router.patch('/:id/assignment', auth(), async (req, res) => {
   try {
     const { id } = req.params;
     const { sdrId, closerId, especialistaId } = req.body;
-    
+
     const leadId = parseInt(id);
     const access = await assertLeadAccess(leadId, req.user);
     if (access.error) return res.status(access.status).json(createErrorResponse(access.message, access.status));
@@ -1151,7 +1108,7 @@ router.post('/:id/cadence-contact', auth(), async (req, res) => {
     const id = Number(req.params.id);
     const access = await assertLeadAccess(id, req.user);
     if (access.error) return res.status(access.status).json(createErrorResponse(access.message, access.status));
-    
+
     let userName = 'Sistema';
     if (req.user?.type === 'usuario') {
       const u = await prisma.usuario.findUnique({ where: { id: req.user.id }, select: { name: true }});

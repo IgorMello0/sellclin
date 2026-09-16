@@ -20,23 +20,23 @@ interface FunnelBoardProps {
   
   // Column/Card Props
   isMultiSelectMode: boolean;
-  selectedLeadIds: number[];
-  onToggleLeadSelection: (id: number) => void;
+  selectedLeadIds: string[];
+  onToggleLeadSelection: (id: string) => void;
   onSelectLead: (lead: any) => void;
   onDragStart: (e: React.DragEvent, cardId: string) => void;
   onDragEnd?: (e: React.DragEvent) => void;
   draggedCardId: string | null;
   activeFunnel: string;
   onOpenWhatsApp: (phone: string) => void;
-  onSubStatusChange: (id: number, subStatus: string | null) => void;
+  onSubStatusChange: (id: string, subStatus: string | null) => void;
   onScheduleAppointment: (lead: any) => void;
-  onOpenProposal: (leadId: number, leadValue: number, tags: string[]) => void;
+  onOpenProposal: (leadId: string, leadValue: number, tags: string[]) => void;
   onOpenPayment: (lead: any) => void;
   onMoveLead: (cardId: string, status: string) => void;
   onScheduleClosed: (lead: any) => void;
   onSetActiveFunnel: (funnelId: string) => void;
   isProcessingSchedule: boolean;
-  currentSchedulingLeadId: number | null;
+  currentSchedulingLeadId: string | null;
   professionalName?: string;
   quickStatuses: any[];
 }

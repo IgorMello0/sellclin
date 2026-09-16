@@ -53,7 +53,7 @@ export function ConfirmPaymentModal({ open, onOpenChange, leadId, leadValue, pro
       setSelectedProposalId('none');
       setProposals([]);
     }
-  }, [open, leadId]);
+  }, [open, leadId, proposalId]);
 
   const fetchProposals = async () => {
     if (!leadId) return;

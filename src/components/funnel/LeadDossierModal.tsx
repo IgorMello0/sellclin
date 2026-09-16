@@ -331,6 +331,7 @@ export const LeadDossierModal = ({ lead: initialLead, open, onOpenChange, onUpda
 };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-6xl max-h-[95vh] sm:h-[90vh] overflow-hidden rounded-none sm:rounded-[2rem] border-0 sm:border sm:border-slate-100 bg-slate-50 p-0 flex flex-col lg:flex-row w-full shadow-2xl">
           {selectedLead && (

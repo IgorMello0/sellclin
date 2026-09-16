@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils"
 
 // Select implementation without Radix
 interface SelectContextType {
+  disabled?: boolean
   value: string
   onValueChange: (value: string) => void
   open: boolean
@@ -11,12 +12,12 @@ interface SelectContextType {
 }
 const SelectContext = React.createContext<SelectContextType>({ value: "", onValueChange: () => {}, open: false, setOpen: () => {} })
 
-const Select = ({ value: controlledValue, defaultValue, onValueChange, children }: { value?: string; defaultValue?: string; onValueChange?: (value: string) => void; children: React.ReactNode }) => {
+const Select = ({ value: controlledValue, defaultValue, onValueChange, children, disabled = false }: { disabled?: boolean; value?: string; defaultValue?: string; onValueChange?: (value: string) => void; children: React.ReactNode }) => {
   const [internalValue, setInternalValue] = React.useState(defaultValue || "")
   const [open, setOpen] = React.useState(false)
   const value = controlledValue ?? internalValue
   const setValue = onValueChange ?? setInternalValue
-  return <SelectContext.Provider value={{ value, onValueChange: setValue, open, setOpen }}>{children}</SelectContext.Provider>
+  return <SelectContext.Provider value={{ value, onValueChange: setValue, open, setOpen, disabled }}>{children}</SelectContext.Provider>
 }
 
 const SelectGroup = ({ children }: { children: React.ReactNode }) => <div role="group">{children}</div>
@@ -27,13 +28,14 @@ const SelectValue = ({ placeholder, children }: { placeholder?: string; children
 }
 
 const SelectTrigger = ({ className, children, ref, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { ref?: React.Ref<HTMLButtonElement> }) => {
-  const { open, setOpen } = React.useContext(SelectContext)
+  const { open, setOpen, disabled } = React.useContext(SelectContext)
   return (
     <button
       ref={ref}
       type="button"
       role="combobox"
       aria-expanded={open}
+      disabled={disabled}
       onClick={() => setOpen(!open)}
       className={cn(
         "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
@@ -128,7 +130,7 @@ const SelectLabel = ({ className, ref, ...props }: React.HTMLAttributes<HTMLDivE
   <div ref={ref} className={cn("py-1.5 pl-8 pr-2 text-sm font-semibold", className)} {...props} />
 )
 
-const SelectItem = ({ className, children, value, ref, ...props }: React.HTMLAttributes<HTMLDivElement> & { value: string; ref?: React.Ref<HTMLDivElement> }) => {
+const SelectItem = ({ className, children, value, disabled = false, ref, ...props }: React.HTMLAttributes<HTMLDivElement> & { value: string; disabled?: boolean; ref?: React.Ref<HTMLDivElement> }) => {
   const ctx = React.useContext(SelectContext)
   const isSelected = ctx.value === value
   return (
@@ -136,8 +138,10 @@ const SelectItem = ({ className, children, value, ref, ...props }: React.HTMLAtt
       ref={ref}
       role="option"
       aria-selected={isSelected}
+      aria-disabled={disabled}
+      data-disabled={disabled ? "" : undefined}
       data-state={isSelected ? "checked" : "unchecked"}
-      onClick={() => { ctx.onValueChange(value); ctx.setOpen(false) }}
+      onClick={() => { if (!disabled && !ctx.disabled) { ctx.onValueChange(value); ctx.setOpen(false) } }}
       className={cn(
         "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         isSelected && "bg-accent/50",

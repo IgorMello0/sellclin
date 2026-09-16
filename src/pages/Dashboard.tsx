@@ -1,4 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { toZonedTime } from 'date-fns-tz';
+import { isValidDashboardRange, loadDashboardTeam, type DashboardFilter } from '@/lib/dashboard';
 import { dashboardApi, usuariosApi } from '@/lib/api';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -9,191 +12,70 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Dashboard = () => {
-  const { professional, switchCompany, hasPermission } = useAuth();
+  const { professional, hasPermission } = useAuth();
   const showBilling = hasPermission('dashboard', 'verFaturamento');
-  const [filter, setFilter] = useState<'today' | '7days' | '30days' | 'this_month' | 'custom'>('this_month');
+  const companyId = professional?.companyId;
+  const [filter, setFilter] = useState<DashboardFilter>('this_month');
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [customStartDate, setCustomStartDate] = useState(format(subDays(new Date(), 30), 'yyyy-MM-dd'));
-  const [customEndDate, setCustomEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [showCustomRangeInputs, setShowCustomRangeInputs] = useState(false);
+  const [appliedRange, setAppliedRange] = useState(() => {
+    const today = toZonedTime(new Date(), 'America/Sao_Paulo');
+    return { start: format(subDays(today, 29), 'yyyy-MM-dd'), end: format(today, 'yyyy-MM-dd') };
+  });
+  const [customStartDate, setCustomStartDate] = useState(appliedRange.start);
+  const [customEndDate, setCustomEndDate] = useState(appliedRange.end);
+  const [rangeError, setRangeError] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [conversionMode, setConversionMode] = useState<'percent' | 'reais'>('percent');
-  const [bottomActiveTab, setBottomActiveTab] = useState<'finance' | 'sales'>('finance');
-  const [selectedSdrId, setSelectedSdrId] = useState<string>('all');
-  const [selectedCloserId, setSelectedCloserId] = useState<string>('all');
-  const [sdrs, setSdrs] = useState<any[]>([]);
-  const [closers, setClosers] = useState<any[]>([]);
-  const [counters, setCounters] = useState({
-    leads: 0,
-    agendamentos: 0,
-    comparada: 0,
-    oportunidades: 0,
-    contratos: 0,
-    faturamento: 0,
-    faturamentoFechado: 0,
-    totalDiscount: 0,
-    ticketOrcado: 0,
-    ticketFechado: 0,
-    conversao: 0,
-    conversaoPropostas: 0,
-    conversaoFinanceira: 0,
-    parcelamentoMedioBoleto: 0
+  const [selectedSdrId, setSelectedSdrId] = useState('all');
+  const [selectedCloserId, setSelectedCloserId] = useState('all');
+
+  const metrics = useQuery({
+    queryKey: ['dashboard-metrics', professional?.id, companyId, filter,
+      filter === 'custom' ? appliedRange.start : null,
+      filter === 'custom' ? appliedRange.end : null, selectedSdrId, selectedCloserId],
+    enabled: Boolean(companyId),
+    retry: false,
+    queryFn: async ({ signal }) => {
+      const response = await dashboardApi.getMetrics(filter,
+        filter === 'custom' ? appliedRange.start : undefined,
+        filter === 'custom' ? appliedRange.end : undefined,
+        selectedSdrId, selectedCloserId, signal);
+      if (!response.success || !response.data) throw new Error('Não foi possível carregar o dashboard. Tente novamente.');
+      return response.data;
+    },
   });
-
-  const [extraData, setExtraData] = useState({
-    metodos: { boleto: { gerados: 0 }, cartao: 0, pix: 0, dinheiro: 0 },
-    funil: { novos: 0, contatados: 0, agendamentos: 0, fechados: 0 },
-    origem: [] as { origin: string, count: number }[]
+  const team = useQuery({
+    queryKey: ['dashboard-team', professional?.id, companyId],
+    enabled: Boolean(companyId),
+    retry: false,
+    queryFn: ({ signal }) => loadDashboardTeam(companyId!, usuariosApi.getAll, signal),
   });
-
-  const fetchTargetData = useCallback(async (currentFilter: string, start?: string, end?: string, sdrId?: string, closerId?: string) => {
-    try {
-      const response = await dashboardApi.getMetrics(currentFilter, start, end, sdrId, closerId);
-      if (response.success && response.data) {
-        return response.data;
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    return { 
-      leads: 0, agendamentos: 0, comparada: 0, oportunidades: 0, contratos: 0,
-      faturamento: 0, faturamentoFechado: 0, totalDiscount: 0, ticketOrcado: 0, ticketFechado: 0, conversao: 0,
-      conversaoPropostas: 0, conversaoFinanceira: 0, parcelamentoMedioBoleto: 0,
-      metodos: { boleto: { gerados: 0 }, cartao: 0, pix: 0, dinheiro: 0 },
-      funil: { novos: 0, contatados: 0, agendamentos: 0, fechados: 0 },
-      origem: []
-    };
-  }, []);
-
-  const animationRef = useCallback((targets: any) => {
-    const duration = 1000;
-    const startTime = performance.now();
-    
-    // Captura os valores atuais como ponto de partida
-    let currentValues = { ...counters };
-    
-    const frame = (time: number) => {
-      const elapsed = time - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      const ease = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
-      
-      setCounters({
-        leads: Math.floor(currentValues.leads + ease * (targets.leads - currentValues.leads)),
-        agendamentos: Math.floor(currentValues.agendamentos + ease * (targets.agendamentos - currentValues.agendamentos)),
-        comparada: Math.floor(currentValues.comparada + ease * (targets.comparada - currentValues.comparada)),
-        oportunidades: Math.floor(currentValues.oportunidades + ease * (targets.oportunidades - currentValues.oportunidades)),
-        contratos: Math.floor(currentValues.contratos + ease * ((targets.contratos || 0) - currentValues.contratos)),
-        faturamento: Math.floor(currentValues.faturamento + ease * (targets.faturamento - currentValues.faturamento)),
-        faturamentoFechado: Math.floor(currentValues.faturamentoFechado + ease * ((targets.faturamentoFechado || 0) - currentValues.faturamentoFechado)),
-        totalDiscount: Math.floor(currentValues.totalDiscount + ease * ((targets.totalDiscount || 0) - currentValues.totalDiscount)),
-        ticketOrcado: Math.floor(currentValues.ticketOrcado + ease * (targets.ticketOrcado - currentValues.ticketOrcado)),
-        ticketFechado: Math.floor(currentValues.ticketFechado + ease * (targets.ticketFechado - currentValues.ticketFechado)),
-        conversao: Number((currentValues.conversao + ease * (targets.conversao - currentValues.conversao)).toFixed(1)),
-        conversaoPropostas: Number((currentValues.conversaoPropostas + ease * ((targets.conversaoPropostas || 0) - currentValues.conversaoPropostas)).toFixed(1)),
-        conversaoFinanceira: Number((currentValues.conversaoFinanceira + ease * (targets.conversaoFinanceira - currentValues.conversaoFinanceira)).toFixed(1)),
-        parcelamentoMedioBoleto: Number((currentValues.parcelamentoMedioBoleto + ease * ((targets.parcelamentoMedioBoleto || 0) - currentValues.parcelamentoMedioBoleto)).toFixed(1))
-      });
-
-      if (progress === 1) {
-        setExtraData({
-          metodos: targets.metodos || { boleto: { gerados: 0 }, cartao: 0, pix: 0, dinheiro: 0 },
-          funil: targets.funil || { novos: 0, contatados: 0, agendamentos: 0, fechados: 0 },
-          origem: targets.origem || []
-        });
-      }
-
-      if (progress < 1) {
-        requestAnimationFrame(frame);
-      }
-    };
-
-    requestAnimationFrame(frame);
-  }, [counters]);
+  const sdrs = team.data?.sdrs || [];
+  const closers = team.data?.closers || [];
+  const counters = metrics.data;
+  const extraData = metrics.data;
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false);
-      }
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setDropdownOpen(false);
     };
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
 
-  useEffect(() => {
-    const loadTeam = async () => {
-      try {
-        const res = await usuariosApi.getAll();
-        if (res.success && res.data) {
-          const sdrList = res.data.filter((u: any) => 
-            (u.role?.isSDR || u.role?.isManager || u.role?.isAdmin) && 
-            (u.companyId === professional?.companyId || u.companyAccess?.some((ca: any) => ca.companyId === professional?.companyId))
-          );
-          const closerList = res.data.filter((u: any) => 
-            (u.role?.isCloser || u.role?.isManager || u.role?.isAdmin) && 
-            (u.companyId === professional?.companyId || u.companyAccess?.some((ca: any) => ca.companyId === professional?.companyId))
-          );
-          setSdrs(sdrList);
-          setClosers(closerList);
-        }
-      } catch (e) {
-        console.error('Failed to load team for dashboard filters', e);
+  const handleFilterChange = (newFilter: DashboardFilter, start?: string, end?: string, sdrId = selectedSdrId, closerId = selectedCloserId) => {
+    if (newFilter === 'custom') {
+      if (!start || !end || !isValidDashboardRange(start, end)) {
+        setRangeError('Informe datas válidas, com o início anterior ou igual ao fim.');
+        return;
       }
-    };
-    loadTeam();
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-    fetchTargetData('this_month', undefined, undefined, selectedSdrId, selectedCloserId).then(targets => {
-      if (!mounted) return;
-      const duration = 1000;
-      const startTime = performance.now();
-      const frame = (time: number) => {
-        const elapsed = time - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        const ease = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
-        setCounters({
-          leads: Math.floor(ease * targets.leads),
-          agendamentos: Math.floor(ease * targets.agendamentos),
-          comparada: Math.floor(ease * targets.comparada),
-          oportunidades: Math.floor(ease * targets.oportunidades),
-          contratos: Math.floor(ease * (targets.contratos || 0)),
-          faturamento: Math.floor(ease * targets.faturamento),
-          faturamentoFechado: Math.floor(ease * (targets.faturamentoFechado || 0)),
-          totalDiscount: Math.floor(ease * (targets.totalDiscount || 0)),
-          ticketOrcado: Math.floor(ease * targets.ticketOrcado),
-          ticketFechado: Math.floor(ease * targets.ticketFechado),
-          conversao: Number((ease * targets.conversao).toFixed(1)),
-          conversaoPropostas: Number((ease * (targets.conversaoPropostas || 0)).toFixed(1)),
-          conversaoFinanceira: Number((ease * targets.conversaoFinanceira).toFixed(1)),
-          parcelamentoMedioBoleto: Number((ease * (targets.parcelamentoMedioBoleto || 0)).toFixed(1))
-        });
-        
-        if (progress === 1) {
-          setExtraData({
-            metodos: targets.metodos || { boleto: { gerados: 0 }, cartao: 0, pix: 0, dinheiro: 0 },
-            funil: targets.funil || { novos: 0, contatados: 0, agendamentos: 0, fechados: 0 },
-            origem: targets.origem || []
-          });
-        }
-        
-        if (progress < 1) requestAnimationFrame(frame);
-      };
-      requestAnimationFrame(frame);
-    });
-    return () => { mounted = false; };
-  }, [fetchTargetData]);
-
-  const handleFilterChange = async (newFilter: 'today' | '7days' | '30days' | 'this_month' | 'custom', start?: string, end?: string, sdrId = selectedSdrId, closerId = selectedCloserId) => {
-    if (newFilter === filter && newFilter !== 'custom' && sdrId === selectedSdrId && closerId === selectedCloserId) return;
+      setAppliedRange({ start, end });
+    }
+    setRangeError('');
     setFilter(newFilter);
     setSelectedSdrId(sdrId);
     setSelectedCloserId(closerId);
-    const targets = await fetchTargetData(newFilter, start, end, sdrId, closerId);
-    
-    // Anima os contadores suavemente
-    animationRef(targets);
+    setDropdownOpen(false);
   };
 
   const formatCurrency = (val: number) => {
@@ -201,7 +83,7 @@ const Dashboard = () => {
   };
 
   const getDateDisplay = () => {
-    const today = new Date();
+    const today = toZonedTime(new Date(), 'America/Sao_Paulo');
     if (filter === 'today') {
       return format(today, "dd 'de' MMMM, yyyy", { locale: ptBR });
     } else if (filter === '7days') {
@@ -216,8 +98,8 @@ const Dashboard = () => {
       return `${format(start, "dd MMM", { locale: ptBR })} - ${format(end, "dd MMM, yyyy", { locale: ptBR })}`;
     } else {
       try {
-        const start = new Date(customStartDate + 'T00:00:00');
-        const end = new Date(customEndDate + 'T00:00:00');
+        const start = new Date(appliedRange.start + 'T00:00:00');
+        const end = new Date(appliedRange.end + 'T00:00:00');
         return `${format(start, "dd/MM/yyyy")} - ${format(end, "dd/MM/yyyy")}`;
       } catch (e) {
         return 'Período Personalizado';
@@ -291,7 +173,12 @@ const Dashboard = () => {
           
           <div className="relative" ref={dropdownRef}>
             <button 
-              onClick={() => setDropdownOpen(!dropdownOpen)}
+              onClick={() => {
+                setCustomStartDate(appliedRange.start);
+                setCustomEndDate(appliedRange.end);
+                setRangeError('');
+                setDropdownOpen(!dropdownOpen);
+              }}
               className={cn(
                 "px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2 cursor-pointer rounded-lg transition-all select-none",
                 filter === 'custom' 
@@ -307,18 +194,22 @@ const Dashboard = () => {
               <div className="absolute right-0 sm:left-0 mt-2 w-64 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/50 shadow-2xl p-4 space-y-3 z-[150] animate-in fade-in zoom-in-95 duration-100">
                 <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Definir Período</div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">Data Início</label>
+                  <label htmlFor="dashboard-start" className="text-[10px] font-bold text-slate-500 uppercase">Data Início</label>
                   <input 
                     type="date" 
+                    id="dashboard-start"
+                    aria-invalid={Boolean(rangeError)}
                     value={customStartDate} 
                     onChange={(e) => setCustomStartDate(e.target.value)}
                     className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 focus:outline-none focus:border-secondary font-headline"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">Data Fim</label>
+                  <label htmlFor="dashboard-end" className="text-[10px] font-bold text-slate-500 uppercase">Data Fim</label>
                   <input 
                     type="date" 
+                    id="dashboard-end"
+                    aria-invalid={Boolean(rangeError)}
                     value={customEndDate} 
                     onChange={(e) => setCustomEndDate(e.target.value)}
                     className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 focus:outline-none focus:border-secondary font-headline"
@@ -327,12 +218,12 @@ const Dashboard = () => {
                 <button 
                   onClick={() => {
                     handleFilterChange('custom', customStartDate, customEndDate);
-                    setDropdownOpen(false);
                   }}
                   className="w-full bg-secondary hover:bg-secondary/90 text-primary font-bold text-xs py-2 rounded-lg font-headline transition-colors"
                 >
                   Aplicar Período
                 </button>
+                {rangeError && <p role="alert" className="text-xs text-red-600">{rangeError}</p>}
               </div>
             )}
           </div>
@@ -368,7 +259,7 @@ const Dashboard = () => {
                     {sdrs.length > 0 && (
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">SDR Responsável</label>
-                        <Select value={selectedSdrId} onValueChange={(val) => handleFilterChange(filter, filter === 'custom' ? customStartDate : undefined, filter === 'custom' ? customEndDate : undefined, val, selectedCloserId)}>
+                        <Select value={selectedSdrId} onValueChange={(val) => handleFilterChange(filter, filter === 'custom' ? appliedRange.start : undefined, filter === 'custom' ? appliedRange.end : undefined, val, selectedCloserId)}>
                           <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 focus:ring-secondary">
                             <SelectValue placeholder="SDR (Todos)">
                               {selectedSdrId === 'all' ? 'Todos (Sem Filtro)' : selectedSdrId === 'none' ? 'Leads sem SDR' : (sdrs.find(s => s.id.toString() === selectedSdrId)?.name || 'Todos (Sem Filtro)')}
@@ -388,7 +279,7 @@ const Dashboard = () => {
                     {closers.length > 0 && (
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Closer (Vendedor)</label>
-                        <Select value={selectedCloserId} onValueChange={(val) => handleFilterChange(filter, filter === 'custom' ? customStartDate : undefined, filter === 'custom' ? customEndDate : undefined, selectedSdrId, val)}>
+                        <Select value={selectedCloserId} onValueChange={(val) => handleFilterChange(filter, filter === 'custom' ? appliedRange.start : undefined, filter === 'custom' ? appliedRange.end : undefined, selectedSdrId, val)}>
                           <SelectTrigger className="w-full bg-slate-50/50 border-slate-200 focus:ring-secondary">
                             <SelectValue placeholder="Closer (Todos)">
                               {selectedCloserId === 'all' ? 'Todos (Sem Filtro)' : selectedCloserId === 'none' ? 'Leads sem Closer' : (closers.find(c => c.id.toString() === selectedCloserId)?.name || 'Todos (Sem Filtro)')}
@@ -408,7 +299,7 @@ const Dashboard = () => {
                     {(selectedSdrId !== 'all' || selectedCloserId !== 'all') && (
                       <div className="pt-2">
                         <button 
-                          onClick={() => handleFilterChange(filter, filter === 'custom' ? customStartDate : undefined, filter === 'custom' ? customEndDate : undefined, 'all', 'all')}
+                          onClick={() => handleFilterChange(filter, filter === 'custom' ? appliedRange.start : undefined, filter === 'custom' ? appliedRange.end : undefined, 'all', 'all')}
                           className="w-full text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors py-2"
                         >
                           Limpar Filtros
@@ -424,6 +315,23 @@ const Dashboard = () => {
       </div>
       </div>
 
+      {team.isError && (
+        <div role="alert" className="text-sm text-red-600">
+          Não foi possível carregar os filtros de equipe.
+          <button onClick={() => void team.refetch()} className="ml-2 underline">Recarregar equipe</button>
+        </div>
+      )}
+      {metrics.isError ? (
+        <Card role="alert" className="p-6 space-y-3">
+          <p>Não foi possível carregar o dashboard. Os dados deste filtro não estão disponíveis.</p>
+          <button onClick={() => void metrics.refetch()} className="font-semibold text-primary underline">Tentar novamente</button>
+        </Card>
+      ) : metrics.isPending || metrics.isFetching ? (
+        <Card role="status" className="p-6">Carregando dados do dashboard…</Card>
+      ) : null}
+
+      {!metrics.isError && !metrics.isFetching && metrics.data && <>
+      <p className="text-xs text-on-surface-variant">Período dos indicadores: {getDateDisplay()}</p>
       {/* Primary Stats Grid */}
       <div id="tour-dashboard-stats" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6 relative z-10">
         {/* Card 1: Total de Leads */}
@@ -450,8 +358,9 @@ const Dashboard = () => {
             
           </div>
           <div className="space-y-1">
-            <p className="text-on-surface-variant text-[11px] sm:text-xs font-semibold uppercase tracking-wider leading-snug min-h-[34px]">Avaliação Agendada</p>
+            <p className="text-on-surface-variant text-[11px] sm:text-xs font-semibold uppercase tracking-wider leading-snug min-h-[34px]">Agendamentos Criados</p>
             <h3 className="stats-value">{counters.agendamentos}</h3>
+            <p className="text-xs text-on-surface-variant">Marcações feitas no período, exceto canceladas e faltas.</p>
           </div>
           
         </Card>
@@ -574,7 +483,7 @@ const Dashboard = () => {
           </>
         )}
 
-        {/* Card 9: Taxa de Conversão Dupla / Simples */}
+        {/* Relação entre produção comercial das etapas no período */}
         <Card className="p-4 xl:p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="p-2 bg-accent/10 text-accent rounded-lg">
@@ -585,14 +494,14 @@ const Dashboard = () => {
                  <button 
                     onClick={() => setConversionMode('percent')}
                     className={`text-[9px] font-black uppercase px-2 py-1 rounded transition-all ${conversionMode === 'percent' ? 'bg-white text-secondary shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                    title="Conversão por Quantidade de Propostas"
+                    title="Fechamentos do período divididos pelas propostas geradas no período"
                  >
                     Qtd.
                  </button>
                  <button 
                     onClick={() => setConversionMode('reais')}
                     className={`text-[9px] font-black uppercase px-2 py-1 rounded transition-all ${conversionMode === 'reais' ? 'bg-white text-secondary shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                    title="Conversão Financeira (Valor de Proposta vs Receita)"
+                    title="Valor fechado no período dividido pelo valor orçado no período"
                  >
                     R$
                  </button>
@@ -601,7 +510,7 @@ const Dashboard = () => {
           </div>
           <div className="space-y-1">
             <p className="text-on-surface-variant text-[11px] sm:text-xs font-semibold uppercase tracking-wider leading-snug min-h-[34px]">
-              {showBilling ? (conversionMode === 'percent' ? 'Conversão (Qtd.)' : 'Conversão (Financ.)') : 'Conversão de Propostas'}
+              {showBilling ? (conversionMode === 'percent' ? 'Fechados / Propostas' : 'Fechado / Orçado') : 'Fechados / Propostas'}
             </p>
             <div className="flex items-baseline gap-2">
               <h4 className="stats-value text-xl font-bold text-secondary">
@@ -609,8 +518,9 @@ const Dashboard = () => {
               </h4>
             </div>
             <p className="text-slate-400 text-[10px] font-medium mt-1">
-              {showBilling ? (conversionMode === 'percent' ? 'Contratos / Propostas' : 'Receita / Faturamento') : 'Contratos / Propostas'}
+              {showBilling ? (conversionMode === 'percent' ? 'Contratos / propostas do período' : 'Valor fechado / orçado no período') : 'Contratos / propostas do período'}
             </p>
+            <p className="text-[10px] text-on-surface-variant">Pode superar 100% ao fechar propostas de períodos anteriores.</p>
           </div>
         </Card>
       </div>
@@ -645,7 +555,7 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 relative z-10">
         <Card className="p-4 sm:p-8 space-y-4 sm:space-y-8">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-bold text-primary font-headline">Funil de Leads SellClin</h3>
+            <div><h3 className="text-lg font-bold text-primary font-headline">Funil de Leads SellClin</h3><p className="text-xs text-on-surface-variant">Situação atual dos leads criados no período selecionado</p></div>
             <button className="text-on-surface-variant hover:text-primary transition-colors btn-hover">
               <span className="material-symbols-outlined">more_vert</span>
             </button>
@@ -693,7 +603,7 @@ const Dashboard = () => {
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-bold text-primary font-headline">Leads por Origem</h3>
             <div className="flex gap-2">
-              <span className="text-[10px] font-bold text-on-surface-variant bg-muted px-3 py-1 rounded uppercase tracking-wider">Volume Mensal</span>
+              <span className="text-[10px] font-bold text-on-surface-variant bg-muted px-3 py-1 rounded uppercase tracking-wider">Período selecionado</span>
             </div>
           </div>
           <div className="space-y-7">
@@ -742,6 +652,7 @@ const Dashboard = () => {
           </div>
         </Card>
       </div>
+      </>}
     </div>
   );
 };

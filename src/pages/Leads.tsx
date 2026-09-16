@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { loadAllPages } from '@/lib/funnel';
+import { useState, useEffect, useRef } from 'react';
 import { cn, formatPhone } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -306,28 +307,24 @@ const Leads = () => {
     return () => clearTimeout(timer);
   }, [searchDebounce]);
 
+  const listRequest = useRef(0);
   const loadLeads = async () => {
     if (!professional?.id) return;
+    const request = ++listRequest.current;
     setIsLoading(true);
     try {
-      const response = await leadsApi.getAll({ search: searchQuery || undefined, pageSize: 1000 });
-      if (response.success && response.data) {
-        setLeads(response.data);
-      } else {
-        toast({
-          title: "Erro",
-          description: response.error?.message || "Erro ao carregar leads",
-          variant: "destructive",
-        });
-      }
+      const data = await loadAllPages(params => leadsApi.getAll({ ...params, search: searchQuery || undefined }));
+      if (request === listRequest.current) setLeads(data);
     } catch (error) {
+      if (request !== listRequest.current) return;
+      setLeads([]);
       toast({
         title: "Erro",
         description: "Erro ao carregar leads",
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      if (request === listRequest.current) setIsLoading(false);
     }
   };
 
@@ -490,6 +487,10 @@ const Leads = () => {
 
   const totalPages = Math.ceil(filteredLeads.length / itemsPerPage);
   const paginatedLeads = filteredLeads.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  useEffect(() => {
+    setCurrentPage(page => Math.min(page, Math.max(1, totalPages)));
+  }, [totalPages]);
 
   useEffect(() => {
     setCurrentPage(1);

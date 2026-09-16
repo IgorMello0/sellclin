@@ -609,13 +609,13 @@ export const clientsApi = {
 
 // Dashboard
 export const dashboardApi = {
-  getMetrics: async (filter: string = 'custom', startDate?: string, endDate?: string, sdrId?: string, closerId?: string) => {
+  getMetrics: async (filter: string = 'this_month', startDate?: string, endDate?: string, sdrId?: string, closerId?: string, signal?: AbortSignal) => {
     const query = new URLSearchParams({ filter })
     if (startDate) query.append('startDate', startDate)
     if (endDate) query.append('endDate', endDate)
     if (sdrId && sdrId !== 'all') query.append('sdrId', sdrId)
     if (closerId && closerId !== 'all') query.append('closerId', closerId)
-    return apiRequest<any>(`/dashboard/metrics?${query.toString()}`)
+    return apiRequest<any>(`/dashboard/metrics?${query.toString()}`, { signal })
   },
 }
 
@@ -753,6 +753,8 @@ export const leadsApi = {
   addActivity: async (id: number, data: any) => apiRequest<any>(`/leads/${id}/activities`, { method: 'POST', body: JSON.stringify(data) }),
   updateActivity: async (id: number, activityId: number, data: any) => apiRequest<any>(`/leads/${id}/activities/${activityId}`, { method: 'PUT', body: JSON.stringify(data) }),
   addProposal: async (id: number, data: any) => apiRequest<any>(`/leads/${id}/proposals`, { method: 'POST', body: JSON.stringify(data) }),
+  addProposals: async (id: number, proposals: any[]) => apiRequest<any[]>(`/leads/${id}/proposals/batch`, { method: 'POST', body: JSON.stringify({ proposals }) }),
+  deleteActivity: async (id: number, activityId: number) => apiRequest<any>(`/leads/${id}/activities/${activityId}`, { method: 'DELETE' }),
   getProposals: async (id: number) => apiRequest<Array<any>>(`/leads/${id}/proposals`),
   updateProposal: async (id: number, proposalId: number, data: any) => apiRequest<any>(`/leads/${id}/proposals/${proposalId}`, { method: 'PUT', body: JSON.stringify(data) }),
   confirmPayment: async (id: number, data: any) => apiRequest<any>(`/leads/${id}/confirm-payment`, { method: 'POST', body: JSON.stringify(data) }),

@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { loadAllPages } from '@/lib/funnel';
+import { useState, useEffect, useRef } from 'react';
 import { cn, formatPhone } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -96,10 +97,6 @@ const Clients = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchDebounce, setSearchDebounce] = useState('');
 
-  // Carregar clientes do banco
-  useEffect(() => {
-    loadClients();
-  }, []);
 
   // Debounce para busca
   useEffect(() => {
@@ -109,16 +106,15 @@ const Clients = () => {
     return () => clearTimeout(timer);
   }, [searchDebounce]);
 
+  const listRequest = useRef(0);
   const loadClients = async () => {
+    const request = ++listRequest.current;
     setIsLoading(true);
     try {
-      const response = await clientsApi.getAll({ 
-        page: 1, 
-        pageSize: 100, 
-        search: searchQuery || undefined
-      });
-      if (response.success && response.data) {
-        const clientsData = response.data.map((client: any) => ({
+      const data = await loadAllPages(params => clientsApi.getAll({ ...params, search: searchQuery || undefined }));
+      if (request !== listRequest.current) return;
+      if (data) {
+        const clientsData = data.map((client: any) => ({
           ...client,
           email: client.email || '',
           phone: client.phone || '',
@@ -130,29 +126,23 @@ const Clients = () => {
           address: client.notes || '',
         }));
         setClients(clientsData);
-      } else {
-        toast({
-          title: "Erro",
-          description: response.error?.message || "Erro ao carregar clientes",
-          variant: "destructive",
-        });
       }
     } catch (error) {
+      if (request !== listRequest.current) return;
+      setClients([]);
       toast({
         title: "Erro",
         description: "Erro ao carregar clientes",
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      if (request === listRequest.current) setIsLoading(false);
     }
   };
 
   // Recarregar quando searchQuery mudar
   useEffect(() => {
-    if (!isLoading) {
-      loadClients();
-    }
+    loadClients();
   }, [searchQuery]);
 
   const filteredClients = clients.filter(client =>
@@ -163,6 +153,10 @@ const Clients = () => {
 
   const totalPages = Math.ceil(filteredClients.length / itemsPerPage);
   const paginatedClients = filteredClients.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  useEffect(() => {
+    setCurrentPage(page => Math.min(page, Math.max(1, totalPages)));
+  }, [totalPages]);
 
   useEffect(() => {
     setCurrentPage(1);

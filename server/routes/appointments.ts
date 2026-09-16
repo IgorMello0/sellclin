@@ -51,7 +51,7 @@ router.get('/', auth(), requireModule('agendamentos'), async (req, res) => {
       where,
       skip,
       take,
-      orderBy: { startTime: 'desc' },
+      orderBy: [{ startTime: 'desc' }, { id: 'desc' }],
       include: { 
         professional: true, 
         client: true, 

@@ -11,7 +11,10 @@ import { Loader2, Star } from 'lucide-react';
 import { leadsApi, tasksApi } from '@/lib/api';
 
 interface Lead {
-  id: number;
+  sdrId?: number;
+  closerId?: number;
+  especialistaId?: number;
+  id: string;
   cardId?: string;
   isProposal?: boolean;
   proposalId?: number;
@@ -35,7 +38,7 @@ interface FunnelCardProps {
   lead: Lead;
   isMultiSelectMode: boolean;
   isSelected: boolean;
-  onToggleSelection: (id: number) => void;
+  onToggleSelection: (id: string) => void;
   onSelect: (lead: Lead) => void;
   onDragStart: (e: React.DragEvent, cardId: string) => void;
   onDragEnd?: (e: React.DragEvent) => void;
@@ -43,15 +46,15 @@ interface FunnelCardProps {
   activeFunnel: string;
   stageId: string;
   onOpenWhatsApp: (phone: string) => void;
-  onSubStatusChange: (id: number, subStatus: string | null) => void;
+  onSubStatusChange: (id: string, subStatus: string | null) => void;
   onScheduleAppointment: (lead: Lead) => void;
-  onOpenProposal: (leadId: number, leadValue: number, tags: string[]) => void;
+  onOpenProposal: (leadId: string, leadValue: number, tags: string[]) => void;
   onOpenPayment: (lead: Lead) => void;
   onMoveLead: (cardId: string, status: string) => void;
   onScheduleClosed: (lead: Lead) => void;
   onSetActiveFunnel: (funnelId: string) => void;
   isProcessingSchedule: boolean;
-  currentSchedulingLeadId: number | null;
+  currentSchedulingLeadId: string | null;
   professionalName?: string;
   quickStatuses: any[];
   contactCadence?: number;
