@@ -4,6 +4,7 @@ import { prisma } from '../prisma.js'
 
 const router = Router()
 router.use(auth(), requireModule('funnel'))
+router.use(ownerConfiguration)
 
 const DEFAULT_STATUSES = [
   { code: 'aguardando', label: 'Aguardando', color: 'bg-slate-100 text-slate-600 border-slate-200' },
@@ -176,3 +177,4 @@ router.delete('/:id', auth(), async (req: any, res) => {
 })
 
 export default router
+import { ownerConfiguration } from '../middleware/action-permissions.js'

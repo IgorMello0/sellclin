@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { prisma } from '../prisma.js';
 import { createErrorResponse, createSuccessResponse } from '../utils/response.js';
 import { ensureCompanyDefaults } from '../bootstrap/defaults.js';
+import { chooseSdrForCompany } from '../services/sdr-routing.js';
 import {
   activateBillingAddon,
   addDays,
@@ -571,10 +572,12 @@ async function processIncomingMessage(opts: {
 
   if (!lead) {
     // ── 2. Criar novo lead na clínica ──
+    const sdrId = await chooseSdrForCompany(prisma, companyId);
     lead = await prisma.lead.create({
       data: {
         professionalId: ownerId,
         companyId,
+        sdrId,
         name: pushName || 'Contato WhatsApp',
         phone,
         status: 'prospect_lead', // Novo no funil
@@ -616,12 +619,20 @@ async function processIncomingMessage(opts: {
     where: { phone, companyId }
   });
 
+  if (!lead.sdrId && !conversa?.assignedUserId && !conversa?.assignedProfessionalId) {
+    const sdrId = await chooseSdrForCompany(prisma, companyId);
+    if (sdrId) {
+      lead = await prisma.lead.update({ where: { id: lead.id }, data: { sdrId } });
+    }
+  }
+
   if (!conversa) {
     conversa = await prisma.conversa.create({
       data: {
         companyId,
         leadId: lead.id,
         professionalId: ownerId,
+        assignedUserId: lead.sdrId || null,
         phone,
         app: 'whatsapp',
         channel: origin,
@@ -630,6 +641,14 @@ async function processIncomingMessage(opts: {
         lastInboundAt: new Date(),
         unreadCount: 0
       }
+    });
+  } else if (!conversa.leadId || (lead.sdrId && (conversa.assignedUserId !== lead.sdrId || conversa.assignedProfessionalId))) {
+    conversa = await prisma.conversa.update({
+      where: { id: conversa.id },
+      data: {
+        leadId: lead.id,
+        ...(lead.sdrId ? { assignedUserId: lead.sdrId, assignedProfessionalId: null } : {}),
+      },
     });
   }
 

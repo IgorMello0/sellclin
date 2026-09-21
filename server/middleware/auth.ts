@@ -346,8 +346,8 @@ export function requirePermission(moduleCode: string, permissionKey: string) {
         )
       }
 
-      // Admin tem acesso a tudo
-      if (req.user.role === 'admin') {
+      // Team administrators still obey explicit granular restrictions.
+      if (req.user.type === 'profissional' && req.user.role === 'admin') {
         return next()
       }
 

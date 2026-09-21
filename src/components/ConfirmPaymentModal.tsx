@@ -43,6 +43,7 @@ export function ConfirmPaymentModal({ open, onOpenChange, leadId, leadValue, pro
   const [discountValue, setDiscountValue] = useState<number>(0);
   const [justification, setJustification] = useState<string>('');
   const { toast } = useToast();
+  const allowAction = useActionPermission();
 
   // Buscar propostas do lead quando o modal abre
   useEffect(() => {
@@ -190,6 +191,7 @@ export function ConfirmPaymentModal({ open, onOpenChange, leadId, leadValue, pro
   };
 
   const handleSubmit = async () => {
+    if (!allowAction('funnel', 'aprovarPropostas')) return;
     if (!leadId) return;
 
     const activeValue = getActiveValue();
@@ -577,3 +579,4 @@ export function ConfirmPaymentModal({ open, onOpenChange, leadId, leadValue, pro
     </Dialog>
   );
 }
+import { useActionPermission } from '@/hooks/use-action-permission';

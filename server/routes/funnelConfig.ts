@@ -5,6 +5,7 @@ import { createErrorResponse, createSuccessResponse } from '../utils/response.js
 
 export const router = Router()
 router.use(auth(), requireModule('funnel'))
+router.use(ownerConfiguration)
 
 // Configuração padrão dos funis (fallback)
 const DEFAULT_FUNNELS = [
@@ -397,3 +398,4 @@ async function seedDefaults(companyId: number) {
     })
   }
 }
+import { ownerConfiguration } from '../middleware/action-permissions.js'

@@ -106,7 +106,8 @@ interface Task {
 }
 
 export default function Tasks() {
-  const { professional } = useAuth();
+  const { professional, hasPermission } = useAuth();
+  const allowAction = useActionPermission();
   const { toast } = useToast();
   const toastRef = useRef(toast);
 
@@ -273,6 +274,8 @@ export default function Tasks() {
     try {
       const isAssigneeUser = formData.assignedToId.startsWith('user-');
       const numericId = Number(formData.assignedToId.replace('user-', '').replace('prof-', ''));
+      const unchangedAssignee = editingTask?.assignedTo?.id === numericId && Boolean((editingTask?.assignedTo as any)?.isUser) === isAssigneeUser;
+      if (!unchangedAssignee && (numericId !== Number(professional?.id) || isAssigneeUser !== (localStorage.getItem('userType') === 'user')) && !allowAction('tarefas', 'atribuirParaOutros')) return;
 
       const dataToSave = {
         title: formData.title,
@@ -361,6 +364,7 @@ export default function Tasks() {
 
   // Delete a Task
   const handleDeleteTask = async () => {
+    if (!allowAction('tarefas', 'excluirTarefas')) return;
     if (!taskToDeleteId) return;
     try {
       const res = await tasksApi.delete(taskToDeleteId);
@@ -733,6 +737,7 @@ export default function Tasks() {
             </button>
             <button
               onClick={() => setIsTeamMode(true)}
+              disabled={!hasPermission('tarefas', 'verTarefasAlheias')}
               className={cn(
                 "px-3 py-1.5 rounded-lg text-xs font-bold font-headline flex items-center gap-1.5 transition-all cursor-pointer",
                 isTeamMode 
@@ -1393,3 +1398,4 @@ export default function Tasks() {
     </div>
   );
 }
+import { useActionPermission } from '@/hooks/use-action-permission';

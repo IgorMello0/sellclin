@@ -464,6 +464,7 @@ model Empresa {
   whatsappTemplates        WhatsAppTemplate[]
   whatsappWebhookEvents    WhatsAppWebhookEvent[]
   cadenceConfigs           CadenceConfig[]
+  goals                    Goal[]
 
   @@map("empresas")
 }
@@ -992,6 +993,8 @@ model UserCompanyPermission {
 }
 
 model Goal {
+  companyId      Int?         @map("company_id")
+  company        Empresa?     @relation(fields: [companyId], references: [id], onDelete: Restrict)
   id             Int          @id @default(autoincrement())
   professionalId Int          @map("professional_id")
   name           String
@@ -1004,6 +1007,7 @@ model Goal {
   updatedAt      DateTime     @updatedAt @map("updated_at")
   professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
 
+  @@index([companyId])
   @@map("goals")
 }
 

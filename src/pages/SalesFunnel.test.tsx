@@ -8,7 +8,7 @@ const fixture = vi.hoisted(() => ({
   toast: vi.fn(),
   lead: { id: 1, name: 'Paciente teste', phone: '11999990000', status: 'prospect_lead', value: 900, createdAt: '2026-09-14', proposals: [] as any[] },
 }));
-vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ professional: fixture.professional }) }));
+vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ professional: fixture.professional, hasPermission: () => true }) }));
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: fixture.toast }) }));
 vi.mock('@/hooks/useSectionTour', () => ({ useSectionTour: () => ({}) }));
 vi.mock('@/components/onboarding/TourPopover', () => ({ TourPopover: () => null }));

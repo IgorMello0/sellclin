@@ -10,6 +10,7 @@ import { triggerCadenceForLead } from '../services/cadence.js'
 
 export const router = Router()
 router.use(auth(), requireModule('funnel'))
+router.use(auth(), actionPermissions('funnel'))
 
 const PAYMENT_METHOD_ALIASES: Record<string, 'pix' | 'cartao' | 'dinheiro' | 'transferencia'> = {
   pix: 'pix',
@@ -1142,3 +1143,4 @@ router.post('/:id/cadence-contact', auth(), async (req, res) => {
   }
 });
 
+import { actionPermissions } from '../middleware/action-permissions.js'

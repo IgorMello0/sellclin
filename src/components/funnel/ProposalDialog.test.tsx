@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { ProposalDialog } from './ProposalDialog';
 import { leadsApi } from '@/lib/api';
 const notices = vi.hoisted(() => vi.fn());
+vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ hasPermission: () => true }) }));
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: notices }) }));
 vi.mock('@/lib/api', () => ({
   leadsApi: { addProposals: vi.fn(), updateProposal: vi.fn(), addProposal: vi.fn() }, clientsApi: {},

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -19,6 +19,8 @@ const METHOD_ICONS: Record<string, React.ReactNode> = {
 
 export default function CadenceSettingsView() {
   const { toast } = useToast();
+  const requestVersion = useRef(0);
+  const [loadedStage, setLoadedStage] = useState('');
   const [funnels, setFunnels] = useState<any[]>([]);
   const [selectedFunnel, setSelectedFunnel] = useState<string>('');
   const [selectedStage, setSelectedStage] = useState<string>('');
@@ -32,6 +34,7 @@ export default function CadenceSettingsView() {
 
   useEffect(() => {
     if (selectedStage) loadCadenceConfig(selectedStage);
+    return () => { requestVersion.current += 1; };
   }, [selectedStage]);
 
   const loadFunnels = async () => {
@@ -45,10 +48,15 @@ export default function CadenceSettingsView() {
   };
 
   const loadCadenceConfig = async (stageCode: string) => {
+    const version = ++requestVersion.current;
+    setLoadedStage('');
     setIsLoading(true);
     try {
       const res = await cadenceApi.getByStage(stageCode);
+      if (version !== requestVersion.current) return;
+      if (!res.success || !res.data) throw new Error(res.error?.message || 'Falha ao carregar cadência');
       if (res.data) {
+        setLoadedStage(stageCode);
         const stepsData = res.data.steps;
         let parsedSteps = [];
         let parsedSkipWeekends = true;
@@ -66,23 +74,24 @@ export default function CadenceSettingsView() {
         });
       }
     } catch (e) {
-      console.error(e);
+      if (version === requestVersion.current) toast({ title: 'Erro ao carregar cadência', variant: 'destructive' });
     } finally {
-      setIsLoading(false);
+      if (version === requestVersion.current) setIsLoading(false);
     }
   };
 
   const saveConfig = async () => {
-    if (!selectedStage) return;
+    if (!selectedStage || loadedStage !== selectedStage || isLoading) return;
     try {
       setIsLoading(true);
-      await cadenceApi.update(selectedStage, {
+      const res = await cadenceApi.update(selectedStage, {
         isActive: config.isActive,
         steps: {
           skipWeekends: config.skipWeekends,
           items: config.steps
         }
       });
+      if (!res.success) throw new Error(res.error?.message || 'Falha ao salvar');
       toast({ title: 'Configuração salva com sucesso!' });
     } catch (e) {
       console.error(e);
@@ -90,6 +99,13 @@ export default function CadenceSettingsView() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const resetSelection = () => {
+    requestVersion.current += 1;
+    setLoadedStage('');
+    setIsLoading(false);
+    setConfig({ isActive: true, skipWeekends: true, steps: [] });
   };
 
   const addStep = (day: number = 1) => {
@@ -124,7 +140,7 @@ export default function CadenceSettingsView() {
 
   const sortedDays = Object.keys(groupedSteps).map(Number).sort((a, b) => a - b);
 
-  const currentFunnelObj = funnels.find(f => f.code === selectedFunnel || f.id === selectedFunnel);
+  const currentFunnelObj = funnels.find(f => f.code === selectedFunnel || String(f.id) === selectedFunnel);
   const stages = currentFunnelObj ? currentFunnelObj.stages || [] : [];
 
   return (
@@ -173,9 +189,9 @@ export default function CadenceSettingsView() {
         <CardContent className="flex gap-4">
           <div className="flex-1 space-y-2">
             <Label>Funil de Vendas</Label>
-            <Select value={selectedFunnel} onValueChange={setSelectedFunnel}>
+            <Select disabled={isLoading && loadedStage === selectedStage} value={selectedFunnel} onValueChange={value => { resetSelection(); setSelectedStage(''); setSelectedFunnel(value); }}>
               <SelectTrigger>
-                <SelectValue placeholder="Selecione o funil..." />
+                <SelectValue placeholder="Selecione o funil...">{currentFunnelObj?.label}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {funnels.map(f => (
@@ -187,9 +203,9 @@ export default function CadenceSettingsView() {
 
           <div className="flex-1 space-y-2">
             <Label>Etapa do Funil</Label>
-            <Select value={selectedStage} onValueChange={setSelectedStage} disabled={!selectedFunnel}>
+            <Select value={selectedStage} onValueChange={value => { resetSelection(); setSelectedStage(value); }} disabled={!selectedFunnel || (isLoading && loadedStage === selectedStage)}>
               <SelectTrigger>
-                <SelectValue placeholder="Selecione a etapa..." />
+                <SelectValue placeholder="Selecione a etapa...">{stages.find((s: any) => s.code === selectedStage)?.label}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {stages.map((s: any) => (
@@ -202,7 +218,8 @@ export default function CadenceSettingsView() {
       </Card>
 
 
-      {selectedStage && (
+      {selectedStage && loadedStage !== selectedStage && <p role="status">{isLoading ? 'Carregando cadência...' : 'Não foi possível carregar a cadência. Selecione a etapa novamente.'}</p>}
+      {selectedStage && loadedStage === selectedStage && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
@@ -301,7 +318,7 @@ export default function CadenceSettingsView() {
                             <Label>Canal de Contato</Label>
                             <Select value={step.method} onValueChange={v => updateStep(step.originalIndex, 'method', v)}>
                               <SelectTrigger>
-                                <SelectValue placeholder="Selecione o canal..." />
+                                <SelectValue placeholder="Selecione o canal...">{{ call: 'Ligação', whatsapp: 'WhatsApp', email: 'E-mail', other: 'Outro' }[step.method as string] || 'Outro'}</SelectValue>
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="call"><div className="flex items-center gap-2"><Phone className="h-4 w-4"/> Ligação</div></SelectItem>

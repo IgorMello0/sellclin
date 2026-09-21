@@ -195,9 +195,11 @@ export function AppSidebar() {
         )}>
           {isSidebarCollapsed && !isMobileSidebarOpen ? (
              <Link to="/dashboard" className="transition-transform hover:scale-110">
-               <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold font-headline text-lg">
-                 S
-               </div>
+               <img
+                 src="/SELLCLIN%20LOGOTIPO.png"
+                 alt="SellClin Logo"
+                 className="w-8 h-8 object-contain"
+               />
              </Link>
           ) : (
             <Link to="/dashboard" className="flex-1">

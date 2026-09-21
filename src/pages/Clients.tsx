@@ -81,7 +81,8 @@ const Clients = () => {
   });
   const { toast } = useToast();
   const isMobile = useIsMobile();
-  const { professional } = useAuth();
+  const { professional, hasPermission } = useAuth();
+  const allowAction = useActionPermission();
   const { getAssignedTemplates, addFilledForm, getClientForms, getFormById, templates } = useForms();
 
   // Tour de primeira visita
@@ -184,6 +185,7 @@ const Clients = () => {
   };
 
   const handleSave = async () => {
+    if (!allowAction('clientes', 'editarContatos')) return;
     if (!formData.name || !formData.email || !formData.phone) {
       toast({
         title: "Erro",
@@ -256,6 +258,7 @@ const Clients = () => {
   };
 
   const handleDelete = async (clientId: number) => {
+    if (!allowAction('clientes', 'excluirContatos')) return;
     try {
       const response = await clientsApi.delete(clientId);
       if (response.success) {
@@ -804,3 +807,4 @@ const Clients = () => {
 };
 
 export default Clients;
+import { useActionPermission } from '@/hooks/use-action-permission';

@@ -4,7 +4,7 @@ import { ptBR } from 'date-fns/locale';
 import {
   Bot, Check, ChevronDown, Clock3, Download, Image as ImageIcon, Inbox, Loader2, MessageCircle, Mic, Pause,
   Maximize2, Paperclip, Phone, Plus, RefreshCcw, Search, Send, Smile, Square,
-  StickyNote, Tag, User, X, Play,
+  Settings2, StickyNote, Tag, User, X, Play,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -74,6 +74,7 @@ type ConversationWorkspace = {
   labels: ConversationLabel[];
   professionals: TeamMember[];
   users: TeamMember[];
+  canManageConversations?: boolean;
 };
 type PendingMedia = { file: File; previewUrl: string; type: 'image' | 'video' | 'audio' };
 type PreviewMedia = { url: string; alt: string; type: 'image' | 'video' };
@@ -263,6 +264,9 @@ const Conversations = () => {
   const [filter, setFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [labelFilter, setLabelFilter] = useState('all');
+  const [conversationPage, setConversationPage] = useState(1);
+  const [conversationTotal, setConversationTotal] = useState(0);
+  const conversationPageSize = 100;
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [newMessage, setNewMessage] = useState('');
@@ -288,6 +292,7 @@ const Conversations = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [workspace, setWorkspace] = useState<ConversationWorkspace>({ labels: [], professionals: [], users: [] });
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [labelManagementOpen, setLabelManagementOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [notes, setNotes] = useState<ConversationNote[]>([]);
   const [notesLoading, setNotesLoading] = useState(false);
@@ -316,6 +321,8 @@ const Conversations = () => {
         labelId: labelFilter === 'all' ? undefined : Number(labelFilter),
         conversion: filter === 'all' ? undefined : filter as 'in_progress' | 'converted',
         search: debouncedSearchTerm,
+        page: conversationPage,
+        pageSize: conversationPageSize,
       });
       if (!response.success) throw new Error(response.error?.message || 'Nao foi possivel carregar as conversas.');
       if (requestVersion !== conversationsRequestVersion.current) return;
@@ -329,6 +336,7 @@ const Conversations = () => {
         return new Date(bLast).getTime() - new Date(aLast).getTime();
       });
       setConversations(items);
+      setConversationTotal(response.pagination?.total ?? items.length);
       setSelectedId((current) => current && items.some((item) => item.id === current) ? current : items[0]?.id ?? null);
       setLoadError(null);
     } catch (error: any) {
@@ -341,7 +349,11 @@ const Conversations = () => {
         setRefreshing(false);
       }
     }
-  }, [debouncedSearchTerm, filter, labelFilter, statusFilter, toast]);
+  }, [conversationPage, debouncedSearchTerm, filter, labelFilter, statusFilter, toast]);
+
+  useEffect(() => {
+    setConversationPage(1);
+  }, [debouncedSearchTerm, filter, labelFilter, statusFilter]);
 
   const loadWorkspace = async () => {
     const response = await conversationsApi.workspace();
@@ -418,13 +430,16 @@ const Conversations = () => {
         || contactName(conversation).toLowerCase().includes(query)
         || contactPhone(conversation).includes(query)
         || (phoneQuery.length >= 3 && contactPhone(conversation).replace(/\D/g, '').includes(phoneQuery));
-      return matchesFilter && matchesSearch;
+      const matchesStatus = statusFilter === 'all' || conversation.status === statusFilter;
+      const matchesLabel = labelFilter === 'all' || Boolean(conversation.labels?.some((label) => String(label.id) === labelFilter));
+      return matchesFilter && matchesSearch && matchesStatus && matchesLabel;
     });
-  }, [conversations, filter, searchTerm]);
+  }, [conversations, filter, labelFilter, searchTerm, statusFilter]);
 
   const convertedCount = conversations.filter(isConverted).length;
   const activeCount = conversations.length - convertedCount;
   const conversionRate = conversations.length ? Math.round((convertedCount / conversations.length) * 100) : 0;
+  const conversationTotalPages = Math.max(1, Math.ceil(conversationTotal / conversationPageSize));
 
   const formatRelativeTime = (value: string) => {
     const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60000));
@@ -568,8 +583,8 @@ const Conversations = () => {
       if (!response.success || !response.data) throw new Error(response.error?.message || 'Nao foi possivel criar a etiqueta.');
       setWorkspace((current) => ({ ...current, labels: [...current.labels, response.data] }));
       setNewLabelName('');
-      if (selected) await conversationsApi.addLabel(selected.id, response.data.id);
-      await loadConversations(true);
+      setLabelManagementOpen(true);
+      toast({ title: 'Etiqueta criada', description: 'Agora selecione a etiqueta para aplicá-la a esta conversa.' });
     } catch (error: any) {
       toast({ title: 'Etiqueta nao criada', description: error.message, variant: 'destructive' });
     } finally {
@@ -727,19 +742,22 @@ const Conversations = () => {
                 <span className="truncate">{CONVERSATION_FILTER_LABELS[filter] || 'Todas as conversas'}</span>
               </SelectTrigger>
               <SelectContent><SelectItem value="all">Todas as conversas</SelectItem><SelectItem value="in_progress">Em andamento</SelectItem><SelectItem value="converted">Convertidas</SelectItem></SelectContent></Select>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.25rem] gap-2">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-9 bg-white text-xs">
+                <SelectTrigger className="h-9 min-w-0 bg-white text-xs">
                   <span className="truncate">{STATUS_FILTER_LABELS[statusFilter] || 'Status'}</span>
                 </SelectTrigger>
                 <SelectContent><SelectItem value="all">Todos os status</SelectItem><SelectItem value="OPEN">Abertas</SelectItem><SelectItem value="PENDING">Pendentes</SelectItem><SelectItem value="RESOLVED">Resolvidas</SelectItem></SelectContent>
               </Select>
               <Select value={labelFilter} onValueChange={setLabelFilter}>
-                <SelectTrigger className="h-9 bg-white text-xs">
+                <SelectTrigger className="h-9 min-w-0 bg-white text-xs">
                   <span className="truncate">{labelFilter === 'all' ? 'Todas etiquetas' : workspace.labels.find(label => String(label.id) === labelFilter)?.name || 'Etiqueta'}</span>
                 </SelectTrigger>
                 <SelectContent><SelectItem value="all">Todas etiquetas</SelectItem>{workspace.labels.map((label) => <SelectItem key={label.id} value={String(label.id)}>{label.name}</SelectItem>)}</SelectContent>
               </Select>
+              <Button type="button" variant={labelManagementOpen ? 'secondary' : 'outline'} size="icon" className="h-9 w-9" onClick={() => setLabelManagementOpen(true)} aria-label="Gerenciar etiquetas" title="Gerenciar etiquetas">
+                <Settings2 className="h-4 w-4" />
+              </Button>
             </div>
           </div>
           <div className="border-b border-slate-100 px-4 py-2 text-[10px] font-bold uppercase text-slate-400">{filtered.length} conversa{filtered.length === 1 ? '' : 's'}</div>
@@ -751,18 +769,29 @@ const Conversations = () => {
               const lastMessage = conversation.mensagens.at(-1);
               const active = selectedId === conversation.id;
               const converted = isConverted(conversation);
+              const statusLabel = conversation.status === 'RESOLVED' ? 'Resolvida' : conversation.status === 'PENDING' ? 'Pendente' : 'Aberta';
+              const statusClass = conversation.status === 'RESOLVED' ? 'text-slate-500' : conversation.status === 'PENDING' ? 'text-amber-600' : 'text-sky-600';
               return (
                 <button type="button" key={conversation.id} onClick={() => setSelectedId(conversation.id)} className={`w-full border-b border-slate-100 px-4 py-3 text-left transition-colors ${active ? 'bg-slate-100' : 'hover:bg-slate-50'}`}>
                   <div className="flex gap-3">
                     <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-black ${active ? 'bg-slate-950 text-white' : 'bg-slate-200 text-slate-700'}`}>
                       {contactAvatar(conversation) ? <img src={contactAvatar(conversation)!} alt="" className="h-full w-full object-cover" /> : initials(name)}
                     </div>
-                    <div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2"><p className="truncate text-sm font-bold text-slate-900">{name}</p><div className="flex items-center gap-1.5"><span className="flex-shrink-0 text-[10px] text-slate-400">{formatRelativeTime(lastMessage?.createdAt || conversation.updatedAt || conversation.startedAt)}</span>{Boolean(conversation.unreadCount) && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-black text-white">{conversation.unreadCount}</span>}</div></div><p className="mt-0.5 truncate text-xs text-slate-500">{lastMessage?.content || 'Conversa iniciada'}</p><div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px] font-bold"><span className={`h-1.5 w-1.5 rounded-full ${conversation.status === 'RESOLVED' ? 'bg-slate-400' : conversation.status === 'PENDING' ? 'bg-amber-500' : converted ? 'bg-emerald-500' : 'bg-sky-500'}`} /><span className={conversation.status === 'RESOLVED' ? 'text-slate-500' : conversation.status === 'PENDING' ? 'text-amber-600' : converted ? 'text-emerald-600' : 'text-sky-600'}>{conversation.status === 'RESOLVED' ? 'Resolvida' : conversation.status === 'PENDING' ? 'Pendente' : converted ? 'Convertida' : 'Em andamento'}</span>{conversation.labels?.slice(0, 2).map((label) => <span key={label.id} className="rounded-full border px-1.5 py-0.5 font-semibold text-slate-600" style={{ borderColor: label.color, backgroundColor: `${label.color}18` }}>{label.name}</span>)}</div></div>
+                    <div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2"><p className="truncate text-sm font-bold text-slate-900">{name}</p><div className="flex items-center gap-1.5"><span className="flex-shrink-0 text-[10px] text-slate-400">{formatRelativeTime(lastMessage?.createdAt || conversation.updatedAt || conversation.startedAt)}</span>{Boolean(conversation.unreadCount) && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-black text-white">{conversation.unreadCount}</span>}</div></div><p className="mt-0.5 truncate text-xs text-slate-500">{lastMessage?.content || 'Conversa iniciada'}</p><div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px] font-bold"><span className={`h-1.5 w-1.5 rounded-full ${conversation.status === 'RESOLVED' ? 'bg-slate-400' : conversation.status === 'PENDING' ? 'bg-amber-500' : 'bg-sky-500'}`} /><span className={statusClass}>{statusLabel}</span><span className={converted ? 'text-emerald-600' : 'text-slate-400'}>{converted ? 'Convertida' : 'Em andamento'}</span>{conversation.labels?.slice(0, 2).map((label) => <span key={label.id} className="rounded-full border px-1.5 py-0.5 font-semibold text-slate-600" style={{ borderColor: label.color, backgroundColor: `${label.color}18` }}>{label.name}</span>)}</div></div>
                   </div>
                 </button>
               );
             })}
           </div>
+          {conversationTotalPages > 1 && (
+            <div className="flex items-center justify-between border-t border-slate-100 px-4 py-2">
+              <span className="text-[10px] font-semibold text-slate-400">Página {conversationPage} de {conversationTotalPages}</span>
+              <div className="flex gap-1">
+                <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs" disabled={conversationPage <= 1 || loading} onClick={() => setConversationPage((page) => page - 1)}>Anterior</Button>
+                <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs" disabled={conversationPage >= conversationTotalPages || loading} onClick={() => setConversationPage((page) => page + 1)}>Próxima</Button>
+              </div>
+            </div>
+          )}
         </aside>
 
         {selected ? (
@@ -786,7 +815,11 @@ const Conversations = () => {
               <div className="flex items-center gap-2">
                 {selected.serviceWindow?.isOfficial && <span className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold ${!officialWindowClosed ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}><Clock3 className="h-3.5 w-3.5" />{formatWindowRemaining(windowRemaining || 0)}</span>}
                 <Select value={selected.status || 'OPEN'} onValueChange={(value) => void updateConversationStatus(value as ConversationStatus)}>
-                  <SelectTrigger disabled={savingDetails} className="h-9 w-[125px] bg-white text-xs font-bold"><SelectValue /></SelectTrigger>
+                  <SelectTrigger disabled={savingDetails} className="h-9 w-[125px] bg-white text-xs font-bold">
+                    <SelectValue>
+                      {selected.status === 'PENDING' ? 'Pendente' : selected.status === 'RESOLVED' ? 'Resolvida' : 'Aberta'}
+                    </SelectValue>
+                  </SelectTrigger>
                   <SelectContent><SelectItem value="OPEN">Aberta</SelectItem><SelectItem value="PENDING">Pendente</SelectItem><SelectItem value="RESOLVED">Resolvida</SelectItem></SelectContent>
                 </Select>
                 <Select value={selected.agentId ? String(selected.agentId) : 'manual'} onValueChange={assignAgent}>
@@ -881,12 +914,11 @@ const Conversations = () => {
                         />
                       )}
                       {message.content && !/^\[(image|video|audio|sticker)\]$/.test(message.content) && <p className={`px-4 py-2.5 ${message.rawJson?.isSticker ? (incoming ? 'rounded-2xl bg-white text-slate-800' : 'rounded-2xl bg-slate-950 text-white') : ''}`}>{message.content}</p>}
-                    </div>
-                      <p className={`mt-1 text-[10px] text-slate-400 ${incoming ? 'text-left' : 'text-right'}`}>
+                      <p className={`flex items-center justify-end gap-1 px-3 pb-1 text-[10px] ${incoming ? 'text-slate-400' : 'text-slate-300'}`}>
                         {!incoming && (
                           <span
                             title={message.deliveryStatus === 'failed' ? message.errorMessage || undefined : undefined}
-                            className={`mr-1 font-bold ${message.deliveryStatus === 'failed' ? 'text-red-600' : 'text-sky-600'}`}
+                            className={`font-bold ${message.deliveryStatus === 'failed' ? 'text-red-300' : 'text-sky-300'}`}
                           >
                             {message.sender === 'bot' ? 'IA' : 'Voce'}
                             {message.deliveryStatus ? ` · ${message.deliveryStatus === 'read' ? 'lida' : message.deliveryStatus === 'delivered' ? 'entregue' : message.deliveryStatus === 'failed' ? 'falhou' : 'enviada'}` : ''}
@@ -894,6 +926,7 @@ const Conversations = () => {
                         )}
                         {format(messageDate(message), 'HH:mm')}
                       </p>
+                    </div>
                       {!incoming && message.deliveryStatus === 'failed' && message.errorMessage && (
                         <p className="mt-1 max-w-[260px] truncate text-right text-[10px] font-semibold text-red-600" title={message.errorMessage}>
                           {message.errorMessage}
@@ -955,11 +988,19 @@ const Conversations = () => {
                 <Select
                   value={selected.assignedProfessional ? `professional:${selected.assignedProfessional.id}` : selected.assignedUser ? `user:${selected.assignedUser.id}` : 'none:'}
                   onValueChange={(value) => void assignConversation(value)}
-                  disabled={savingDetails}
+                  disabled={savingDetails || !workspace.canManageConversations}
                 >
-                  <SelectTrigger className="bg-white"><SelectValue placeholder="Sem responsavel" /></SelectTrigger>
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="Sem responsável">
+                      {selected.assignedProfessional
+                        ? `${selected.assignedProfessional.name} · Profissional`
+                        : selected.assignedUser
+                          ? `${selected.assignedUser.name} · Equipe`
+                          : 'Sem responsável'}
+                    </SelectValue>
+                  </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none:">Sem responsavel</SelectItem>
+                    <SelectItem value="none:">Sem responsável</SelectItem>
                     {workspace.professionals.map((member) => <SelectItem key={`professional-${member.id}`} value={`professional:${member.id}`}>{member.name} · Profissional</SelectItem>)}
                     {workspace.users.map((member) => <SelectItem key={`user-${member.id}`} value={`user:${member.id}`}>{member.name} · Equipe</SelectItem>)}
                   </SelectContent>
@@ -992,23 +1033,39 @@ const Conversations = () => {
                     })}
                   </div>
                 ) : <p className="text-xs text-slate-500">Nenhuma etiqueta criada nesta clinica.</p>}
-                <div className="mt-3 flex gap-2">
-                  <input
-                    type="color"
-                    value={newLabelColor}
-                    onChange={(event) => setNewLabelColor(event.target.value)}
-                    className="h-10 w-11 cursor-pointer rounded-md border border-slate-200 bg-white p-1"
-                    aria-label="Cor da nova etiqueta"
-                  />
-                  <Input value={newLabelName} onChange={(event) => setNewLabelName(event.target.value)} placeholder="Nova etiqueta" maxLength={40} />
-                  <Button size="icon" variant="outline" onClick={() => void createConversationLabel()} disabled={!newLabelName.trim() || savingDetails} aria-label="Criar etiqueta"><Plus className="h-4 w-4" /></Button>
-                </div>
               </section>
 
             </div>
           )}
         </SheetContent>
       </Sheet>
+
+      <Dialog open={labelManagementOpen} onOpenChange={setLabelManagementOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Gerenciar etiquetas</DialogTitle>
+            <DialogDescription>Crie etiquetas da clínica aqui. Para aplicar uma etiqueta, abra uma conversa e selecione-a na seção de etiquetas.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <input
+                type="color"
+                value={newLabelColor}
+                onChange={(event) => setNewLabelColor(event.target.value)}
+                className="h-10 w-11 cursor-pointer rounded-md border border-slate-200 bg-white p-1"
+                aria-label="Cor da nova etiqueta"
+              />
+              <Input value={newLabelName} onChange={(event) => setNewLabelName(event.target.value)} placeholder="Nova etiqueta" maxLength={40} />
+              <Button size="icon" variant="outline" onClick={() => void createConversationLabel()} disabled={!newLabelName.trim() || savingDetails} aria-label="Criar etiqueta"><Plus className="h-4 w-4" /></Button>
+            </div>
+            {workspace.labels.length > 0 ? (
+              <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+                {workspace.labels.map((label) => <span key={label.id} className="flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold" style={{ borderColor: label.color, backgroundColor: `${label.color}18` }}><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: label.color }} />{label.name}</span>)}
+              </div>
+            ) : <p className="text-xs text-slate-500">Nenhuma etiqueta criada nesta clínica.</p>}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={Boolean(previewMedia)} onOpenChange={(open) => { if (!open) setPreviewMedia(null); }}>
         <DialogContent className="h-full w-full max-w-none grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden bg-slate-950 p-0 sm:h-[calc(100dvh-3rem)] sm:max-h-[calc(100dvh-3rem)] sm:w-[calc(100vw-3rem)] sm:max-w-[1500px] [&>button]:border-white/15 [&>button]:bg-slate-900 [&>button]:text-white [&>button]:hover:bg-slate-800">

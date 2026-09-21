@@ -187,6 +187,7 @@ router.get('/media/:campaignId/:index', async (req, res) => {
 
 // ─── Listar campanhas ───
 router.use(auth(), requireModule('campanhas'))
+router.use(auth(), actionPermissions('campanhas'))
 
 router.get('/', auth(), async (req, res) => {
   try {
@@ -1751,3 +1752,4 @@ export async function resumeInterruptedCampaigns() {
     }).catch((error) => console.error('[campaigns] resume failed:', error))
   }
 }
+import { actionPermissions } from '../middleware/action-permissions.js'

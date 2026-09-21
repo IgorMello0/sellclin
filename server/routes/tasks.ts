@@ -12,6 +12,7 @@ import { processCadenceTaskCompletion } from '../services/cadence.js'
 
 export const router = Router()
 router.use(auth(), requireModule('tarefas'))
+router.use(auth(), actionPermissions('tarefas'))
 
 // Helper para calcular a próxima data com base na regra de recorrência
 function getNextDueDate(currentDate: Date, rule: string): Date {
@@ -128,7 +129,7 @@ router.get('/', auth(), async (req, res) => {
     }
 
     // Se não for rota da equipe, restringe às tarefas atribuídas ou criadas pelo usuário
-    if (team !== 'true') {
+    if (team !== 'true' || !await hasActionPermission(req, 'tarefas', 'verTarefasAlheias')) {
       if (req.user?.type === 'usuario') {
         where.OR = [
           { assignedToUserId: professionalId },
@@ -347,7 +348,7 @@ router.put('/:id', auth(), async (req, res) => {
       include: { assignedTo: true, assignedToUser: true, createdBy: true, createdByUser: true, company: true }
     })
 
-    if (!existingTask) {
+    if (!existingTask || (!await hasActionPermission(req, 'tarefas', 'verTarefasAlheias') && !ownsTask(req.user!, existingTask))) {
       return res.status(404).json(createErrorResponse('Tarefa não encontrada', 404))
     }
 
@@ -558,7 +559,7 @@ router.delete('/:id', auth(), async (req, res) => {
       where: { id, companyId }
     })
 
-    if (!existingTask) {
+    if (!existingTask || (!await hasActionPermission(req, 'tarefas', 'verTarefasAlheias') && !ownsTask(req.user!, existingTask))) {
       return res.status(404).json(createErrorResponse('Tarefa não encontrada', 404))
     }
 
@@ -572,3 +573,9 @@ router.delete('/:id', auth(), async (req, res) => {
     res.status(500).json(createErrorResponse(error.message || 'Erro ao deletar tarefa', 500))
   }
 })
+import { actionPermissions, hasActionPermission } from '../middleware/action-permissions.js'
+function ownsTask(user: { id: number; type: string }, task: any) {
+  return user.type === 'usuario'
+    ? task.assignedToUserId === user.id || task.createdByUserId === user.id
+    : task.assignedToId === user.id || task.createdById === user.id
+}

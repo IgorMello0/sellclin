@@ -12,6 +12,7 @@ import { logAudit } from '../utils/audit.js'
 import { deleteAppointmentFromGoogle, syncAppointmentToGoogle } from '../services/google-calendar.js'
 
 export const router = Router()
+router.use(auth(), actionPermissions('agendamentos'))
 
 router.get('/', auth(), requireModule('agendamentos'), async (req, res) => {
   const { skip, take, page, pageSize } = parsePagination(req.query)
@@ -45,6 +46,11 @@ router.get('/', auth(), requireModule('agendamentos'), async (req, res) => {
   }
   if (clientId) where.clientId = Number(clientId)
   if (status) where.status = status
+  if (!await hasActionPermission(req, 'agendamentos', 'verAgendamentosAlheios')) {
+    where.OR = req.user!.type === 'usuario'
+      ? [{ sdrId: req.user!.id }, { especialistaId: req.user!.id }, { lead: { sdrId: req.user!.id } }, { lead: { closerId: req.user!.id } }]
+      : [{ professionalId: req.user!.id }]
+  }
 
   const [items, total] = await Promise.all([
     prisma.appointment.findMany({
@@ -607,3 +613,4 @@ router.delete('/:id', auth(), requireModule('agendamentos'), async (req, res) =>
   
   res.json(createSuccessResponse({ id }))
 })
+import { actionPermissions, hasActionPermission } from '../middleware/action-permissions.js'

@@ -66,6 +66,7 @@ export function NewAppointmentModal({
   initialServiceTags,
 }: NewAppointmentModalProps) {
   const { professional } = useAuth();
+  const allowAction = useActionPermission();
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(false);
@@ -247,6 +248,7 @@ export function NewAppointmentModal({
   };
 
   const handleSubmit = async () => {
+    if (!allowAction('agendamentos', 'criarAgendamentos')) return;
     if (!initialLeadId && (!selectedClient || selectedClient === "new")) {
       toast({ title: "Erro", description: "Selecione um paciente para o agendamento.", variant: "destructive" });
       return;
@@ -676,3 +678,4 @@ export function NewAppointmentModal({
     </Dialog>
   );
 }
+import { useActionPermission } from '@/hooks/use-action-permission';

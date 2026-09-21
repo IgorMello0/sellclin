@@ -15,8 +15,18 @@ import {
   sendVerificationEmail,
 } from '../services/email-verification.js'
 import { auth } from '../middleware/auth.js'
+import { changePassword } from '../services/change-password.js'
+import rateLimit from 'express-rate-limit'
 
 export const router = Router()
+router.post('/change-password', auth(), rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  keyGenerator: req => `${req.user!.type}:${req.user!.id}`,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => { res.status(429).json(createErrorResponse('Muitas tentativas. Aguarde antes de tentar novamente.', 429)) },
+}), changePassword)
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || ''
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID)

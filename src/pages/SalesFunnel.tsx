@@ -121,6 +121,7 @@ const initialLeads: Lead[] = [];
 
 const SalesFunnel = () => {
   const { professional } = useAuth();
+  const allowAction = useActionPermission();
   const [activeFunnel, setActiveFunnel] = useState('prospecting');
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
   const [isAddingLead, setIsAddingLead] = useState(false);
@@ -707,6 +708,8 @@ const SalesFunnel = () => {
 
   const movingLeads = useRef(new Set<string>());
   const moveLead = async (leadId: string, newStatus: string, proposalId?: number) => {
+    if (!allowAction('funnel', 'moverFases')) return;
+    if ((proposalId != null || ['comercial_closed', 'sales_payment', 'sales_contract', 'sales_post'].includes(newStatus)) && !allowAction('funnel', 'aprovarPropostas')) return;
     const id = String(leadId);
     if (movingLeads.current.has(id)) return false;
     movingLeads.current.add(id);
@@ -761,6 +764,7 @@ const SalesFunnel = () => {
   };
 
   const handleConfirmProposalSelection = async (proposalId: number) => {
+    if (!allowAction('funnel', 'aprovarPropostas')) return;
     if (!leadForProposalSelection) return;
     const saved = await moveLead(String(leadForProposalSelection.id), targetStageForSelection, proposalId);
     if (saved) {
@@ -1013,6 +1017,7 @@ const SalesFunnel = () => {
   };
 
   const handleExport = (formatType: string, scope: string) => {
+    if (!allowAction('clientes', 'exportarContatos')) return;
     const leadsToExport = scope === 'selected' 
       ? leads.filter(l => selectedLeadIds.includes(l.id))
       : leads; // or filteredLeads if they only want currently filtered
@@ -1054,6 +1059,7 @@ const SalesFunnel = () => {
   };
 
   const handleDeleteSelectedLeads = async () => {
+    if (!allowAction('funnel', 'excluirOportunidades')) return;
     if (selectedLeadIds.length === 0) return;
     
     try {
@@ -2085,3 +2091,4 @@ const SalesFunnel = () => {
 };
 
 export default SalesFunnel;
+import { useActionPermission } from '@/hooks/use-action-permission';

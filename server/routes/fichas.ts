@@ -6,6 +6,7 @@ import { assertClientBelongsToCompany, getCompanyOwnerProfessionalId } from '../
 
 export const router = Router()
 router.use(auth(), requireModule('clientes'))
+router.use(actionPermissions('clientes'))
 
 router.get('/', auth(), async (req, res) => {
   const { skip, take, page, pageSize } = parsePagination(req.query)
@@ -84,3 +85,4 @@ router.delete('/:id', auth(), async (req, res) => {
   await prisma.ficha.delete({ where: { id: current.id } })
   res.json(createSuccessResponse({ id }))
 })
+import { actionPermissions } from '../middleware/action-permissions.js'

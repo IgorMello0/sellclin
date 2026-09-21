@@ -26,7 +26,8 @@ const Appointments = () => {
   const [openModal, setOpenModal] = useState(false);
   const [quickViewAptId, setQuickViewAptId] = useState<number | null>(null);
   const { toast } = useToast();
-  const { professional } = useAuth();
+  const { professional, hasPermission } = useAuth();
+  const allowAction = useActionPermission();
 
   const [professionalsList, setProfessionalsList] = useState<any[]>([]);
   const [selectedProfFilter, setSelectedProfFilter] = useState<string>("");
@@ -164,8 +165,10 @@ const Appointments = () => {
   };
 
   const handleCheckApt = async (aptId: number) => {
+    if (!allowAction('agendamentos', 'editarAgendamentos')) return;
     try {
-      await appointmentsApi.update(aptId, { status: 'confirmado' });
+      const response = await appointmentsApi.update(aptId, { status: 'confirmado' });
+      if (!response.success) throw new Error(response.error?.message || 'Falha ao confirmar');
       loadAppointments();
       toast({ title: 'Confirmado!', description: 'Agendamento marcado como confirmado.' });
     } catch (e) {
@@ -243,7 +246,7 @@ const Appointments = () => {
             <span className="material-symbols-outlined text-lg">filter_list</span>
             <span className="hidden sm:inline">Filtros</span>
           </Button>
-          <Button id="apt-new-btn" variant="secondary" size="xl" onClick={() => setOpenModal(true)} className="shadow-lg shadow-secondary/20 h-9 sm:h-auto text-xs sm:text-sm">
+          <Button disabled={!hasPermission('agendamentos', 'criarAgendamentos')} id="apt-new-btn" variant="secondary" size="xl" onClick={() => setOpenModal(true)} className="shadow-lg shadow-secondary/20 h-9 sm:h-auto text-xs sm:text-sm">
             <span className="material-symbols-outlined text-base sm:text-lg">add</span>
             <span className="hidden sm:inline">Novo Agendamento</span>
             <span className="sm:hidden">Novo</span>
@@ -607,3 +610,4 @@ const Appointments = () => {
 };
 
 export default Appointments;
+import { useActionPermission } from '@/hooks/use-action-permission';

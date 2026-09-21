@@ -23,7 +23,8 @@ const Goals = () => {
   const [savedPlans, setSavedPlans] = useState<any[]>([]);
   const [actualMetrics, setActualMetrics] = useState({ sales: 0, revenue: 0 });
   const { toast } = useToast();
-  const { professional } = useAuth();
+  const { professional, hasPermission } = useAuth();
+  const allowAction = useActionPermission();
   
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [planName, setPlanName] = useState("");
@@ -66,7 +67,7 @@ const Goals = () => {
   const fetchPlans = async () => {
     if (!professional) return;
     try {
-      const response = await goalsApi.list(Number(professional.id));
+      const response = await goalsApi.list();
       if (response.success) setSavedPlans(response.data);
     } catch (error) {
       console.error('Erro ao buscar planos:', error);
@@ -74,6 +75,7 @@ const Goals = () => {
   };
 
   const handleSavePlan = async () => {
+    if (!allowAction('metas', 'gerenciarMetas')) return;
     console.log('Botão Salvar Plano clicado');
     console.log('Professional status:', professional);
     if (!professional) {
@@ -82,7 +84,6 @@ const Goals = () => {
     }
     try {
       const newPlan = {
-        professionalId: Number(professional.id),
         name: planName || `Plano ${format(new Date(), 'dd/MM/yy HH:mm')}`,
         revenueTarget,
         avgTicket,
@@ -117,6 +118,7 @@ const Goals = () => {
   };
 
   const handleDeletePlan = async (id: number) => {
+    if (!allowAction('metas', 'gerenciarMetas')) return;
     try {
       const response = await goalsApi.delete(id);
       if (response.success) {
@@ -490,7 +492,7 @@ const Goals = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsSaveModalOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSavePlan} className="bg-primary text-white">Salvar</Button>
+            <Button disabled={!hasPermission('metas', 'gerenciarMetas')} onClick={handleSavePlan} className="bg-primary text-white">Salvar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -499,3 +501,4 @@ const Goals = () => {
 };
 
 export default Goals;
+import { useActionPermission } from '@/hooks/use-action-permission';

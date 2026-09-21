@@ -4,6 +4,7 @@ import path from 'node:path'
 import { prisma } from '../prisma.js'
 import { updateWhatsAppMessageStatus } from './whatsapp-messages.js'
 import { getWhatsAppConnection } from './whatsapp-connections.js'
+import { chooseSdrForCompany } from './sdr-routing.js'
 
 type CompanyRef = {
   id: number
@@ -226,7 +227,7 @@ export function normalizePhone(raw: string): string {
 
 type WhatsAppPersistence = Pick<
   typeof prisma,
-  'empresa' | 'lead' | 'conversa' | 'mensagem' | 'leadActivity' | 'whatsAppWebhookEvent'
+  'empresa' | 'usuario' | 'lead' | 'conversa' | 'mensagem' | 'leadActivity' | 'whatsAppWebhookEvent'
 >
 
 type IncomingMediaType = 'image' | 'video' | 'audio'
@@ -1249,10 +1250,12 @@ async function persistWhatsAppMessage(
   let action: 'created' | 'existing' | 'duplicate_message' = 'existing'
 
   if (!lead) {
+    const sdrId = isIncoming ? await chooseSdrForCompany(db, companyId) : null
     lead = await db.lead.create({
       data: {
         professionalId: ownerId,
         companyId,
+        sdrId,
         name: pushName || 'Contato WhatsApp',
         phone,
         avatar: avatarUrl || null,
@@ -1272,12 +1275,22 @@ async function persistWhatsAppMessage(
     where: { phone, companyId },
   })
 
+  // Existing contacts may predate automatic routing. Route them when a new inbound
+  // message arrives, unless a manager has already assigned the conversation manually.
+  if (isIncoming && action === 'existing' && !lead.sdrId && !conversa?.assignedUserId && !conversa?.assignedProfessionalId) {
+    const sdrId = await chooseSdrForCompany(db, companyId)
+    if (sdrId) {
+      lead = await db.lead.update({ where: { id: lead.id }, data: { sdrId } })
+    }
+  }
+
   if (!conversa) {
     conversa = await db.conversa.create({
       data: {
         companyId,
         leadId: lead.id,
         professionalId: ownerId,
+        assignedUserId: lead.sdrId || null,
         phone,
         app: 'whatsapp',
         channel: origin,
@@ -1287,10 +1300,13 @@ async function persistWhatsAppMessage(
         unreadCount: 0,
       },
     })
-  } else if (!conversa.leadId) {
+  } else if (!conversa.leadId || (lead.sdrId && (conversa.assignedUserId !== lead.sdrId || conversa.assignedProfessionalId))) {
     conversa = await db.conversa.update({
       where: { id: conversa.id },
-      data: { leadId: lead.id },
+      data: {
+        leadId: lead.id,
+        ...(lead.sdrId ? { assignedUserId: lead.sdrId, assignedProfessionalId: null } : {}),
+      },
     })
   }
 

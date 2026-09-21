@@ -6,14 +6,19 @@ import { getCompanyOwnerProfessionalId } from '../services/tenant.js'
 
 export const router = Router()
 router.use(auth(), requireModule('metas'))
+router.use(auth(), actionPermissions('metas'))
+router.use((req, res, next) => {
+  if (!req.user?.companyId) return res.status(400).json(createErrorResponse('Clínica não definida', 400))
+  next()
+})
 
-// Listar metas do profissional
+// Listar metas da clínica ativa
 router.get('/', auth(), async (req, res) => {
   try {
-    const professionalId = await getCompanyOwnerProfessionalId(req.user?.companyId)
+    const companyId = req.user!.companyId!
 
     const items = await prisma.goal.findMany({
-      where: { professionalId },
+      where: { companyId },
       orderBy: { createdAt: 'desc' }
     })
     
@@ -45,6 +50,7 @@ router.post('/', auth(), async (req, res) => {
     const created = await prisma.goal.create({
       data: { 
         professionalId,
+        companyId: req.user!.companyId!,
         name, 
         revenueTarget: Number(revenueTarget), 
         avgTicket: Number(avgTicket), 
@@ -65,13 +71,12 @@ router.post('/', auth(), async (req, res) => {
 router.delete('/:id', auth(), async (req, res) => {
   try {
     const id = Number(req.params.id)
-    const professionalId = await getCompanyOwnerProfessionalId(req.user?.companyId)
-    const goal = await prisma.goal.findFirst({ where: { id, professionalId }, select: { id: true } })
-    if (!goal) return res.status(404).json(createErrorResponse('Meta não encontrada', 404))
-    await prisma.goal.delete({ where: { id: goal.id } })
+    const deleted = await prisma.goal.deleteMany({ where: { id, companyId: req.user!.companyId! } })
+    if (!deleted.count) return res.status(404).json(createErrorResponse('Meta não encontrada', 404))
     res.json(createSuccessResponse({ id }))
   } catch (error: any) {
     console.error('[Metas] Erro ao excluir meta:', error)
     res.status(500).json(createErrorResponse(error.message || 'Erro ao excluir meta', 500))
   }
 })
+import { actionPermissions } from '../middleware/action-permissions.js'

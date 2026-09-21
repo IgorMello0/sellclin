@@ -159,10 +159,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const hasPermission = (moduleCode: string, permissionKey: string): boolean => {
     if (!permissionsLoaded) return false;
     
-    // Admins e profissionais têm acesso irrestrito
-    const userRole = professional?.role;
+    // Usuários da equipe, inclusive administradores, respeitam as permissões do cargo.
     const type = localStorage.getItem('userType');
-    if (userRole === 'admin' || type === 'professional') return true;
+    if (type === 'professional') return true;
 
     const perms = Array.isArray(permissions) ? permissions : [];
     const permission = perms.find((p) => p.moduleCode === moduleCode);

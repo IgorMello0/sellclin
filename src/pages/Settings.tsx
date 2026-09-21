@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 import { Button } from '@/components/ui/button';
@@ -2005,6 +2006,8 @@ const ViewsMap: Record<string, React.FC<any>> = {
 };
 
 const Settings = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [selectedKey, setSelectedKey] = useState('profile');
   const { professional: authUser } = useAuth();
   const isOwner = authUser?.role === 'profissional' || authUser?.role === 'admin';
@@ -2058,19 +2061,21 @@ const Settings = () => {
   const ActiveView = selectedItem ? ViewsMap[selectedItem.key] : null;
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(location.search);
     const requestedTab = params.get('tab') || params.get('view');
     if (requestedTab && allItems.some(item => item.key === requestedTab)) {
       setSelectedKey(requestedTab);
+    } else {
+      setSelectedKey('profile');
     }
-  }, [isOwner]);
+  }, [isOwner, location.search]);
 
   const handleSelect = (item: SettingsItem) => {
     setSelectedKey(item.key);
     const url = new URL(window.location.href);
     url.searchParams.set('tab', item.key);
     url.searchParams.delete('view');
-    window.history.replaceState(null, '', `${url.pathname}${url.search}`);
+    navigate(`${url.pathname}${url.search}`, { replace: true });
   };
 
   return (

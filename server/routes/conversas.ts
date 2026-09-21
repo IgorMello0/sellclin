@@ -6,8 +6,30 @@ import { auth, requireModule } from '../middleware/auth.js'
 import { createErrorResponse, createSuccessResponse, parsePagination } from '../utils/response.js'
 import { sendUazapiRequest } from '../services/uazapi-whatsapp.js'
 import { sendMetaTemplateMessage } from '../services/whatsapp-messages.js'
+import { conversationScope } from '../services/conversation-access.js'
 
 export const router = Router()
+router.use(auth())
+
+router.param('id', async (req, res, next, value) => {
+  if (!req.user || !Number.isInteger(Number(value)) || Number(value) <= 0) {
+    res.status(404).json(createErrorResponse('Conversa nao encontrada', 404))
+    return
+  }
+  try {
+    const scope = await conversationScope(req.user)
+    const visible = await prisma.conversa.findFirst({ where: { ...scope.where, id: Number(value) }, select: { id: true } })
+    if (!visible) {
+      res.status(404).json(createErrorResponse('Conversa nao encontrada', 404))
+      return
+    }
+    if (req.method === 'POST' && req.path.endsWith('/assign') && !scope.canManage) {
+      res.status(403).json(createErrorResponse('Apenas gestores podem transferir conversas', 403))
+      return
+    }
+    next()
+  } catch (error) { next(error) }
+})
 
 type MetaUploadedMedia = {
   id: string
@@ -31,7 +53,7 @@ function getActor(req: any) {
 const conversationInclude = {
   agent: true,
   client: true,
-  lead: true,
+  lead: { include: { sdr: { select: { id: true, name: true, email: true } } } },
   professional: true,
   assignedProfessional: { select: { id: true, name: true, email: true } },
   assignedUser: { select: { id: true, name: true, email: true } },
@@ -198,6 +220,8 @@ function getMetaWindow(messages: Array<{ sender: string; createdAt: Date }>, pro
 function withConversationState(item: any) {
   return {
     ...item,
+    assignedUser: item.lead?.sdr || item.assignedUser,
+    assignedProfessional: item.lead?.sdrId ? null : item.assignedProfessional,
     labels: Array.isArray(item.labels) ? item.labels.map((entry: any) => entry.label) : [],
     whatsappProvider: item.company?.whatsappProvider || null,
     serviceWindow: getMetaWindow(item.mensagens || [], item.company?.whatsappProvider),
@@ -215,7 +239,8 @@ router.get('/', auth(), requireModule('conversas'), async (req, res) => {
     return res.json(createSuccessResponse([], { page, pageSize, total: 0 }));
   }
 
-  const where: any = { companyId }
+  const scope = await conversationScope(req.user!)
+  const where: any = { ...scope.where }
   const andFilters: any[] = []
   if (agentId) where.agentId = Number(agentId)
   if (clientId) where.clientId = Number(clientId)
@@ -226,11 +251,14 @@ router.get('/', auth(), requireModule('conversas'), async (req, res) => {
   const parsedLabelId = Number(labelId)
   if (Number.isInteger(parsedLabelId) && parsedLabelId > 0) where.labels = { some: { labelId: parsedLabelId } }
   if (assignment === 'unassigned') {
-    where.assignedProfessionalId = null
-    where.assignedUserId = null
+    andFilters.push({ assignedProfessionalId: null, OR: [{ lead: { is: { sdrId: null } } }, { leadId: null, assignedUserId: null }] })
   } else if (assignment === 'mine') {
     if (req.user?.type === 'profissional') where.assignedProfessionalId = Number(req.user.id)
-    if (req.user?.type === 'usuario') where.assignedUserId = Number(req.user.id)
+    if (req.user?.type === 'usuario') andFilters.push({ OR: [
+      { lead: { sdrId: Number(req.user.id) } },
+      { leadId: null, assignedUserId: Number(req.user.id) },
+      { lead: { sdrId: null }, assignedUserId: Number(req.user.id) },
+    ] })
   }
 
   const convertedCondition = {
@@ -309,7 +337,8 @@ router.get('/workspace', auth(), requireModule('conversas'), async (req, res) =>
     .filter(Boolean)
     .filter((item, index, all) => all.findIndex((candidate) => candidate?.id === item?.id) === index)
 
-  return res.json(createSuccessResponse({ labels, professionals, users }))
+  const scope = await conversationScope(req.user!)
+  return res.json(createSuccessResponse({ labels, professionals, users, canManageConversations: scope.canManage }))
 })
 
 router.post('/labels', auth(), requireModule('conversas'), async (req, res) => {
@@ -414,7 +443,7 @@ router.post('/:id/assign', auth(), requireModule('conversas'), async (req, res) 
   const companyId = getCompanyId(req)
   const assigneeType = req.body?.assigneeType ? String(req.body.assigneeType) : null
   const assigneeId = Number(req.body?.assigneeId) || null
-  const conversation = await prisma.conversa.findFirst({ where: { id: conversationId, companyId: companyId || -1 }, select: { id: true } })
+  const conversation = await prisma.conversa.findFirst({ where: { id: conversationId, companyId: companyId || -1 }, select: { id: true, leadId: true } })
   if (!conversation) return res.status(404).json(createErrorResponse('Conversa nao encontrada', 404))
 
   let assignedProfessionalId: number | null = null
@@ -438,6 +467,9 @@ router.post('/:id/assign', auth(), requireModule('conversas'), async (req, res) 
   }
 
   const updated = await prisma.$transaction(async (tx) => {
+    if (conversation.leadId) {
+      await tx.lead.update({ where: { id: conversation.leadId }, data: { sdrId: assignedUserId } })
+    }
     const item = await tx.conversa.update({
       where: { id: conversationId },
       data: { assignedProfessionalId, assignedUserId },
@@ -783,6 +815,7 @@ router.post('/', auth(), requireModule('conversas'), async (req, res) => {
         agentId: agentId ? Number(agentId) : null, 
         clientId: clientId ? Number(clientId) : null, 
         professionalId, 
+        assignedUserId: req.user?.type === 'usuario' ? req.user.id : null,
         app, 
         channel, 
         startedAt: startedAt ? new Date(startedAt) : new Date() 

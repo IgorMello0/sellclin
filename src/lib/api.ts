@@ -521,7 +521,7 @@ async function apiRequest<T>(
   }
 
   try {
-    if (import.meta.env.DEV) console.log('[API] Request:', { url, method: options.method || 'GET', body: options.body })
+    if (import.meta.env.DEV) console.log('[API] Request:', { url, method: options.method || 'GET' })
 
     const method = String(options.method || 'GET').toUpperCase()
     const maxAttempts = method === 'GET' ? 2 : 1
@@ -864,7 +864,7 @@ export const billingApi = {
 // -- Módulo de Empresas movido para o final do arquivo --
 // Metas
 export const goalsApi = {
-  list: async (professionalId?: number) => apiRequest<any[]>(`/metas?professionalId=${professionalId || ''}`),
+  list: async () => apiRequest<any[]>('/metas'),
   create: async (data: any) => apiRequest<any>('/metas', { method: 'POST', body: JSON.stringify(data) }),
   delete: async (id: number) => apiRequest<any>(`/metas/${id}`, { method: 'DELETE' }),
 }
@@ -959,8 +959,8 @@ export const whatsappUazapiApi = {
 }
 
 export const conversationsApi = {
-  list: async (filters?: { status?: string; assignment?: string; labelId?: number; conversion?: 'in_progress' | 'converted'; search?: string }) => {
-    const query = new URLSearchParams({ page: '1', pageSize: '100' })
+  list: async (filters?: { status?: string; assignment?: string; labelId?: number; conversion?: 'in_progress' | 'converted'; search?: string; page?: number; pageSize?: number }) => {
+    const query = new URLSearchParams({ page: String(filters?.page || 1), pageSize: String(filters?.pageSize || 100) })
     if (filters?.status) query.set('status', filters.status)
     if (filters?.assignment) query.set('assignment', filters.assignment)
     if (filters?.labelId) query.set('labelId', String(filters.labelId))

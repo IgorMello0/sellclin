@@ -39,6 +39,7 @@ export function ProposalDialog({
   targetType = 'lead'
 }: ProposalDialogProps) {
   const { toast } = useToast();
+  const allowAction = useActionPermission();
   const [allProfessionals, setAllProfessionals] = useState<any[]>([]);
   const [specialists, setSpecialists] = useState<any[]>([]);
   const [closers, setClosers] = useState<any[]>([]);
@@ -148,6 +149,7 @@ export function ProposalDialog({
   };
 
   const handleSaveProposal = async () => {
+    if (!allowAction('funnel', 'criarPropostas')) return;
     if (!lead || saving.current) return;
 
     // Validar campos obrigatórios dinamicamente (só cobra se existem pessoas com a flag)
@@ -527,3 +529,4 @@ export function ProposalDialog({
     </>
   );
 }
+import { useActionPermission } from '@/hooks/use-action-permission';

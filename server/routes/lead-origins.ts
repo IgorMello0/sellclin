@@ -4,6 +4,7 @@ import { prisma } from '../prisma.js'
 
 const router = Router()
 router.use(auth(), requireModule('funnel'))
+router.use(ownerConfiguration)
 
 const DEFAULT_ORIGINS = [
   { value: 'instagram', label: 'Instagram' },
@@ -164,3 +165,4 @@ router.delete('/:id', auth(), async (req: any, res) => {
 })
 
 export { router as leadOriginsRouter }
+import { ownerConfiguration } from '../middleware/action-permissions.js'

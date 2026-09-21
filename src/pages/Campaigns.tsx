@@ -169,7 +169,8 @@ function downloadSpreadsheetTemplate() {
 }
 
 export default function Campaigns() {
-  const { professional } = useAuth();
+  const { professional, hasPermission } = useAuth();
+  const allowAction = useActionPermission();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -442,6 +443,7 @@ export default function Campaigns() {
   };
 
   const handleCreate = async () => {
+    if (!allowAction('campanhas', 'criarCampanhas')) return;
     if (!name.trim() || !audienceType || !campaignProvider) {
       toast({ title: 'Preencha todos os campos', variant: 'destructive' }); return;
     }
@@ -526,6 +528,7 @@ export default function Campaigns() {
   };
 
   const handleSend = async (id: number) => {
+    if (!allowAction('campanhas', 'criarCampanhas')) return;
     try {
       const campaign = campaigns.find(item => item.id === id);
       const totalRecipients = Number(campaign?.totalRecipients || campaign?._count?.recipients || 0);
@@ -574,6 +577,7 @@ export default function Campaigns() {
   };
 
   const handleDelete = async (id: number) => {
+    if (!allowAction('campanhas', 'excluirCampanhas')) return;
     try {
       const res = await campaignsApi.delete(id);
       if (res.success) { toast({ title: 'Campanha excluída' }); loadCampaigns(); }
@@ -690,7 +694,7 @@ export default function Campaigns() {
           <h1 className="text-2xl sm:text-3xl font-extrabold text-primary tracking-tight">Campanhas</h1>
           <p className="text-sm text-muted-foreground mt-1">Dispare mensagens automáticas para leads e clientes via WhatsApp.</p>
         </div>
-        <Button onClick={() => setIsCreating(true)} className="bg-secondary hover:bg-secondary/90 text-white rounded-xl px-6 h-11 font-bold shadow-lg shadow-secondary/20">
+        <Button disabled={!hasPermission('campanhas', 'criarCampanhas')} onClick={() => setIsCreating(true)} className="bg-secondary hover:bg-secondary/90 text-white rounded-xl px-6 h-11 font-bold shadow-lg shadow-secondary/20">
           <span className="material-symbols-outlined mr-2 text-lg">campaign</span>
           Nova Campanha
         </Button>
@@ -1864,3 +1868,4 @@ export default function Campaigns() {
     </div>
   );
 }
+import { useActionPermission } from '@/hooks/use-action-permission';

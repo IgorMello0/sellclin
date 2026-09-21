@@ -49,6 +49,7 @@ export function AppointmentQuickView({ appointmentId, isOpen, onClose, onUpdate 
   const { toast } = useToast();
   const navigate = useNavigate();
   const { professional } = useAuth();
+  const allowAction = useActionPermission();
 
   useEffect(() => {
     if (isOpen && appointmentId) {
@@ -74,6 +75,7 @@ export function AppointmentQuickView({ appointmentId, isOpen, onClose, onUpdate 
   };
 
   const handleDeleteConfirm = async () => {
+    if (!allowAction('agendamentos', 'cancelarAgendamentos')) return;
     if (!appointmentId) return;
     setSaving(true);
     try {
@@ -94,10 +96,12 @@ export function AppointmentQuickView({ appointmentId, isOpen, onClose, onUpdate 
   };
 
   const handleSave = async () => {
+    if (!allowAction('agendamentos', 'editarAgendamentos')) return;
+    if (tempStatus === 'cancelado' && !allowAction('agendamentos', 'cancelarAgendamentos')) return;
     if (!data) return;
     setSaving(true);
     try {
-      await appointmentsApi.update(data.id, { 
+      const response = await appointmentsApi.update(data.id, {
         status: tempStatus,
         notes: tempNotes,
         // Mantemos os outros dados
@@ -108,6 +112,7 @@ export function AppointmentQuickView({ appointmentId, isOpen, onClose, onUpdate 
         endTime: data.endTime
       });
       
+      if (!response.success) throw new Error(response.error?.message || 'Falha ao salvar as alterações.');
       onUpdate();
       toast({ title: 'Sucesso!', description: 'Agendamento atualizado com sucesso.' });
       onClose();
@@ -426,3 +431,4 @@ export function AppointmentQuickView({ appointmentId, isOpen, onClose, onUpdate 
     </Dialog>
   );
 }
+import { useActionPermission } from '@/hooks/use-action-permission';

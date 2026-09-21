@@ -5,6 +5,7 @@ import { createErrorResponse, createSuccessResponse, parsePagination } from '../
 import { logAudit } from '../utils/audit.js'
 
 export const router = Router()
+router.use(auth(), actionPermissions('clientes'))
 
 router.get('/', auth(), requireModule('clientes'), async (req, res) => {
   try {
@@ -556,3 +557,4 @@ router.post('/:id/send-to-funnel', auth(), requireModule('clientes'), async (req
     res.status(500).json(createErrorResponse(error.message || 'Erro ao enviar para o funil', 500));
   }
 });
+import { actionPermissions } from '../middleware/action-permissions.js'

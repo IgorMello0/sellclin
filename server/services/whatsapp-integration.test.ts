@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { buildMetaConnectUrl, verifyMetaState } from './meta-whatsapp.js'
-import { handleMetaMessages, handleUazapiPayload } from './whatsapp-integration.js'
+import { handleMetaMessages, handleUazapiPayload, processIncomingMessage } from './whatsapp-integration.js'
+import { chooseSdrForCompany } from './sdr-routing.js'
 
 type RecordData = Record<string, any>
 
-function createFakeDatabase(options: { failFirstMessageCreate?: boolean } = {}) {
+function createFakeDatabase(options: { failFirstMessageCreate?: boolean; routingMode?: string; sdrs?: Array<{ id: number; leadRoutingWeight: number }> } = {}) {
   const state = {
     leads: [] as RecordData[],
     conversations: [] as RecordData[],
@@ -22,8 +23,10 @@ function createFakeDatabase(options: { failFirstMessageCreate?: boolean } = {}) 
 
   const db = {
     empresa: {
+      findUnique: async () => ({ leadRoutingMode: options.routingMode || 'manual' }),
       findFirst: async () => null,
     },
+    usuario: { findMany: async () => options.sdrs || [] },
     lead: {
       findFirst: async ({ where }: any) => state.leads.find(
         (lead) => lead.phone === where.phone && lead.companyId === where.companyId,
@@ -31,6 +34,12 @@ function createFakeDatabase(options: { failFirstMessageCreate?: boolean } = {}) 
       create: async ({ data }: any) => {
         const lead = { id: nextLeadId++, ...data }
         state.leads.push(lead)
+        return lead
+      },
+      update: async ({ where, data }: any) => {
+        const lead = state.leads.find((item) => item.id === where.id)
+        if (!lead) throw new Error('Lead not found')
+        Object.assign(lead, data)
         return lead
       },
     },
@@ -257,6 +266,62 @@ test('WhatsApp Oficial cria lead, conversa e mensagem sem duplicar retry', async
   assert.equal(state.activities.length, 1)
 })
 
+test('novo lead do WhatsApp recebe SDR e a conversa acompanha o mesmo responsavel', async () => {
+  const { db, state } = createFakeDatabase({ routingMode: 'automatic_equal', sdrs: [{ id: 42, leadRoutingWeight: 1 }] })
+  const input = { companyId: 5, ownerId: 10, phone: '5511999000000', pushName: 'Mateus', messageText: 'Oi', rawPayload: {}, origin: 'WhatsApp' }
+  await processIncomingMessage(input, db)
+  assert.equal(state.leads[0].sdrId, 42)
+  assert.equal(state.conversations[0].assignedUserId, 42)
+  await processIncomingMessage({ ...input, messageText: 'Outra mensagem' }, db)
+  assert.equal(state.leads.length, 1)
+  assert.equal(state.conversations.length, 1)
+  assert.equal(state.conversations[0].assignedUserId, 42)
+})
+
+test('roleta igual distribui entre os SDRs configurados', async () => {
+  const { db } = createFakeDatabase({ routingMode: 'automatic_equal', sdrs: [
+    { id: 11, leadRoutingWeight: 1 }, { id: 12, leadRoutingWeight: 1 }, { id: 13, leadRoutingWeight: 1 },
+  ] })
+  const originalRandom = Math.random
+  try {
+    Math.random = () => 0
+    assert.equal(await chooseSdrForCompany(db, 5), 11)
+    Math.random = () => 0.5
+    assert.equal(await chooseSdrForCompany(db, 5), 12)
+    Math.random = () => 0.99
+    assert.equal(await chooseSdrForCompany(db, 5), 13)
+  } finally {
+    Math.random = originalRandom
+  }
+})
+
+test('lead existente mantem seu SDR e atualiza conversa antiga para ele', async () => {
+  const { db, state } = createFakeDatabase({ routingMode: 'automatic_equal', sdrs: [{ id: 99, leadRoutingWeight: 1 }] })
+  state.leads.push({ id: 7, companyId: 5, phone: '5511888000000', sdrId: 17 })
+  state.conversations.push({ id: 8, companyId: 5, phone: '5511888000000', leadId: 7, assignedUserId: null })
+  await processIncomingMessage({ companyId: 5, ownerId: 10, phone: '5511888000000', pushName: 'Existente', messageText: 'Oi', rawPayload: {}, origin: 'WhatsApp' }, db)
+  assert.equal(state.leads[0].sdrId, 17)
+  assert.equal(state.conversations[0].assignedUserId, 17)
+})
+
+test('contato antigo sem responsavel recebe SDR quando envia nova mensagem', async () => {
+  const { db, state } = createFakeDatabase({ routingMode: 'automatic_equal', sdrs: [{ id: 44, leadRoutingWeight: 1 }] })
+  state.leads.push({ id: 7, companyId: 5, phone: '5511888000000', sdrId: null })
+  state.conversations.push({ id: 8, companyId: 5, phone: '5511888000000', leadId: 7, assignedUserId: null, assignedProfessionalId: null })
+  await processIncomingMessage({ companyId: 5, ownerId: 10, phone: '5511888000000', pushName: 'Existente', messageText: 'Oi', rawPayload: {}, origin: 'WhatsApp' }, db)
+  assert.equal(state.leads[0].sdrId, 44)
+  assert.equal(state.conversations[0].assignedUserId, 44)
+})
+
+test('mensagem nova preserva responsavel manual quando o lead antigo nao tem SDR', async () => {
+  const { db, state } = createFakeDatabase({ routingMode: 'automatic_equal', sdrs: [{ id: 99, leadRoutingWeight: 1 }] })
+  state.leads.push({ id: 7, companyId: 5, phone: '5511888000000', sdrId: null })
+  state.conversations.push({ id: 8, companyId: 5, phone: '5511888000000', leadId: 7, assignedUserId: 17 })
+  await processIncomingMessage({ companyId: 5, ownerId: 10, phone: '5511888000000', pushName: 'Existente', messageText: 'Oi', rawPayload: {}, origin: 'WhatsApp' }, db)
+  assert.equal(state.leads[0].sdrId, null)
+  assert.equal(state.conversations[0].assignedUserId, 17)
+})
+
 test('Coexistencia usa configuracao dedicada e recebe pelo pipeline oficial', async () => {
   process.env.META_APP_ID = 'meta-app-test'
   process.env.META_APP_SECRET = 'meta-secret-test'
@@ -446,6 +511,8 @@ test('WhatsApp Nao Oficial cria lead e ignora mensagem repetida', async () => {
   const firstResult = await handleUazapiPayload(payload, company, db)
   const retryResult = await handleUazapiPayload(payload, company, db)
 
+  assert.ok('action' in firstResult)
+  assert.ok('action' in retryResult)
   assert.equal(firstResult.action, 'created')
   assert.equal(retryResult.action, 'duplicate_message')
   assert.equal(state.leads.length, 1)

@@ -94,6 +94,7 @@ const Leads = () => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { professional } = useAuth();
+  const allowAction = useActionPermission();
   const navigate = useNavigate();
   
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -149,6 +150,7 @@ const Leads = () => {
   };
 
   const handleBulkDelete = async () => {
+    if (!allowAction('funnel', 'excluirOportunidades')) return;
     try {
       const response = await leadsApi.bulkDelete(selectedIds);
       if (response.success) {
@@ -1317,3 +1319,4 @@ const Leads = () => {
 };
 
 export default Leads;
+import { useActionPermission } from '@/hooks/use-action-permission';
