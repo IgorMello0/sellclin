@@ -28,7 +28,6 @@ import {
   Loader2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import InfoNegocioView from './settings/InfoNegocioView';
 import FunnelsSettingsView from './settings/FunnelsSettingsView';
 import CadenceSettingsView from './settings/CadenceSettingsView';
 import LeadStatusesSettingsView from './settings/LeadStatusesSettingsView';

@@ -693,9 +693,10 @@ router.delete('/:id', auth(), async (req, res) => {
 router.get('/:id/progress', auth(), async (req, res) => {
   try {
     const id = Number(req.params.id)
+    const { companyId } = resolveIds(req)
 
-    const campaign = await prisma.messageCampaign.findUnique({
-      where: { id },
+    const campaign = await prisma.messageCampaign.findFirst({
+      where: { id, companyId: companyId || -1 },
       select: {
         id: true,
         status: true,
