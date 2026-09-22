@@ -47,8 +47,11 @@ export function actionPermissions(module: string) {
     if (module === 'funnel' && write) {
       if (method === 'DELETE' && /^\/(\d+|bulk)\/?$/.test(path)) check('excluirOportunidades')
       if (path.includes('/proposals')) {
-        check('criarPropostas')
-        if (body.status === 'accepted') check('aprovarPropostas')
+        if (path.endsWith('/reopen-sale')) check('aprovarPropostas')
+        else {
+          check('criarPropostas')
+          if (body.status === 'accepted') check('aprovarPropostas')
+        }
       }
       if (path.endsWith('/confirm-payment')) check('aprovarPropostas')
       if ((method === 'PUT' || method === 'PATCH') && /^\/\d+\/?$/.test(path)) {

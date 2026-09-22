@@ -8,11 +8,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { leadsApi, tasksApi, clientsApi, usuariosApi } from '@/lib/api';
-import { Edit2, Phone, Mail, FileText, CheckSquare, History, Plus, Loader2, ArrowRight, X, Trash2, Calendar, MapPin, CheckCircle2, Circle } from 'lucide-react';
+import { Edit2, Phone, Mail, FileText, CheckSquare, History, Plus, Loader2, ArrowRight, X, Trash2, Calendar, MapPin, CheckCircle2, Circle, Check, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ProposalDialog } from './ProposalDialog';
 import { ProposalViewer } from '@/components/ProposalViewer';
+import { ConfirmPaymentModal } from '@/components/ConfirmPaymentModal';
+import { cn } from '@/lib/utils';
+import { useActionPermission } from '@/hooks/use-action-permission';
+
+const getPriorityLabel = (priority: string) => ({ low: 'Baixa', medium: 'Média', high: 'Alta', urgent: 'Urgente' }[priority] || priority);
 
 export interface LeadDossierModalProps {
   lead: any;
@@ -26,9 +31,10 @@ export interface LeadDossierModalProps {
 
 export const LeadDossierModal = ({ lead: initialLead, open, onOpenChange, onUpdate, professional, services, funnelList = [] }: LeadDossierModalProps) => {
   const { toast } = useToast();
+  const allowAction = useActionPermission();
   const [selectedLead, setSelectedLead] = useState<any>(initialLead);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedFunnelForEdit, setSelectedFunnelForEdit] = useState(initialLead?.status || "");
+  const [selectedFunnelForEdit, setSelectedFunnelForEdit] = useState("");
   const [isCreatingProposal, setIsCreatingProposal] = useState(false);
 
   const [activeDetailsTab, setActiveDetailsTab] = useState("activities");
@@ -55,6 +61,41 @@ export const LeadDossierModal = ({ lead: initialLead, open, onOpenChange, onUpda
   const [selectedProposal, setSelectedProposal] = useState<any>(null);
   const [isLoadingProposals, setIsLoadingProposals] = useState(false);
   const [editingProposal, setEditingProposal] = useState<any>(null);
+  const [closingProposal, setClosingProposal] = useState<any>(null);
+  const [cancellingProposalId, setCancellingProposalId] = useState<number | null>(null);
+  const editStages = funnelList.find(f => String(f.code || f.id) === String(selectedFunnelForEdit))?.stages || [];
+  const stageValue = editStages.some((stage: any) => stage.code === selectedLead?.status) ? selectedLead.status : '';
+
+  const handleSaveNote = async () => {
+    if (!selectedLead || !noteText.trim()) return;
+    try {
+      const result = await leadsApi.addActivity(Number(selectedLead.id), { type: 'nota', content: noteText.trim(), createdBy: professional?.name || 'Usuário' });
+      if (!result.success) throw new Error(result.error?.message || 'Não foi possível salvar a nota.');
+      setNoteText('');
+      await loadLeadDetails(String(selectedLead.id));
+      onUpdate?.();
+      toast({ title: 'Nota salva' });
+    } catch (error: any) {
+      toast({ title: 'Erro ao salvar nota', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const cancelProposalSale = async (proposal: any) => {
+    if (!allowAction('funnel', 'aprovarPropostas')) return;
+    if (!selectedLead || !window.confirm(`Cancelar o fechamento da proposta "${proposal.title}"? O histórico será preservado.`)) return;
+    setCancellingProposalId(proposal.id);
+    try {
+      const result = await leadsApi.reopenProposalSale(Number(selectedLead.id), Number(proposal.id));
+      if (!result.success) throw new Error(result.error?.message || 'Não foi possível cancelar a venda.');
+      await loadLeadDetails(String(selectedLead.id));
+      onUpdate?.();
+      toast({ title: 'Venda cancelada', description: 'Somente o fechamento desta proposta foi cancelado.' });
+    } catch (error: any) {
+      toast({ title: 'Erro ao cancelar venda', description: error.message, variant: 'destructive' });
+    } finally {
+      setCancellingProposalId(null);
+    }
+  };
   
   const isAdminOrGestor = professional?.role === 'profissional' || ['admin', 'manager', 'gestor', 'administrador'].some(r => 
     professional?.role?.toLowerCase().includes(r) || professional?.specialization?.toLowerCase().includes(r)
@@ -65,13 +106,14 @@ export const LeadDossierModal = ({ lead: initialLead, open, onOpenChange, onUpda
   useEffect(() => {
     if (open && initialLead) {
       setSelectedLead(initialLead);
-      setSelectedFunnelForEdit(initialLead.status || "");
-      loadLeadDetails(initialLead.id);
+      const leadFunnel = funnelList.find(f => f.stages?.some((stage: any) => stage.code === initialLead.status));
+      setSelectedFunnelForEdit(String(leadFunnel?.code || leadFunnel?.id || ''));
+      loadLeadDetails(String(initialLead.id));
       loadTeam();
     } else {
       setSelectedLead(null);
     }
-  }, [open, initialLead]);
+  }, [open, initialLead, funnelList]);
 
   const loadTeam = async () => {
     try {
@@ -96,14 +138,14 @@ export const LeadDossierModal = ({ lead: initialLead, open, onOpenChange, onUpda
   const loadLeadDetails = async (id: string) => {
     setIsLoading(true);
     try {
-      const [activitiesRes, proposalsRes, tasksRes] = await Promise.all([
-        leadsApi.getActivities(id),
-        leadsApi.getProposals(id),
+      const [leadRes, proposalsRes, tasksRes] = await Promise.all([
+        leadsApi.getById(Number(id)),
+        leadsApi.getProposals(Number(id)),
         tasksApi.getAll({ leadId: Number(id) })
       ]);
       
-      if (activitiesRes.success) {
-        setSelectedLead((prev: any) => prev ? { ...prev, activities: activitiesRes.data } : null);
+      if (leadRes.success) {
+        setSelectedLead((prev: any) => prev ? { ...prev, ...leadRes.data } : null);
       }
       if (proposalsRes.success) {
         setLeadProposals(proposalsRes.data);
@@ -248,7 +290,7 @@ export const LeadDossierModal = ({ lead: initialLead, open, onOpenChange, onUpda
           ...prev,
           activities: (prev.activities || []).filter(act => act.id !== activityId)
         } : null);
-        loadLeads();
+        onUpdate?.();
       } else {
         toast({ title: "Erro ao excluir", description: res.error?.message, variant: "destructive" });
       }
@@ -272,7 +314,7 @@ export const LeadDossierModal = ({ lead: initialLead, open, onOpenChange, onUpda
           )
         } : null);
         setEditingActivityId(null);
-        loadLeads();
+        onUpdate?.();
       } else {
         toast({ title: "Erro ao atualizar", description: res.error?.message, variant: "destructive" });
       }
@@ -301,7 +343,7 @@ export const LeadDossierModal = ({ lead: initialLead, open, onOpenChange, onUpda
         setNewTaskDescription("");
         setNewTaskPriority("medium");
         setNewTaskDate("");
-        loadTasks(Number(selectedLead.id));
+        await loadLeadDetails(String(selectedLead.id));
         toast({ title: "Tarefa adicionada com sucesso" });
       } else {
         toast({ title: "Erro ao adicionar tarefa", description: res.error?.message || "Permissão negada ou erro interno", variant: "destructive" });
@@ -429,7 +471,7 @@ export const LeadDossierModal = ({ lead: initialLead, open, onOpenChange, onUpda
                                   if (res.success) {
                                     toast({ title: "Estágio do lead atualizado!" });
                                     setSelectedLead({ ...selectedLead, status: newStatus });
-                                    loadLeads();
+                                    onUpdate?.();
                                   }
                                 } catch (e) {
                                   toast({ title: "Erro ao atualizar estágio", variant: "destructive" });
@@ -837,14 +879,16 @@ export const LeadDossierModal = ({ lead: initialLead, open, onOpenChange, onUpda
                             </Button>
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {leadProposals.map((proposal) => (
+                            {leadProposals.map((proposal) => {
+                              const hasActiveSale = proposal.sales?.some((sale: any) => !sale.voidedAt);
+                              return (
                               <div 
                                 key={proposal.id} 
                                 className="group bg-white rounded-2xl border border-slate-100 p-6 shadow-sm hover:shadow-md hover:border-secondary/20 transition-all cursor-pointer relative overflow-hidden"
                                 onClick={() => handleViewProposal(proposal)}
                               >
                                 <div className="absolute top-0 right-0 p-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  {isAdminOrGestor && (
+                                  {isAdminOrGestor && !hasActiveSale && (
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -867,10 +911,10 @@ export const LeadDossierModal = ({ lead: initialLead, open, onOpenChange, onUpda
                                   <div className="space-y-1">
                                     <div className="flex items-center gap-2">
                                       <h5 className="font-bold text-primary text-sm line-clamp-1">{proposal.title}</h5>
-                                      {proposal.status === 'accepted' && (
+                                      {hasActiveSale && (
                                         <span className="flex items-center gap-1 bg-green-50 text-green-600 text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wider whitespace-nowrap">
                                           <CheckCircle2 className="w-3 h-3" />
-                                          Paga
+                                          Venda confirmada
                                         </span>
                                       )}
                                     </div>
@@ -892,8 +936,17 @@ export const LeadDossierModal = ({ lead: initialLead, open, onOpenChange, onUpda
                                     </p>
                                   </div>
                                 </div>
+                                <div className="mt-4 flex gap-2" onClick={(event) => event.stopPropagation()}>
+                                  {hasActiveSale ? (
+                                    <Button variant="outline" size="sm" disabled={cancellingProposalId === proposal.id} onClick={() => cancelProposalSale(proposal)}>
+                                      {cancellingProposalId === proposal.id ? 'Cancelando...' : 'Cancelar esta venda'}
+                                    </Button>
+                                  ) : proposal.status !== 'rejected' && proposal.status !== 'lost' ? (
+                                    <Button size="sm" onClick={() => { if (allowAction('funnel', 'aprovarPropostas')) setClosingProposal(proposal); }}>Fechar esta proposta</Button>
+                                  ) : null}
+                                </div>
                               </div>
-                            ))}
+                            );})}
 
                             {leadProposals.length === 0 && !isLoadingProposals && (
                               <div className="col-span-2 text-center py-20 bg-slate-50/50 rounded-3xl border-2 border-dashed border-slate-200">
@@ -1043,6 +1096,17 @@ export const LeadDossierModal = ({ lead: initialLead, open, onOpenChange, onUpda
         }}
         proposal={selectedProposal}
         lead={selectedLead}
+      />
+      <ConfirmPaymentModal
+        open={Boolean(closingProposal)}
+        onOpenChange={(value) => { if (!value) setClosingProposal(null); }}
+        leadId={selectedLead?.id ? String(selectedLead.id) : null}
+        leadValue={Number(closingProposal?.value || 0)}
+        proposalId={closingProposal?.id || null}
+        onSuccess={() => {
+          if (selectedLead?.id) loadLeadDetails(String(selectedLead.id));
+          onUpdate?.();
+        }}
       />
       
       <ProposalDialog 

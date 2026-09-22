@@ -165,6 +165,8 @@ model Lead {
   closer               Usuario?       @relation("LeadCloser", fields: [closerId], references: [id])
   especialista         Usuario?       @relation("LeadEspecialista", fields: [especialistaId], references: [id])
   proposals            Proposal[]
+  sales                Sale[]
+  payments             Payment[]
   tasks                Task[]
   conversas            Conversa[]
 
@@ -202,11 +204,32 @@ model Proposal {
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
   lead               Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  sales              Sale[]
   salesperson        Usuario? @relation("SalespersonProposals", fields: [salespersonId], references: [id])
   specialist         Usuario? @relation("SpecialistProposals", fields: [specialistId], references: [id])
   sdr                Usuario? @relation("SdrProposals", fields: [sdrId], references: [id])
 
   @@map("proposals")
+}
+
+model Sale {
+  id           Int       @id @default(autoincrement())
+  leadId       Int       @map("lead_id")
+  proposalId   Int?      @map("proposal_id")
+  legacyLeadId Int?      @unique @map("legacy_lead_id")
+  companyId    Int?      @map("company_id")
+  amount       Decimal   @db.Decimal(10, 2)
+  confirmedAt  DateTime  @default(now()) @map("confirmed_at")
+  voidedAt     DateTime? @map("voided_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  lead         Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  proposal     Proposal? @relation(fields: [proposalId], references: [id], onDelete: SetNull)
+  payments     Payment[]
+
+  @@index([companyId, confirmedAt])
+  @@index([leadId, voidedAt])
+  @@index([proposalId, voidedAt])
+  @@map("sales")
 }
 
 model Category {
@@ -290,6 +313,9 @@ model AppointmentLog {
 model Payment {
   id              Int           @id @default(autoincrement())
   appointmentId   Int?          @map("appointment_id")
+  leadId          Int?          @map("lead_id")
+  saleId          Int?          @map("sale_id")
+  saleVoidedAt    DateTime?     @map("sale_voided_at")
   clientId        Int           @map("client_id")
   professionalId  Int           @map("professional_id")
   amount          Decimal       @db.Decimal(10, 2)
@@ -301,10 +327,14 @@ model Payment {
   updatedAt       DateTime      @updatedAt @map("updated_at")
   companyId       Int?          @map("company_id")
   appointment     Appointment?  @relation(fields: [appointmentId], references: [id])
+  lead            Lead?         @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  sale            Sale?         @relation(fields: [saleId], references: [id], onDelete: SetNull)
   client          Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
   company         Empresa?      @relation(fields: [companyId], references: [id])
   professional    Professional  @relation(fields: [professionalId], references: [id])
 
+  @@index([leadId])
+  @@index([saleId])
   @@map("payments")
 }
 

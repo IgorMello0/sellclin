@@ -149,8 +149,15 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
     // Attended: 'prospect_attended' + todos do commercial
     const attendedStages = ['prospect_attended', ...finalCommercialStages];
 
-    // Closed: 'comercial_closed' + hardcodes históricos
-    const closedStages = Array.from(new Set(['comercial_closed', 'sales_payment', 'sales_contract', 'sales_post']));
+    const proposalWhere: any = {
+      lead: buildLeadWhere([]),
+      createdAt: { gte: startDate, lt: endDate },
+    };
+    const saleWhere: any = {
+      lead: buildLeadWhere([]),
+      confirmedAt: { gte: startDate, lt: endDate },
+      voidedAt: null,
+    };
 
     // 3. Consultas em Paralelo para Performance
     const [
@@ -163,7 +170,10 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
       faturamentoPorMetodo,
       funilStatus,
       origemData,
-      faturamentoFechadoAgg
+      faturamentoFechadoAgg,
+      fechadosNoFunil,
+      leadsQueCompraram,
+      propostasConvertidas
     ] = await Promise.all([
       // 1. Total de Novos Leads (Criados no período)
       prisma.lead.count({ where: baseWhere }),
@@ -179,20 +189,16 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
       }),
       
       // 4. Oportunidades (Leads em Proposta ou superior no período)
-      prisma.lead.count({ 
-        where: buildLeadWhere(finalCommercialStages, 'proposalAt') 
-      }),
+      prisma.proposal.count({ where: proposalWhere }),
       
       // 5. Faturamento Total (Tudo que foi orçado - Leads em Proposta ou superior - Total histórico ou período)
-      prisma.lead.aggregate({
+      prisma.proposal.aggregate({
         _sum: { value: true },
-        where: buildLeadWhere(finalCommercialStages, 'proposalAt')
+        where: proposalWhere
       }),
 
       // 6. Total de Vendas Fechadas (Mudaram para status de fechamento no período)
-      prisma.lead.count({
-        where: buildLeadWhere(closedStages, 'closedAt')
-      }),
+      prisma.sale.count({ where: saleWhere }),
 
       // 7. Faturamento por Método (Baseado na tabela de Pagamentos - O MAIS PRECISO)
       prisma.payment.groupBy({
@@ -202,6 +208,7 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
           professionalId: { in: professionalIds }, 
           ...(companyId && { companyId }),
           createdAt: { gte: startDate, lt: endDate },
+          saleVoidedAt: null,
           ...paymentExtraFilters
         }
       }),
@@ -221,16 +228,16 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
       }),
 
       // 11. Faturamento Fechado (Valor dos leads que viraram fechamento no periodo)
-      prisma.lead.aggregate({
-        _sum: { value: true },
-        where: buildLeadWhere(closedStages, 'closedAt')
-      })
+      prisma.sale.aggregate({ _sum: { amount: true }, where: saleWhere }),
+      prisma.lead.count({ where: { ...buildLeadWhere([], 'createdAt'), sales: { some: { voidedAt: null } } } }),
+      prisma.lead.count({ where: { ...buildLeadWhere([], 'createdAt'), sales: { some: { confirmedAt: { gte: startDate, lt: endDate }, voidedAt: null } } } }),
+      prisma.proposal.count({ where: { ...proposalWhere, sales: { some: { voidedAt: null } } } })
     ]);
 
     // Cálculo da Receita Real
     // Regra: Boleto (transferencia) no entra na Receita Total nem no Faturamento Total. Carto, Pix e Dinheiro entram sempre (pago ou pendente).
     let faturamentoOrcado = Number(faturamentoTotalAgg._sum.value) || 0;
-    let faturamentoFechado = Number(faturamentoFechadoAgg._sum.value) || 0;
+    let faturamentoFechado = Number(faturamentoFechadoAgg._sum.amount) || 0;
     
     // 4. KPIs de Eficiência Matemáticos
     
@@ -246,12 +253,12 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
       
     // Taxa de Conversão de Leads: Vendas Fechadas / Total de Leads
     const conversaoLeads = leadsCount > 0 
-      ? ((leadsFechados / leadsCount) * 100) 
+      ? ((leadsQueCompraram / leadsCount) * 100)
       : 0;
 
     // Taxa de Conversão por Quantidade de Propostas: Vendas Fechadas / Oportunidades (Propostas)
     const conversaoPropostas = oportunidades > 0
-      ? ((leadsFechados / oportunidades) * 100)
+      ? ((propostasConvertidas / oportunidades) * 100)
       : 0;
 
     // Taxa de Conversao Financeira: Faturamento Fechado / Faturamento Orcado
@@ -275,9 +282,11 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
         by: ['clientId', 'appointmentId'],
         where: {
           method: 'transferencia',
+          status: { in: ['pago', 'pendente'] },
           professionalId: { in: professionalIds },
           ...(companyId && { companyId }),
           createdAt: { gte: startDate, lt: endDate },
+          saleVoidedAt: null,
           ...paymentExtraFilters
         },
         _count: { id: true }
@@ -293,7 +302,7 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
     // Processamento dos Agrupamentos (Sub-Métricas)
     const metodos = hasBillingPermission ? {
       boleto: {
-        gerados: faturamentoPorMetodo.filter(m => m.method === 'transferencia').reduce((acc, curr) => acc + (Number(curr._sum.amount) || 0), 0)
+        gerados: faturamentoPorMetodo.filter(m => m.method === 'transferencia' && ['pago', 'pendente'].includes(m.status)).reduce((acc, curr) => acc + (Number(curr._sum.amount) || 0), 0)
         // Removido boleto.pagos conforme solicitado
       },
       cartao: faturamentoPorMetodo.filter(m => m.method === 'cartao' && ['pago', 'pendente'].includes(m.status)).reduce((acc, curr) => acc + (Number(curr._sum.amount) || 0), 0),
@@ -319,7 +328,7 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
         if (ignoredStages.length === 0) ignoredStages.push('prospect_lead', 'prospect_qualified');
         return !ignoredStages.includes(s.status);
       }).reduce((acc, curr) => acc + curr._count.id, 0),
-      fechados: funilStatus.filter(s => closedStages.includes(s.status)).reduce((acc, curr) => acc + curr._count.id, 0),
+      fechados: fechadosNoFunil,
     };
 
     const origemMap = new Map<string, { origin: string, count: number }>();

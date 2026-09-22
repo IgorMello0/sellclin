@@ -60,7 +60,7 @@ function matches(row: any, where: any): boolean {
 
 const lead = (id: number, fields = {}) => ({
   id, professionalId: 1, companyId: 2, sdrId: 8, closerId: 9, proposals: [], value: 100,
-  status: 'comercial_closed', createdAt: new Date('2026-09-05T12:00:00Z'),
+  status: 'comercial_closed', isPaid: true, createdAt: new Date('2026-09-05T12:00:00Z'),
   attendedAt: new Date('2026-09-06T12:00:00Z'), proposalAt: new Date('2026-09-07T12:00:00Z'),
   closedAt: new Date('2026-09-08T12:00:00Z'), origin: 'Google', ...fields,
 })
@@ -69,6 +69,10 @@ async function execute(options: { query?: any; user?: any; globalRole?: any; act
   const calls: Array<{ model: string; where: any }> = []
   const rows = options.leads || [lead(1), lead(2, { sdrId: 5 })]
   const queryRows = (where: any) => rows.filter(row => matches(row, where))
+  const proposals = rows.flatMap(row => row.proposals.map((proposal: any) => ({ ...proposal, lead: row })))
+  const sales = rows.flatMap(row => (row.sales || []).map((sale: any) => ({ ...sale, lead: row })))
+  const queryProposals = (where: any) => proposals.filter(row => matches(row, where))
+  const querySales = (where: any) => sales.filter(row => matches(row, where))
   const db = {
     professional: { findMany: async () => [{ id: 1 }] },
     empresa: { findUnique: async () => ({ ownerId: 1 }) },
@@ -85,6 +89,14 @@ async function execute(options: { query?: any; user?: any; globalRole?: any; act
         return [...groups].map(([key, count]) => ({ [by[0]]: key, _count: { id: count } }))
       },
     },
+    proposal: {
+      count: async ({ where }: any) => queryProposals(where).length,
+      aggregate: async ({ where }: any) => ({ _sum: { value: queryProposals(where).reduce((sum, row) => sum + Number(row.value), 0) } }),
+    },
+    sale: {
+      count: async ({ where }: any) => querySales(where).length,
+      aggregate: async ({ where }: any) => ({ _sum: { amount: querySales(where).reduce((sum, row) => sum + Number(row.amount), 0) } }),
+    },
     appointment: { count: async ({ where }: any) => { calls.push({ model: 'appointment', where }); return 0 } },
     payment: { groupBy: async ({ where }: any) => { calls.push({ model: 'payment', where }); return [] } },
   }
@@ -99,6 +111,33 @@ async function execute(options: { query?: any; user?: any; globalRole?: any; act
 }
 
 describe('dashboard access and metrics', () => {
+  it('counts a closed sale only after its payment method is confirmed', async () => {
+    const confirmedAt = new Date('2026-09-08T12:00:00Z')
+    const { body } = await execute({ leads: [lead(1, { isPaid: false }), lead(2, { isPaid: true, sales: [{ amount: 100, confirmedAt, voidedAt: null }] })], activeRole: { isManager: true, permissions: [] } })
+    assert.equal(body.data.contratos, 1)
+    assert.equal(body.data.faturamentoFechado, 100)
+    assert.equal(body.data.funil.fechados, 1)
+  })
+  it('counts each proposal and each active sale independently for the same lead', async () => {
+    const createdAt = new Date('2026-09-08T12:00:00Z')
+    const rows = [lead(1, {
+      proposals: [
+        { id: 10, value: 300, createdAt, sales: [{ voidedAt: null }] },
+        { id: 11, value: 500, createdAt, sales: [{ voidedAt: null }] },
+        { id: 12, value: 200, createdAt, sales: [] },
+      ],
+      sales: [
+        { amount: 300, confirmedAt: createdAt, voidedAt: null },
+        { amount: 500, confirmedAt: createdAt, voidedAt: null },
+      ],
+    })]
+    const { body } = await execute({ leads: rows, activeRole: { isManager: true, permissions: [] } })
+    assert.equal(body.data.oportunidades, 3)
+    assert.equal(body.data.faturamento, 1000)
+    assert.equal(body.data.contratos, 2)
+    assert.equal(body.data.faturamentoFechado, 800)
+    assert.equal(body.data.funil.fechados, 1)
+  })
   it('never loses leads when expanding a contained period with the same team filters', async () => {
     const timestamps = [
       '2026-08-15T23:59:59.999-03:00', // before every selected period

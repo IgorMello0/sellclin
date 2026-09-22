@@ -13,10 +13,11 @@ let lead: any;
 let proposals: any[];
 let clients: any[];
 let payments: any[];
+let sales: any[];
 let activities: any[];
 let failure: string | null;
-const snapshot = () => structuredClone({ lead, proposals, clients, payments, activities });
-function restore(s: ReturnType<typeof snapshot>) { ({ lead, proposals, clients, payments, activities } = s); }
+const snapshot = () => structuredClone({ lead, proposals, clients, payments, sales, activities });
+function restore(s: ReturnType<typeof snapshot>) { ({ lead, proposals, clients, payments, sales, activities } = s); }
 async function call(method: string, path: string, body: any, proposalId = '101') {
   const route = router.stack.find((layer: any) => layer.route?.path === path && layer.route.methods[method])!.route;
   const res: any = { code: 200, status(code: number) { this.code = code; return this; }, json(result: any) { this.result = result; return this; } };
@@ -26,9 +27,9 @@ async function call(method: string, path: string, body: any, proposalId = '101')
 
 beforeEach(() => {
   failure = null;
-  lead = { id: 1, professionalId: 7, companyId: 2, name: 'Teste', phone: '11999990000', status: 'comercial_proposal', value: 900, sdrId: 5, closerId: null, convertedToClientId: null, closedAt: null };
+  lead = { id: 1, professionalId: 7, companyId: 2, name: 'Teste', phone: '11999990000', status: 'comercial_proposal', value: 900, sdrId: 5, closerId: null, convertedToClientId: null, closedAt: null, isPaid: false };
   proposals = [{ id: 101, leadId: 1, title: 'Escolhida', value: 350, status: 'pending' }, { id: 999, leadId: 99, value: 900, status: 'pending' }];
-  clients = []; payments = []; activities = [];
+  clients = []; payments = []; sales = []; activities = [];
   Object.assign(state.db, {
     $queryRaw: vi.fn().mockResolvedValue([]),
     $transaction: vi.fn(async (fn: any) => { const before = snapshot(); try { return await fn(state.db); } catch (error) { restore(before); throw error; } }),
@@ -47,10 +48,21 @@ beforeEach(() => {
         Object.assign(found, data); return { ...found };
       }),
       create: vi.fn(async ({ data }) => { if (data.title === 'Fail') throw new Error('write failed'); const p = { id: 102 + proposals.length, ...data }; proposals.push(p); return p; }),
-      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+      updateMany: vi.fn(async ({ where, data }) => { const matching = proposals.filter(p => p.leadId === where.leadId && p.status === where.status); matching.forEach(p => Object.assign(p, data)); return { count: matching.length }; }),
     },
     client: { create: vi.fn(async ({ data }) => { const c = { id: 20 + clients.length, ...data }; clients.push(c); return c; }) },
-    payment: { create: vi.fn(async ({ data }) => { if (payments.length === 1 && failure === 'payment') throw new Error('write failed'); payments.push(data); return data; }) },
+    payment: {
+      create: vi.fn(async ({ data }) => { if (payments.length === 1 && failure === 'payment') throw new Error('write failed'); payments.push(data); return data; }),
+      updateMany: vi.fn(async ({ where, data }) => { const matching = payments.filter(p => p.saleId === where.saleId); matching.forEach(p => Object.assign(p, data)); return { count: matching.length }; }),
+    },
+    sale: {
+      findFirst: vi.fn(async ({ where, orderBy }: any) => {
+        const matching = sales.filter(s => Object.entries(where).every(([key, value]) => s[key] === value));
+        return orderBy ? matching.at(-1) || null : matching[0] || null;
+      }),
+      create: vi.fn(async ({ data }: any) => { const item = { id: 1 + sales.length, voidedAt: null, ...data }; sales.push(item); return item; }),
+      update: vi.fn(async ({ where, data }: any) => { const item = sales.find(s => s.id === where.id); Object.assign(item, data); return item; }),
+    },
     leadActivity: { create: vi.fn(async ({ data }) => { activities.push(data); return data; }) },
     appointment: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
   });
@@ -88,7 +100,7 @@ describe('funnel transactions and access', () => {
   it('closes with the selected proposal value and converts once', async () => {
     const res = await call('put', '/:id', { status: 'comercial_closed', proposalId: 101 });
     expect(res.result.success).toBe(true); expect(lead.value).toBe(350); expect(clients).toHaveLength(1);
-    expect(proposals[0].status).toBe('accepted'); expect(lead.convertedToClientId).toBe(20);
+    expect(proposals[0].status).toBe('pending'); expect(lead.convertedToClientId).toBe(20); expect(lead.isPaid).toBe(false);
   });
   it('rolls back acceptance, client and history if moving the lead fails', async () => {
     failure = 'lead'; const before = snapshot();
@@ -107,6 +119,51 @@ describe('funnel transactions and access', () => {
     failure = 'payment'; const before = snapshot();
     const res = await call('post', '/:id/confirm-payment', { proposalId: 101, payments: [1, 2].map(() => ({ amount: 175, date: '2026-09-14', method: 'pix' })) });
     expect(res.result.success).toBe(false); expect(snapshot()).toEqual(before);
+  });
+  it('rejects an amount different from the selected proposal and creates no payments', async () => {
+    const res = await call('post', '/:id/confirm-payment', { proposalId: 101, payments: [{ amount: 300, date: '2026-09-14', method: 'pix' }] });
+    expect(res.result.success).toBe(false); expect(payments).toHaveLength(0); expect(lead.isPaid).toBe(false);
+  });
+  it('accepts cent-exact installments after a discount and counts the net sale value', async () => {
+    proposals[0].value = 100;
+    const res = await call('post', '/:id/confirm-payment', {
+      proposalId: 101, discountValue: 10, discountPercentage: 10, justification: 'Negociação',
+      payments: [30.01, 30, 29.99].map(amount => ({ amount, date: '2026-09-14', method: 'pix' })),
+    });
+    expect(res.result.success).toBe(true); expect(lead.value).toBe(90); expect(lead.isPaid).toBe(true);
+  });
+  it('keeps one proposal sale when a second proposal sale is cancelled', async () => {
+    proposals.push({ id: 102, leadId: 1, title: 'Outro procedimento', value: 200, status: 'pending' });
+    const first = await call('post', '/:id/confirm-payment', { proposalId: 101, payments: [{ amount: 350, date: '2026-09-14', method: 'pix' }] });
+    const second = await call('post', '/:id/confirm-payment', { proposalId: 102, payments: [{ amount: 200, date: '2026-09-14', method: 'pix' }] });
+    expect(first.result.success).toBe(true); expect(second.result.success).toBe(true);
+    expect(sales).toHaveLength(2);
+    const cancelled = await call('post', '/:id/proposals/:proposalId/reopen-sale', {}, '102');
+    expect(cancelled.result.success).toBe(true);
+    expect(sales[0].voidedAt).toBeNull(); expect(sales[1].voidedAt).toBeInstanceOf(Date);
+    expect(payments[0].saleVoidedAt).toBeUndefined(); expect(payments[1].saleVoidedAt).toBeInstanceOf(Date);
+    expect(lead.isPaid).toBe(true); expect(proposals[0].status).toBe('accepted'); expect(proposals[2].status).toBe('pending');
+  });
+  it('confirms once, keeps the sale on stage movement, and cancels only the selected proposal sale', async () => {
+    await call('put', '/:id', { status: 'comercial_closed', proposalId: 101 });
+    const body = { proposalId: 101, payments: [{ amount: 175, date: '2026-09-14', method: 'boleto', status: 'pendente' }, { amount: 175, date: '2026-10-14', method: 'boleto', status: 'pendente' }] };
+    expect((await call('post', '/:id/confirm-payment', body)).result.success).toBe(true);
+    expect(lead.isPaid).toBe(true); expect(payments).toHaveLength(2);
+    expect(payments.every(p => p.status === 'pendente' && p.leadId === 1)).toBe(true);
+    expect((await call('post', '/:id/confirm-payment', body)).result.success).toBe(false);
+    expect(payments).toHaveLength(2);
+    await call('put', '/:id', { status: 'comercial_negotiation' });
+    expect(lead.isPaid).toBe(true); expect(sales[0].voidedAt).toBeNull();
+    await call('post', '/:id/proposals/:proposalId/reopen-sale', {});
+    expect(lead.isPaid).toBe(false); expect(sales[0].voidedAt).toBeInstanceOf(Date);
+    expect(payments.every(p => p.status === 'pendente' && p.saleVoidedAt instanceof Date)).toBe(true);
+    expect(proposals[0].status).toBe('pending');
+  });
+  it('also preserves the sale when moved from closed to lost', async () => {
+    await call('put', '/:id', { status: 'comercial_closed', proposalId: 101 });
+    await call('post', '/:id/confirm-payment', { proposalId: 101, payments: [{ amount: 350, date: '2026-09-14', method: 'pix' }] });
+    await call('put', '/:id', { status: 'comercial_lost' });
+    expect(lead.isPaid).toBe(true); expect(payments[0].saleVoidedAt).toBeUndefined();
   });
   it('rolls back a partially failed proposal batch and can retry without duplication', async () => {
     const before = snapshot();

@@ -34,6 +34,8 @@ const PAYMENT_STATUS_ALIASES: Record<string, 'pago' | 'pendente' | 'atrasado' | 
   cancelled: 'cancelado',
 }
 
+const toCents = (value: unknown) => Math.round(Number(value) * 100)
+
 async function assertLeadAccess(leadId: number, reqUser: any) {
   const companyId = reqUser?.companyId;
   if (!companyId) return { error: true, status: 403, message: 'Clínica não identificada' };
@@ -390,7 +392,6 @@ router.post('/:id/activities', auth(), async (req, res) => {
     if (access.error) return res.status(access.status).json(createErrorResponse(access.message, access.status));
     const _checkEntity = access.lead;
     const _companyId = _checkEntity.companyId;
-
     const { type, content, createdBy } = req.body
 
     const activity = await prisma.leadActivity.create({
@@ -463,7 +464,8 @@ router.get('/:id/proposals', auth(), async (req, res) => {
       where: { leadId: id },
       include: {
         specialist: true,
-        salesperson: true
+        salesperson: true,
+        sales: { orderBy: { confirmedAt: 'desc' } },
       },
       orderBy: { createdAt: 'desc' }
     })
@@ -511,6 +513,8 @@ router.put('/:id/proposals/:proposalId', auth(), async (req, res) => {
     if (access.error) return res.status(access.status).json(createErrorResponse(access.message, access.status));
     const _checkEntity = access.lead;
     const _companyId = _checkEntity.companyId;
+    const existingSale = await prisma.sale.findFirst({ where: { proposalId: Number(req.params.proposalId), voidedAt: null }, select: { id: true } });
+    if (existingSale) return res.status(409).json(createErrorResponse('Cancele esta venda antes de editar a proposta confirmada.', 409));
 
     const proposalId = Number(req.params.proposalId)
     const { title, value, validUntil, salespersonId, specialistId, sdrId, tags, justification, discountApplied, stage, status } = req.body
@@ -561,6 +565,42 @@ router.put('/:id/proposals/:proposalId', auth(), async (req, res) => {
   }
 })
 
+// Reopen one sale without changing other procedures sold to the same lead.
+router.post('/:id/proposals/:proposalId/reopen-sale', auth(), async (req, res) => {
+  try {
+    const id = Number(req.params.id)
+    const proposalId = Number(req.params.proposalId)
+    const access = await assertLeadAccess(id, req.user)
+    if (access.error) return res.status(access.status).json(createErrorResponse(access.message, access.status))
+    const result = await prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM leads WHERE id = ${id} FOR UPDATE`
+      const sale = await tx.sale.findFirst({ where: { leadId: id, proposalId, voidedAt: null } })
+      if (!sale) throw new Error('Venda ativa não encontrada para esta proposta.')
+      const now = new Date()
+      await tx.sale.update({ where: { id: sale.id }, data: { voidedAt: now } })
+      await tx.payment.updateMany({ where: { saleId: sale.id }, data: { saleVoidedAt: now } })
+      await tx.proposal.update({ where: { id: proposalId, leadId: id }, data: { status: 'pending' } })
+      await tx.leadActivity.create({ data: {
+        leadId: id,
+        type: 'system',
+        content: `Venda da proposta #${proposalId} cancelada. O registro original foi preservado.`,
+        createdBy: String(req.user?.id || 'Sistema'),
+      } })
+      const remaining = await tx.sale.findFirst({ where: { leadId: id, voidedAt: null }, orderBy: { confirmedAt: 'desc' } })
+      await tx.lead.update({ where: { id }, data: {
+        isPaid: Boolean(remaining),
+        closedAt: remaining?.confirmedAt || null,
+        subStatus: remaining ? 'won' : null,
+        ...(remaining ? { value: remaining.amount } : {}),
+      } })
+      return { saleId: sale.id, remainingSales: Boolean(remaining) }
+    })
+    res.json(createSuccessResponse(result))
+  } catch (error: any) {
+    res.status(400).json(createErrorResponse(error.message || 'Erro ao reabrir venda', 400))
+  }
+})
+
 
 // Atualizar lead
 router.put('/:id', auth(), async (req, res) => {
@@ -573,7 +613,7 @@ router.put('/:id', auth(), async (req, res) => {
     const data = req.body
 
     // Map snake_case to camelCase if needed for Prisma
-    const editableFields = ['name', 'value', 'origin', 'avatar', 'status', 'phone', 'email', 'responsible', 'isScheduled', 'is_scheduled', 'tags', 'contactCount', 'discountApplied', 'discount_applied', 'justification', 'remarketingProposals', 'remarketing_proposals', 'isPaid', 'notes', 'subStatus', 'sdrId', 'closerId', 'especialistaId'];
+    const editableFields = ['name', 'value', 'origin', 'avatar', 'status', 'phone', 'email', 'responsible', 'isScheduled', 'is_scheduled', 'tags', 'contactCount', 'discountApplied', 'discount_applied', 'justification', 'remarketingProposals', 'remarketing_proposals', 'notes', 'subStatus', 'sdrId', 'closerId', 'especialistaId'];
     const prismaData: any = Object.fromEntries(Object.entries(data).filter(([key]) => editableFields.includes(key)));
 
     if (data.especialistaId !== undefined) {
@@ -587,9 +627,6 @@ router.put('/:id', auth(), async (req, res) => {
       delete prismaData.is_scheduled
     }
     if (data.value !== undefined) prismaData.value = Number(data.value)
-    if (data.isPaid !== undefined) {
-      prismaData.isPaid = Boolean(data.isPaid)
-    }
     if (data.discount_applied !== undefined) {
       prismaData.discountApplied = Boolean(data.discount_applied)
       delete prismaData.discount_applied
@@ -615,7 +652,10 @@ router.put('/:id', auth(), async (req, res) => {
 
       if (data.proposalId !== undefined) {
         if (!['comercial_closed', 'sales_payment', 'sales_contract', 'sales_post'].includes(prismaData.status)) throw new Error('Selecione uma etapa de fechamento.');
-        const proposal = await tx.proposal.update({ where: { id: Number(data.proposalId), leadId: id }, data: { status: 'accepted' } });
+        const proposal = await tx.proposal.findFirst({ where: { id: Number(data.proposalId), leadId: id } });
+        if (!proposal || proposal.status === 'rejected') throw new Error('Proposta indisponível para fechamento.');
+        const existingSale = await tx.sale.findFirst({ where: { proposalId: proposal.id, voidedAt: null }, select: { id: true } });
+        if (existingSale) throw new Error('Esta proposta já foi fechada. Escolha outra proposta.');
         prismaData.value = proposal.value;
       }
 
@@ -685,16 +725,11 @@ router.put('/:id', auth(), async (req, res) => {
           });
         }
 
-        // 3. Se voltou para antes de Fechado (Comercial ou ProspecÃ§Ã£o)
-        const beforeClosedStatuses = [
-          'prospect_lead', 'prospect_qualified', 'prospect_scheduled',
-          'prospect_attended', 'comercial_lead', 'comercial_consult', 'comercial_proposal', 'comercial_follow', 'comercial_negotiation'
-        ];
-        if (beforeClosedStatuses.includes(newStatus)) {
-          // Preserve the existing client when reopening a sale.
+        // Moving the lead does not cancel individual sales; each sale is managed by proposal.
+        const closingStatuses = ['comercial_closed', 'sales_payment', 'sales_contract', 'sales_post'];
+        if (!currentLead.isPaid && closingStatuses.includes(currentLead.status) && !closingStatuses.includes(newStatus)) {
           prismaData.closedAt = null;
           if (currentLead.subStatus === 'won') prismaData.subStatus = null;
-          prismaData.isPaid = false; // resetar flag de pago
         }
       }
 
@@ -803,6 +838,7 @@ router.post('/:id/confirm-payment', auth(), async (req, res) => {
     const invalidPayment = normalizedPayments.find((payment: any) => (
       !Number.isFinite(payment.amount)
       || payment.amount <= 0
+      || payment.status === 'cancelado'
       || !payment.method
       || !payment.status
       || Number.isNaN(payment.date.getTime())
@@ -817,8 +853,31 @@ router.post('/:id/confirm-payment', auth(), async (req, res) => {
       const lead = await tx.lead.findUnique({ where: { id } })
       if (!lead) throw new Error('Lead não encontrado');
 
-      if (proposalId && !await tx.proposal.findFirst({ where: { id: Number(proposalId), leadId: id } })) {
+      const proposal = proposalId ? await tx.proposal.findFirst({ where: { id: Number(proposalId), leadId: id } }) : null;
+      if (proposalId && !proposal) {
         throw new Error('Proposta não pertence a este lead.');
+      }
+      if (proposal?.status === 'rejected') throw new Error('Proposta rejeitada não pode ser fechada.');
+      if (!proposalId && await tx.proposal.findFirst({ where: { leadId: id, status: { notIn: ['rejected', 'lost'] } }, select: { id: true } })) {
+        throw new Error('Escolha a proposta que será fechada.');
+      }
+      if (proposalId && await tx.sale.findFirst({ where: { proposalId: Number(proposalId), voidedAt: null }, select: { id: true } })) {
+        throw new Error('Esta proposta já possui uma venda confirmada.');
+      }
+      if (!proposalId && await tx.sale.findFirst({ where: { leadId: id, proposalId: null, voidedAt: null }, select: { id: true } })) {
+        throw new Error('Escolha uma proposta para registrar outra venda deste lead.');
+      }
+      const originalCents = toCents(proposal?.value ?? lead.value);
+      const discountCents = toCents(discountValue || 0);
+      const paidCents = normalizedPayments.reduce((sum: number, payment: any) => sum + toCents(payment.amount), 0);
+      if (!Number.isSafeInteger(originalCents) || originalCents <= 0
+        || !Number.isSafeInteger(discountCents) || discountCents < 0 || discountCents >= originalCents
+        || (discountCents > 0 && (!Number.isFinite(Number(discountPercentage))
+          || Math.abs(Number(discountPercentage) - discountCents / originalCents * 100) > 0.02))
+        || normalizedPayments.some((payment: any) => !Number.isSafeInteger(toCents(payment.amount))
+          || Math.abs(payment.amount * 100 - toCents(payment.amount)) > 0.000001)
+        || paidCents !== originalCents - discountCents) {
+        throw new Error('A soma dos pagamentos deve ser igual ao valor da venda após o desconto.');
       }
       let clientId = lead.convertedToClientId
 
@@ -846,11 +905,27 @@ router.post('/:id/confirm-payment', auth(), async (req, res) => {
         })
       }
 
+      const sale = await tx.sale.create({ data: {
+        leadId: id,
+        proposalId: proposal?.id || null,
+        companyId: lead.companyId,
+        amount: paidCents / 100,
+        confirmedAt: new Date(),
+      } });
+      await tx.leadActivity.create({ data: {
+        leadId: id,
+        type: 'system',
+        content: proposal ? `Venda da proposta #${proposal.id} confirmada por R$ ${(paidCents / 100).toFixed(2)}.` : `Venda confirmada por R$ ${(paidCents / 100).toFixed(2)}.`,
+        createdBy: String(req.user?.id || 'Sistema'),
+      } });
+
       // Criar os pagamentos no banco de dados
       const paymentRecords = []
       for (const p of normalizedPayments) {
         const payment = await tx.payment.create({
           data: {
+            leadId: id,
+            saleId: sale.id,
             clientId: clientId,
             professionalId: lead.professionalId,
             companyId: lead.companyId,
@@ -904,13 +979,14 @@ router.post('/:id/confirm-payment', auth(), async (req, res) => {
         where: { id },
         data: {
           isPaid: true,
+          value: paidCents / 100,
           status: 'comercial_closed', // Garantir que não volte pra trás devido a race condition do drag and drop
-          closedAt: lead.closedAt || new Date(),
+          closedAt: new Date(),
           subStatus: 'won'
         }
       })
 
-      return { payments: paymentRecords, lead: updatedLead };
+      return { sale, payments: paymentRecords, lead: updatedLead };
     });
     res.json(createSuccessResponse(result));
   } catch (error: any) {

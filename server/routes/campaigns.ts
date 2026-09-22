@@ -4,12 +4,6 @@ import { auth, requireModule } from '../middleware/auth.js'
 import { createErrorResponse, createSuccessResponse, parsePagination } from '../utils/response.js'
 import { sendUazapiRequest } from '../services/uazapi-whatsapp.js'
 import { getApprovedWhatsAppTemplate } from '../services/whatsapp-templates.js'
-import {
-  MESSAGE_DISPATCH_PRICE_CENTS,
-  MessageCreditError,
-  reserveCampaignCredits,
-  refundUnusedCampaignCredits,
-} from '../services/message-credits.js'
 import crypto from 'node:crypto'
 import { getJwtSecret } from '../config/security.js'
 
@@ -552,24 +546,6 @@ router.post('/:id/send', auth(), async (req, res) => {
       }
     }
 
-    let creditReservation
-    try {
-      creditReservation = await reserveCampaignCredits({
-        companyId: companyId!,
-        campaignId: id,
-        recipientCount: campaign.recipients.length,
-      })
-    } catch (error: any) {
-      if (error instanceof MessageCreditError || error?.code === 'INSUFFICIENT_MESSAGE_CREDITS') {
-        return res.status(402).json(createErrorResponse(error.message, 402, {
-          balanceCents: error.balanceCents,
-          requiredCents: error.requiredCents,
-          unitCostCents: MESSAGE_DISPATCH_PRICE_CENTS,
-        }))
-      }
-      throw error
-    }
-
     // Atualizar status para "sending"
     await prisma.messageCampaign.update({
       where: { id },
@@ -642,7 +618,7 @@ router.post('/:id/send', auth(), async (req, res) => {
       console.error('[campaigns] background send error:', err)
     })
 
-    res.json(createSuccessResponse({ message: 'Campanha iniciada', campaignId: id, credits: creditReservation }))
+    res.json(createSuccessResponse({ message: 'Campanha iniciada', campaignId: id }))
   } catch (error: any) {
     res.status(500).json(createErrorResponse(error.message))
   }
@@ -1684,7 +1660,6 @@ export async function processCampaignSend(campaignId: number, recipients: any[],
     }
   })
 
-  await refundUnusedCampaignCredits(campaignId)
 }
 
 export async function resumeInterruptedCampaigns() {

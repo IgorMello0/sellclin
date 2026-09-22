@@ -769,7 +769,7 @@ const SalesFunnel = () => {
     const saved = await moveLead(String(leadForProposalSelection.id), targetStageForSelection, proposalId);
     if (saved) {
       setProposalSelectionOpen(false);
-      toast({ title: "Proposta Fechada!", description: "A proposta foi aceita e o lead avançou para a fase de fechamento." });
+      toast({ title: "Proposta selecionada", description: "Registre a forma de pagamento para confirmar esta venda." });
     }
   };
 

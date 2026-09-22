@@ -15,6 +15,7 @@ interface Proposal {
   value: number;
   status: string;
   createdAt: string;
+  sales?: { voidedAt: string | null }[];
 }
 
 interface PaymentBlock {
@@ -38,6 +39,7 @@ export function ConfirmPaymentModal({ open, onOpenChange, leadId, leadValue, pro
   const [installments, setInstallments] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [hasExistingProposals, setHasExistingProposals] = useState(false);
   const [selectedProposalId, setSelectedProposalId] = useState<string>('none');
   const [loadingProposals, setLoadingProposals] = useState(false);
   const [discountValue, setDiscountValue] = useState<number>(0);
@@ -53,6 +55,7 @@ export function ConfirmPaymentModal({ open, onOpenChange, leadId, leadValue, pro
     if (!open) {
       setSelectedProposalId('none');
       setProposals([]);
+      setHasExistingProposals(false);
     }
   }, [open, leadId, proposalId]);
 
@@ -62,17 +65,14 @@ export function ConfirmPaymentModal({ open, onOpenChange, leadId, leadValue, pro
     try {
       const res = await leadsApi.getProposals(Number(leadId));
       if (res.success && res.data) {
-        setProposals(res.data);
+        setHasExistingProposals(res.data.length > 0);
+        const available = (res.data as Proposal[]).filter(p => p.status !== 'rejected' && p.status !== 'lost' && !p.sales?.some(s => !s.voidedAt));
+        setProposals(available);
         
-        if (proposalId) {
+        if (proposalId && available.some(p => p.id === Number(proposalId))) {
           setSelectedProposalId(proposalId.toString());
         } else {
-          const validProposals = res.data.filter((p: Proposal) => p.status !== 'rejected' && p.status !== 'lost');
-          if (validProposals.length === 1) {
-            setSelectedProposalId(validProposals[0].id.toString());
-          } else if (res.data.length === 1) {
-            setSelectedProposalId(res.data[0].id.toString());
-          }
+          setSelectedProposalId(available.length === 1 ? available[0].id.toString() : 'none');
         }
       }
     } catch (e) {
@@ -88,7 +88,7 @@ export function ConfirmPaymentModal({ open, onOpenChange, leadId, leadValue, pro
   };
 
   const getActiveValue = () => {
-    return Math.max(0, getOriginalValue() - discountValue);
+    return Math.max(0, Math.round((getOriginalValue() - discountValue) * 100) / 100);
   };
 
   // Inicializa o primeiro bloco com o valor total
@@ -113,7 +113,9 @@ export function ConfirmPaymentModal({ open, onOpenChange, leadId, leadValue, pro
 
     paymentBlocks.forEach(block => {
       const count = block.installmentsCount || 1;
-      const valuePerInstallment = block.totalValue / count;
+      const totalCents = Math.round(block.totalValue * 100);
+      const baseCents = Math.floor(totalCents / count);
+      const remainder = totalCents % count;
       
       for (let i = 0; i < count; i++) {
         const isBoleto = block.method === 'boleto';
@@ -121,7 +123,7 @@ export function ConfirmPaymentModal({ open, onOpenChange, leadId, leadValue, pro
         newInstallments.push({
           blockId: block.id,
           installmentNumber: i + 1,
-          amount: valuePerInstallment,
+          amount: (baseCents + (i < remainder ? 1 : 0)) / 100,
           date: format(addMonths(today, monthsToAdd), 'yyyy-MM-dd'),
           method: block.method,
           status: isBoleto ? 'pendente' : 'pago'
@@ -193,12 +195,16 @@ export function ConfirmPaymentModal({ open, onOpenChange, leadId, leadValue, pro
   const handleSubmit = async () => {
     if (!allowAction('funnel', 'aprovarPropostas')) return;
     if (!leadId) return;
+    if (hasExistingProposals && selectedProposalId === 'none') {
+      toast({ title: 'Selecione a proposta', description: 'Escolha qual proposta será fechada.', variant: 'destructive' });
+      return;
+    }
 
     const activeValue = getActiveValue();
     const blocksTotal = paymentBlocks.reduce((acc, curr) => acc + (Number(curr.totalValue) || 0), 0);
     
     // Validar se a soma dos blocos bate
-    if (Math.abs(blocksTotal - activeValue) > 0.1) {
+    if (Math.round(blocksTotal * 100) !== Math.round(activeValue * 100)) {
       toast({
         title: "Soma Incorreta",
         description: `A soma das formas de pagamento (R$ ${blocksTotal.toFixed(2)}) deve ser exatamente igual ao valor cobrado (R$ ${activeValue.toFixed(2)}).`,
@@ -209,7 +215,7 @@ export function ConfirmPaymentModal({ open, onOpenChange, leadId, leadValue, pro
 
     // Validar se a soma das parcelas bate (caso o usuario edite os inputs de detalhamento)
     const totalInput = installments.reduce((acc, curr) => acc + Number(curr.amount), 0);
-    if (Math.abs(totalInput - activeValue) > 0.1) {
+    if (Math.round(totalInput * 100) !== Math.round(activeValue * 100)) {
       toast({
         title: "Valores das parcelas divergentes",
         description: `A soma das parcelas manuais (R$ ${totalInput.toFixed(2)}) não bate com o valor (R$ ${activeValue.toFixed(2)}).`,
@@ -277,13 +283,15 @@ export function ConfirmPaymentModal({ open, onOpenChange, leadId, leadValue, pro
 
         <div className="p-6 space-y-6 bg-slate-50/30 flex-1 overflow-y-auto custom-scrollbar">
           {/* Seletor de Proposta */}
-          {proposals.length > 0 && (
+          {hasExistingProposals && (
             <div className="space-y-3 animate-in fade-in slide-in-from-top-2 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
               <Label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-[14px]">description</span>
                 Proposta Vinculada
               </Label>
-              {loadingProposals ? (
+              {proposals.length === 0 && !loadingProposals ? (
+                <p className="text-sm text-slate-500">Todas as propostas deste lead já foram fechadas ou rejeitadas. Crie uma nova proposta para registrar outra venda.</p>
+              ) : loadingProposals ? (
                 <div className="h-12 w-full flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-400 text-sm font-medium animate-pulse mt-2">
                   <span className="material-symbols-outlined animate-spin mr-2 text-[18px]">refresh</span>
                   Buscando propostas...
@@ -302,7 +310,7 @@ export function ConfirmPaymentModal({ open, onOpenChange, leadId, leadValue, pro
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">Nenhuma proposta (usar valor do lead)</SelectItem>
+                    <SelectItem value="none">Selecione uma proposta</SelectItem>
                     {proposals.filter(p => p.status !== 'rejected' && p.status !== 'lost').map(p => (
                       <SelectItem key={p.id} value={p.id.toString()}>
                         <div className="flex items-center gap-2">
@@ -569,7 +577,7 @@ export function ConfirmPaymentModal({ open, onOpenChange, leadId, leadValue, pro
               <Button variant="ghost" onClick={() => onOpenChange(false)} className="rounded-xl font-bold flex-1 sm:flex-none">
                 Cancelar
               </Button>
-              <Button onClick={handleSubmit} disabled={loading} className="rounded-xl font-bold bg-emerald-500 hover:bg-emerald-600 border-0 shadow-lg shadow-emerald-500/20 text-white flex-1 sm:flex-none h-10 px-6 transition-all hover:scale-[1.02]">
+              <Button onClick={handleSubmit} disabled={loading || loadingProposals || (hasExistingProposals && selectedProposalId === 'none')} className="rounded-xl font-bold bg-emerald-500 hover:bg-emerald-600 border-0 shadow-lg shadow-emerald-500/20 text-white flex-1 sm:flex-none h-10 px-6 transition-all hover:scale-[1.02]">
                 {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <span className="material-symbols-outlined text-[18px] mr-1.5">check_circle</span>}
                 Confirmar
               </Button>

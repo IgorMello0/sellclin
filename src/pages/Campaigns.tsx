@@ -7,7 +7,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-  billingApi,
   campaignsApi,
   leadsApi,
   clientsApi,
@@ -15,7 +14,6 @@ import {
   whatsappTemplatesApi,
   whatsappUazapiApi,
 } from '@/lib/api';
-import type { MessageCreditSummary } from '@/lib/api';
 import { validateMediaUpload } from '@/lib/media-upload';
 import { parseSpreadsheetContacts, renderSpreadsheetMessage, missingSpreadsheetVariables, SPREADSHEET_CONTACT_LIMIT, VARIABLE_FIELDS, type SpreadsheetContact, type SpreadsheetStats, type SpreadsheetImport } from '@/lib/campaign-spreadsheet';
 import { SpreadsheetPreview, SpreadsheetContactPicker } from '@/components/campaigns/SpreadsheetPreview';
@@ -52,9 +50,6 @@ import {
 const safeFormat = (d: any, f: string = "dd/MM/yy 'às' HH:mm") => {
   try { return d ? format(new Date(d), f, { locale: ptBR }) : '—'; } catch { return '—'; }
 };
-
-const formatCurrencyCents = (cents: number) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((Number(cents) || 0) / 100);
 
 const AUDIENCE_OPTIONS = [
   { value: 'all_leads', label: 'Todos os Leads', icon: 'person_add', desc: 'Enviar para todos os leads cadastrados' },
@@ -175,7 +170,6 @@ export default function Campaigns() {
   const navigate = useNavigate();
 
   const [campaigns, setCampaigns] = useState<any[]>([]);
-  const [messageCredits, setMessageCredits] = useState<MessageCreditSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [viewCampaign, setViewCampaign] = useState<any>(null);
@@ -240,19 +234,9 @@ export default function Campaigns() {
     finally { if (request === listRequest.current) setIsLoading(false); }
   }, []);
 
-  const loadMessageCredits = useCallback(async () => {
-    try {
-      const res = await billingApi.getMessageCredits();
-      if (res.success) setMessageCredits(res.data || null);
-    } catch (error) {
-      console.error(error);
-    }
-  }, []);
-
   useEffect(() => {
     loadCampaigns();
-    loadMessageCredits();
-  }, [loadCampaigns, loadMessageCredits]);
+  }, [loadCampaigns]);
 
   useEffect(() => {
     void whatsappTemplatesApi.list('APPROVED', true).then((response) => {
@@ -530,46 +514,24 @@ export default function Campaigns() {
   const handleSend = async (id: number) => {
     if (!allowAction('campanhas', 'criarCampanhas')) return;
     try {
-      const campaign = campaigns.find(item => item.id === id);
-      const totalRecipients = Number(campaign?.totalRecipients || campaign?._count?.recipients || 0);
-      const unitCostCents = messageCredits?.unitCostCents ?? 5;
-      const requiredCents = totalRecipients * unitCostCents;
-      if (messageCredits && requiredCents > messageCredits.balanceCents) {
-        toast({
-          title: 'Saldo insuficiente para disparar',
-          description: `Esta campanha custa ${formatCurrencyCents(requiredCents)} e seu saldo atual é ${formatCurrencyCents(messageCredits.balanceCents)}.`,
-          variant: 'destructive',
-        });
-        return;
-      }
-
       const res = await campaignsApi.send(id);
       if (res.success) {
         toast({
           title: 'Campanha iniciada!',
-          description: requiredCents > 0 ? `Reserva feita: ${formatCurrencyCents(requiredCents)}.` : undefined,
         });
         loadCampaigns();
-        loadMessageCredits();
         // Poll progress
         const interval = setInterval(async () => {
           const p = await campaignsApi.getProgress(id);
           if (p.success && (p.data.status === 'completed' || p.data.status === 'failed')) {
             clearInterval(interval);
             loadCampaigns();
-            loadMessageCredits();
             toast({ title: p.data.status === 'completed' ? 'Campanha concluída!' : 'Campanha falhou' });
           } else { loadCampaigns(); }
         }, 3000);
       } else {
-        const error = res.error as any;
-        const balanceCents = Number(error?.balanceCents ?? messageCredits?.balanceCents ?? 0);
-        const required = Number(error?.requiredCents ?? requiredCents);
         toast({
           title: res.error?.message || 'Erro ao enviar',
-          description: res.error?.code === 402 || error?.balanceCents !== undefined
-            ? `Necessário ${formatCurrencyCents(required)}. Saldo atual: ${formatCurrencyCents(balanceCents)}.`
-            : undefined,
           variant: 'destructive',
         });
       }
@@ -614,9 +576,6 @@ export default function Campaigns() {
   const messagePreview = campaignProvider === 'meta'
     ? renderTemplatePreview(selectedMetaTemplate, metaTemplateMappings, renderCurrentPreview)
     : renderCurrentPreview(message || 'Sua mensagem aparecerá aqui.');
-  const estimatedCampaignCostCents = previewRecipients * (messageCredits?.unitCostCents ?? 5);
-  const hasEnoughCredits = !messageCredits || messageCredits.balanceCents >= estimatedCampaignCostCents;
-
   const updateMetaParameter = (index: number, value: string) => {
     const next = Array.from({ length: Math.max(selectedTemplateTokens.length, index + 1) }, (_, parameterIndex) =>
       metaParameterValues[parameterIndex] || availableMessageVariables[parameterIndex]?.key || '{{nome}}'
@@ -1644,29 +1603,11 @@ export default function Campaigns() {
                       <p className="mt-1 font-bold">{campaignProvider === 'meta' ? (metaStatus?.officialMode === 'coexistence' ? 'Coexistência' : 'Cloud API') : `${minDelay}-${maxDelay}s`}</p>
                     </div>
                   </div>
-                  <div className={`mt-3 rounded-lg border p-4 text-xs ${
-                    hasEnoughCredits
-                      ? 'border-emerald-400/20 bg-emerald-400/10'
-                      : 'border-rose-400/30 bg-rose-400/10'
-                  }`}>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-slate-400">Custo por contato</span>
-                      <strong>{formatCurrencyCents(messageCredits?.unitCostCents ?? 5)}</strong>
+                  {campaignProvider === 'meta' && (
+                    <div className="mt-3 rounded-lg border border-blue-400/20 bg-blue-400/10 p-4 text-xs text-slate-300">
+                      A cobrança do disparo é feita diretamente pela Meta na conta do WhatsApp vinculada.
                     </div>
-                    <div className="mt-2 flex items-center justify-between gap-3">
-                      <span className="text-slate-400">Custo estimado</span>
-                      <strong>{formatCurrencyCents(estimatedCampaignCostCents)}</strong>
-                    </div>
-                    <div className="mt-2 flex items-center justify-between gap-3">
-                      <span className="text-slate-400">Saldo disponível</span>
-                      <strong>{messageCredits ? formatCurrencyCents(messageCredits.balanceCents) : 'Carregando...'}</strong>
-                    </div>
-                    {!hasEnoughCredits && (
-                      <p className="mt-3 font-semibold text-rose-200">
-                        Adicione créditos antes de iniciar este disparo.
-                      </p>
-                    )}
-                  </div>
+                  )}
                 </aside>
               </div>
             )}

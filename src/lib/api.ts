@@ -757,6 +757,7 @@ export const leadsApi = {
   deleteActivity: async (id: number, activityId: number) => apiRequest<any>(`/leads/${id}/activities/${activityId}`, { method: 'DELETE' }),
   getProposals: async (id: number) => apiRequest<Array<any>>(`/leads/${id}/proposals`),
   updateProposal: async (id: number, proposalId: number, data: any) => apiRequest<any>(`/leads/${id}/proposals/${proposalId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  reopenProposalSale: async (id: number, proposalId: number) => apiRequest<any>(`/leads/${id}/proposals/${proposalId}/reopen-sale`, { method: 'POST' }),
   confirmPayment: async (id: number, data: any) => apiRequest<any>(`/leads/${id}/confirm-payment`, { method: 'POST', body: JSON.stringify(data) }),
   updateAssignment: async (id: number, data: { sdrId?: number | null, closerId?: number | null, especialistaId?: number | null }) => apiRequest<any>(`/leads/${id}/assignment`, { method: 'PATCH', body: JSON.stringify(data) }),
   bulkDelete: async (ids: number[]) => apiRequest<any>('/leads/bulk', { method: 'DELETE', body: JSON.stringify({ ids }) }),
