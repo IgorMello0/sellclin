@@ -1503,6 +1503,26 @@ function buildMetaTemplatePayload(config: WhatsAppConfig, formattedPhone: string
   return payload
 }
 
+function renderMetaTemplateMessage(config: WhatsAppConfig, templateText: string, recipient: any) {
+  const template = config.metaTemplate
+  if (!template?.enabled) return templateText
+
+  const values = template.parameters.map(parameter => renderMessage(parameter, recipient))
+  let rendered = templateText.replace(/\{\{\s*(\d+)\s*\}\}/g, (token, position) => {
+    return values[Number(position) - 1] ?? token
+  })
+
+  if (template.parameterFormat === 'NAMED') {
+    template.parameterNames?.forEach((name, index) => {
+      if (!name) return
+      const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      rendered = rendered.replace(new RegExp(`\\{\\{\\s*${escapedName}\\s*\\}\\}`, 'g'), values[index] ?? '')
+    })
+  }
+
+  return rendered
+}
+
 async function sendMetaMessage(config: WhatsAppConfig, formattedPhone: string, message: string, recipient: any) {
   // A Meta Cloud API usa a graph API para envios.
   const graphVersion = process.env.META_GRAPH_VERSION || 'v25.0'
@@ -1620,13 +1640,16 @@ export async function processCampaignSend(campaignId: number, recipients: any[],
       const result = await sendWhatsAppMessage(config, recipient.phone, messageToSend, recipient)
 
       if (result.success) {
+        const conversationMessage = config.provider === 'meta'
+          ? renderMetaTemplateMessage(config, messageToSend, recipient)
+          : messageToSend
         try {
           await processOutgoingMessage({
             companyId: config.companyId,
             ownerId: config.ownerId,
             phone: formatPhoneForWhatsApp(recipient.phone, config.provider),
             pushName: recipient.name || 'Contato WhatsApp',
-            messageText: messageToSend,
+            messageText: conversationMessage,
             rawPayload: {
               campaignId,
               campaignRecipientId: recipient.id,
