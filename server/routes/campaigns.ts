@@ -1654,9 +1654,16 @@ export async function processCampaignSend(campaignId: number, recipients: any[],
               campaignId,
               campaignRecipientId: recipient.id,
               templateName: config.metaTemplate?.name || null,
+              ...(config.metaTemplate?.headerMediaUrl ? {
+                mediaUrl: config.metaTemplate.headerMediaUrl,
+                mediaType: config.metaTemplate.headerMediaType,
+              } : {}),
             },
             origin: config.provider === 'meta' ? 'Campanha WhatsApp Meta' : 'Campanha WhatsApp',
             providerMessageId: result.providerMessageId || null,
+            mediaUrl: config.metaTemplate?.headerMediaUrl || null,
+            mediaType: config.metaTemplate?.headerMediaType || null,
+            providerMediaType: config.metaTemplate?.headerMediaType || null,
           })
         } catch (persistError) {
           console.error('[campaigns] mensagem enviada, mas nao registrada na conversa:', persistError)
