@@ -288,7 +288,7 @@ export function AppTopNavbar() {
           )}
 
           {/* Navigation Items — Desktop only */}
-          <nav id="tour-menu" className="hidden lg:flex flex-1 justify-center items-center gap-2 md:gap-4 overflow-x-auto scrollbar-hide py-2">
+          <nav className="hidden lg:flex flex-1 justify-center items-center gap-2 md:gap-4 overflow-x-auto scrollbar-hide py-2">
             {visibleMenuItems.map((item) => {
               const isActive = location.pathname === item.url || 
                 (item.url !== '/dashboard' && location.pathname.startsWith(item.url));
@@ -405,7 +405,6 @@ export function AppTopNavbar() {
             {/* Avatar */}
             <div className="relative" ref={menuRef}>
               <button
-                id="tour-settings"
                 onClick={() => setMenuOpen(!menuOpen)}
               className={cn(
                 "w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-[12px] sm:text-[13px] font-bold transition-all cursor-pointer shadow-sm overflow-hidden",

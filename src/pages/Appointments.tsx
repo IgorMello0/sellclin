@@ -13,8 +13,6 @@ import { useToast } from '@/hooks/use-toast';
 import { NewAppointmentModal } from '@/components/NewAppointmentModal';
 import { AppointmentQuickView } from '@/components/AppointmentQuickView';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSectionTour } from '@/hooks/useSectionTour';
-import { TourPopover } from '@/components/onboarding/TourPopover';
 
 const Appointments = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -32,14 +30,6 @@ const Appointments = () => {
   const [professionalsList, setProfessionalsList] = useState<any[]>([]);
   const [selectedProfFilter, setSelectedProfFilter] = useState<string>("");
 
-  // Tour de primeira visita
-  const { tourActive, tourStep, tourSteps, tourHandleNext, tourHandlePrev, tourHandleClose } =
-    useSectionTour('appointments', [
-      { id: null, title: '📅 Agenda', description: 'Aqui você visualiza e gerencia todos os agendamentos da sua clínica em visões de Dia, Semana ou Mês.', position: 'center' },
-      { id: '#apt-new-btn', title: '➕ Novo Agendamento', description: 'Crie um novo agendamento associando paciente, serviço e horário em poucos cliques.', position: 'bottom' },
-      { id: '#apt-calendar', title: '🗓 Calendário', description: 'Use o mini-calendário para navegar entre datas ou alterne entre as visões Dia, Semana e Mês.', position: 'right' },
-      { id: '#apt-main-view', title: '🔭 Visão Principal', description: 'Aqui ficam todos os agendamentos do período. Clique em qualquer card para ver os detalhes completos.', position: 'center' },
-    ]);
 
 
   const listRequest = useRef(0);
@@ -216,8 +206,6 @@ const Appointments = () => {
 
   return (
     <div className="relative space-y-10 pb-10 overflow-hidden">
-      <TourPopover active={tourActive} step={tourStep} steps={tourSteps} onNext={tourHandleNext} onPrev={tourHandlePrev} onClose={tourHandleClose} />
-
       {/* ── Header ── */}
       <div className="flex flex-col gap-4 sm:gap-6 relative z-10">
         <div>
@@ -246,7 +234,7 @@ const Appointments = () => {
             <span className="material-symbols-outlined text-lg">filter_list</span>
             <span className="hidden sm:inline">Filtros</span>
           </Button>
-          <Button disabled={!hasPermission('agendamentos', 'criarAgendamentos')} id="apt-new-btn" variant="secondary" size="xl" onClick={() => setOpenModal(true)} className="shadow-lg shadow-secondary/20 h-9 sm:h-auto text-xs sm:text-sm">
+          <Button disabled={!hasPermission('agendamentos', 'criarAgendamentos')} variant="secondary" size="xl" onClick={() => setOpenModal(true)} className="shadow-lg shadow-secondary/20 h-9 sm:h-auto text-xs sm:text-sm">
             <span className="material-symbols-outlined text-base sm:text-lg">add</span>
             <span className="hidden sm:inline">Novo Agendamento</span>
             <span className="sm:hidden">Novo</span>
@@ -279,7 +267,7 @@ const Appointments = () => {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
 
         {/* ── Mini Calendar Sidebar ── */}
-        <div id="apt-calendar" className="lg:col-span-1 space-y-4">
+        <div className="lg:col-span-1 space-y-4">
           <Card className="p-4">
             <div className="flex items-center gap-2 mb-3">
               <span className="material-symbols-outlined text-primary text-lg">calendar_view_month</span>
@@ -337,7 +325,7 @@ const Appointments = () => {
         </div>
 
         {/* ── Main Calendar View ── */}
-        <div id="apt-main-view" className="lg:col-span-3">
+        <div className="lg:col-span-3">
           <Card className="overflow-hidden">
 
             {/* Controls Header */}

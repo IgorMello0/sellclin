@@ -3,7 +3,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { AppSidebar } from '@/components/AppSidebar';
 import { BillingBanner } from '@/components/BillingBanner';
 import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard';
-import { ProductTour } from '@/components/onboarding/ProductTour';
 import { RouteErrorBoundary } from '@/components/RouteErrorBoundary';
 
 const AppLayout = () => {
@@ -28,7 +27,6 @@ const AppLayout = () => {
   return (
     <div className="min-h-screen flex flex-col lg:flex-row w-full bg-background font-body overflow-hidden">
       {showOnboarding && <OnboardingWizard />}
-      <ProductTour />
       <AppSidebar />
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         <BillingBanner />

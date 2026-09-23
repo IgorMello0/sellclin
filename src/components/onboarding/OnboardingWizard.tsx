@@ -59,7 +59,6 @@ export const OnboardingWizard = () => {
   const handleComplete = async () => {
     try {
       setIsSubmitting(true);
-      localStorage.setItem('crm_needs_tour', 'true');
       await completeOnboarding({
         ...(isOwner
           ? {
@@ -72,8 +71,6 @@ export const OnboardingWizard = () => {
             }
           : {}),
       });
-      // Dispara o tour imediatamente sem precisar de F5
-      window.dispatchEvent(new Event('crm:start-tour'));
     } catch (e) {
       console.error(e);
     } finally {
@@ -96,7 +93,7 @@ export const OnboardingWizard = () => {
     3: {
       icon: <Sparkles className="w-10 h-10" />,
       title: 'Tudo Pronto!',
-      desc: 'Seu ambiente estÃ¡ configurado. Vamos dar um tour rÃ¡pido pelas funcionalidades.',
+      desc: 'Seu ambiente estÃ¡ configurado e pronto para uso.',
     },
   };
 
@@ -264,7 +261,7 @@ export const OnboardingWizard = () => {
             <div>
               <h2 className="text-2xl font-bold text-foreground font-headline mb-1">Tudo pronto! ðŸŽ‰</h2>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Seu ambiente estÃ¡ configurado com sucesso. Vamos iniciar um tour rÃ¡pido para vocÃª conhecer as funcionalidades do SellClin.
+                Seu ambiente estÃ¡ configurado com sucesso e pronto para uso.
               </p>
             </div>
           </div>

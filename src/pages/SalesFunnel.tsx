@@ -60,8 +60,6 @@ import { ProposalDialog } from '@/components/funnel/ProposalDialog';
 import { FunnelSettingsDialog } from '@/components/funnel/FunnelSettingsDialog';
 import { LeadDetailsModal } from "@/components/LeadDetailsModal";
 import { FUNNELS, STAGES, QUICK_STATUSES, ORIGIN_OPTIONS } from '@/config/funnelConfig';
-import { useSectionTour } from '@/hooks/useSectionTour';
-import { TourPopover } from '@/components/onboarding/TourPopover';
 
 const safeFormatDate = (dateStr: any, formatStr: string = "dd/MM/yyyy") => {
   try {
@@ -1102,18 +1100,9 @@ const SalesFunnel = () => {
     }
   };
 
-  // Tour de primeira visita
-  const { tourActive, tourStep, tourSteps, tourHandleNext, tourHandlePrev, tourHandleClose } =
-    useSectionTour('comercial', [
-      { id: null, title: '💼 Comercial', description: 'Gerencie todos os seus leads e acompanhe cada etapa do funil até a venda. Arraste os cards entre as colunas para avançar o lead!', position: 'center' },
-      { id: '#comercial-novo-lead', title: '➕ Novo Lead', description: 'Cadastre um novo lead rapidamente. Preencha os dados básicos e ele entra automaticamente no início do funil.', position: 'bottom' },
-      { id: '#comercial-funis', title: '🔄 Funis de Venda', description: 'Alterne entre diferentes funis: Marketing, Comercial ou personalizados. Cada funil tem suas próprias etapas.', position: 'bottom' },
-      { id: '#comercial-board', title: '📦 Quadro Kanban', description: 'Cada coluna é uma etapa do funil. Arraste os cards de lead entre as colunas para avançar na jornada de venda.', position: 'center' },
-    ]);
 
   return (
     <div className="space-y-4 sm:space-y-8 pb-10 min-h-screen">
-      <TourPopover active={tourActive} step={tourStep} steps={tourSteps} onNext={tourHandleNext} onPrev={tourHandlePrev} onClose={tourHandleClose} />
       {/* Header & Funnel Switcher */}
       <div className="flex flex-col gap-4 sm:gap-6">
         <div className="min-h-[64px] flex flex-col justify-center">
@@ -1125,7 +1114,6 @@ const SalesFunnel = () => {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100/50 pb-4">
           {/* Funnel Tabs — scrollable on mobile and drag-to-scroll on desktop */}
           <div 
-            id="comercial-funis" 
             ref={scrollRef}
             className="flex overflow-x-auto scrollbar-hide w-full lg:max-w-[65%] xl:max-w-[75%] min-w-0 -mx-3 px-3 sm:mx-0 sm:px-0 select-none scroll-smooth"
           >
@@ -1586,7 +1574,6 @@ const SalesFunnel = () => {
             </div>
 
             <Button 
-              id="comercial-novo-lead"
               onClick={() => openAddLead()} 
               size="xl"
               variant="secondary"

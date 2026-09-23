@@ -10,8 +10,6 @@ const fixture = vi.hoisted(() => ({
 }));
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ professional: fixture.professional, hasPermission: () => true }) }));
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: fixture.toast }) }));
-vi.mock('@/hooks/useSectionTour', () => ({ useSectionTour: () => ({}) }));
-vi.mock('@/components/onboarding/TourPopover', () => ({ TourPopover: () => null }));
 vi.mock('@/components/LeadDetailsModal', () => ({ LeadDetailsModal: () => null }));
 vi.mock('@/components/ProposalViewer', () => ({ ProposalViewer: () => null }));
 vi.mock('@/components/ImportModal', () => ({ ImportModal: () => null }));

@@ -41,8 +41,6 @@ import { FormFillModal } from '@/components/FormFillModal';
 import { FormViewModal } from '@/components/FormViewModal';
 import { ClientDossierModal } from '@/components/ClientDossierModal';
 import { clientsApi } from '@/lib/api';
-import { useSectionTour } from '@/hooks/useSectionTour';
-import { TourPopover } from '@/components/onboarding/TourPopover';
 
 interface Client {
   id: number;
@@ -85,14 +83,6 @@ const Clients = () => {
   const allowAction = useActionPermission();
   const { getAssignedTemplates, addFilledForm, getClientForms, getFormById, templates } = useForms();
 
-  // Tour de primeira visita
-  const { tourActive, tourStep, tourSteps, tourHandleNext, tourHandlePrev, tourHandleClose } =
-    useSectionTour('clients', [
-      { id: null, title: '👥 Seus Pacientes', description: 'Aqui você gerencia toda a sua base de pacientes — histórico, contatos e prontuários em um só lugar.', position: 'center' },
-      { id: '#clients-add-btn', title: '➕ Novo Paciente', description: 'Clique aqui para cadastrar um novo paciente rapidamente.', position: 'bottom' },
-      { id: '#clients-search', title: '🔍 Busca Inteligente', description: 'Encontre qualquer paciente por nome, telefone ou e-mail em segundos.', position: 'bottom' },
-      { id: '#clients-table', title: '📋 Lista de Pacientes', description: 'Visualize todos os pacientes. Acesse o Dossiê completo com histórico de atendimentos.', position: 'top' },
-    ]);
 
   const [clients, setClients] = useState<Client[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -333,7 +323,6 @@ const Clients = () => {
 
   return (
     <div className="space-y-8 pb-10 min-h-screen animate-in fade-in zoom-in-95 duration-500">
-      <TourPopover active={tourActive} step={tourStep} steps={tourSteps} onNext={tourHandleNext} onPrev={tourHandlePrev} onClose={tourHandleClose} />
       {/* Header */}
       <div className="flex flex-col gap-4 sm:gap-6">
         <div>
@@ -345,7 +334,6 @@ const Clients = () => {
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button 
-                id="clients-add-btn"
                 onClick={() => handleOpenDialog()} 
                 size="xl"
                 variant="secondary"
@@ -490,7 +478,7 @@ const Clients = () => {
             <span className="material-symbols-outlined text-secondary">list_alt</span>
             Lista de Pacientes
           </h3>
-          <div id="clients-search" className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="relative w-full sm:w-96 group">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-[#F97316] transition-colors" size={18} />
               <Input
@@ -531,7 +519,7 @@ const Clients = () => {
           )}
         </div>
         
-        <div id="clients-table" className="p-0 overflow-hidden bg-card">
+        <div className="p-0 overflow-hidden bg-card">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-16">
               <span className="material-symbols-outlined text-secondary text-4xl animate-spin mb-3">progress_activity</span>

@@ -275,7 +275,7 @@ export function AppSidebar() {
           <div className="mx-6 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent opacity-60 my-1" />
         )}
         
-        <div id="tour-menu" className={cn(
+        <div className={cn(
           "flex-1 overflow-y-auto scrollbar-hide py-2 space-y-1 transition-all",
           isSidebarCollapsed && !isMobileSidebarOpen ? "px-2" : "px-4"
         )}>
@@ -313,7 +313,7 @@ export function AppSidebar() {
         </div>
         
         {/* Profile Footer */}
-        <div id="tour-settings" className={cn(
+        <div className={cn(
           "p-4 mt-auto shrink-0 relative",
           isSidebarCollapsed && !isMobileSidebarOpen ? "p-2 flex justify-center" : "p-4"
         )}>

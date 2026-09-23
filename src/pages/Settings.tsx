@@ -39,8 +39,6 @@ import DiscountSettingsView from './settings/DiscountSettingsView';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { catalogsApi, professionalsApi, usuariosApi, permissionsApi, empresasApi, rolesApi, modulesApi, billingApi, type BillingStatus, type BillingUsage } from '@/lib/api';
-import { useSectionTour } from '@/hooks/useSectionTour';
-import { TourPopover } from '@/components/onboarding/TourPopover';
 import Profile from './Profile';
 
 // -- CARGOS HELPERS REMOVIDOS (Agora vêm do banco) --
@@ -2011,11 +2009,6 @@ const Settings = () => {
   const { professional: authUser } = useAuth();
   const isOwner = authUser?.role === 'profissional' || authUser?.role === 'admin';
 
-  const { tourActive, tourStep, tourSteps, tourHandleNext, tourHandlePrev, tourHandleClose } =
-    useSectionTour('settings', [
-      { id: null, title: 'Configuracoes', description: 'Gerencie sua conta, equipe e dados da clinica em uma tela unica.', position: 'center' },
-      { id: '#settings-navigation', title: 'Navegacao interna', description: 'Use o menu lateral para alternar entre perfil, organizacao e sistema.', position: 'right' },
-    ]);
 
   const settingsSections: SettingsSection[] = [
     {
@@ -2079,8 +2072,6 @@ const Settings = () => {
 
   return (
     <div className="w-full space-y-6 p-4 sm:p-6 md:p-8 relative">
-      <TourPopover active={tourActive} step={tourStep} steps={tourSteps} onNext={tourHandleNext} onPrev={tourHandlePrev} onClose={tourHandleClose} />
-
       <div className="space-y-1">
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Configuracoes</h1>
         <p className="text-sm sm:text-base text-muted-foreground">
@@ -2089,7 +2080,7 @@ const Settings = () => {
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
-        <aside id="settings-navigation" className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm h-fit lg:sticky lg:top-6">
+        <aside className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm h-fit lg:sticky lg:top-6">
           <div className="space-y-4">
             {visibleSections.map(section => (
               <div key={section.title}>

@@ -333,7 +333,7 @@ const Dashboard = () => {
       {!metrics.isError && !metrics.isFetching && metrics.data && <>
       <p className="text-xs text-on-surface-variant">Período dos indicadores: {getDateDisplay()}</p>
       {/* Primary Stats Grid */}
-      <div id="tour-dashboard-stats" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6 relative z-10">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6 relative z-10">
         {/* Card 1: Total de Leads */}
         <Card className="p-4 xl:p-6">
           <div className="flex items-center justify-between mb-4">
