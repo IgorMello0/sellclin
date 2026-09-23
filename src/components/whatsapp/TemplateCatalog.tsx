@@ -17,7 +17,7 @@ export function TemplateCatalog({ compact = false }: { compact?: boolean }) {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = async () => {
-    const response = await whatsappTemplatesApi.list(undefined, true);
+    const response = await whatsappTemplatesApi.list();
     if (!response.success) throw new Error(response.error?.message || 'Nao foi possivel carregar os templates.');
     setTemplates(response.data || []);
   };

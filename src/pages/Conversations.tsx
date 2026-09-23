@@ -364,7 +364,7 @@ const Conversations = () => {
     void aiAgentsApi.list().then((response) => {
       if (response.success) setAgents((response.data || []).filter((agent: AiAgent) => agent.isActive));
     });
-    void whatsappTemplatesApi.list('APPROVED', true).then((response) => {
+    void whatsappTemplatesApi.list('APPROVED').then((response) => {
       if (response.success) setTemplates(response.data || []);
     });
     void loadWorkspace();

@@ -140,11 +140,12 @@ export default function WhatsAppTemplates() {
   }, [])
 
   const refresh = useCallback(async () => {
+    if (!canManage) return
     if (syncInFlight.current) return
     syncInFlight.current = true
     setSyncing(true)
     try {
-      const response = await whatsappTemplatesApi.list(undefined, true)
+      const response = await whatsappTemplatesApi.sync()
       if (!response.success) throw new Error(response.error?.message || 'Não foi possível consultar a Meta.')
       setTemplates((response.data || []) as WhatsAppTemplate[])
       setWabaId(response.templateAccount?.wabaId || null)
@@ -156,16 +157,18 @@ export default function WhatsAppTemplates() {
       syncInFlight.current = false
       setSyncing(false)
     }
-  }, [])
+  }, [canManage])
 
   useEffect(() => {
     let active = true
     void load()
       .catch((error: Error) => toast({ title: 'Erro ao carregar templates', description: error.message, variant: 'destructive' }))
-      .finally(() => { if (active) { setLoading(false); void refresh() } })
-    const timer = window.setInterval(() => { if (!document.hidden) void refresh() }, 60_000)
+      .finally(() => { if (active) { setLoading(false); if (canManage) void refresh() } })
+    const timer = canManage
+      ? window.setInterval(() => { if (!document.hidden) void refresh() }, 60_000)
+      : undefined
     return () => { active = false; window.clearInterval(timer) }
-  }, [load, refresh, toast])
+  }, [canManage, load, refresh, toast])
 
   const filtered = useMemo(() => {
     const search = query.trim().toLowerCase()
@@ -251,10 +254,12 @@ export default function WhatsAppTemplates() {
           <p className="mt-1 text-sm text-slate-600">Acompanhe a revisão da Meta e gerencie mensagens para contatos fora da janela de 24 horas.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => void refresh()} disabled={syncing}>
-            {syncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
-            Sincronizar
-          </Button>
+          {canManage && (
+            <Button variant="outline" onClick={() => void refresh()} disabled={syncing}>
+              {syncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
+              Sincronizar
+            </Button>
+          )}
           {canManage && (
             <Button onClick={() => navigate('/templates/new')}>
               <Plus className="mr-2 h-4 w-4" />

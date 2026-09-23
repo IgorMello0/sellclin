@@ -30,7 +30,19 @@ router.get('/', auth(), requireModule('conversas'), async (req, res) => {
     const companyId = await getRequestCompanyId(req)
     if (!companyId) return res.status(404).json(createErrorResponse('Empresa nao encontrada', 404))
 
-    if (req.query.refresh === 'true') await syncMetaTemplates(companyId)
+    if (req.query.refresh === 'true') {
+      if (req.user?.type !== 'profissional') {
+        return res.status(403).json(createErrorResponse('Apenas o proprietario pode sincronizar templates', 403))
+      }
+      const ownedCompany = await prisma.empresa.findFirst({
+        where: { id: companyId, ownerId: req.user.id },
+        select: { id: true },
+      })
+      if (!ownedCompany) {
+        return res.status(403).json(createErrorResponse('Apenas o proprietario pode sincronizar templates', 403))
+      }
+      await syncMetaTemplates(companyId)
+    }
     const templates = await listWhatsAppTemplates(companyId, String(req.query.status || ''))
     const account = await getMetaTemplateAccount(companyId).catch(() => null)
     return res.json({ ...createSuccessResponse(templates), templateAccount: account })
