@@ -14,7 +14,7 @@ const menuItems = [
   },
   {
     title: 'Clientes',
-    url: '/clients',
+    url: '/pacientes',
     icon: 'group', // Better than 'person_search' (detective)
     moduleCode: 'clientes',
   },
@@ -26,7 +26,7 @@ const menuItems = [
   },
   {
     title: 'Agenda',
-    url: '/appointments',
+    url: '/agenda',
     icon: 'calendar_month', // Has a grid, looks more modern than 'calendar_today'
     moduleCode: 'agendamentos',
   },
@@ -97,7 +97,7 @@ export function AppSidebar() {
     const hasAccess = hasModuleAccess(item.moduleCode);
     if (!hasAccess) return false;
 
-    if (item.url === '/clients' && !hasPermission('clientes', 'verClientes')) {
+    if (item.url === '/pacientes' && !hasPermission('clientes', 'verClientes')) {
       return false;
     }
     if (item.url === '/leads' && !hasPermission('clientes', 'verLeads')) {

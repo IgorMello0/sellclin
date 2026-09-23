@@ -426,7 +426,7 @@ export function NewAppointmentModal({
                         ))}
                       </CommandGroup>
                       <div className="p-2 border-t">
-                        <Button variant="ghost" size="sm" className="w-full justify-start text-xs text-primary" onClick={() => window.location.href = '/clients'}>
+                        <Button variant="ghost" size="sm" className="w-full justify-start text-xs text-primary" onClick={() => window.location.href = '/pacientes'}>
                           <Plus className="mr-2 h-3 w-3" /> Cadastrar novo paciente
                         </Button>
                       </div>

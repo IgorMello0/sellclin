@@ -373,7 +373,7 @@ export function ClientDossierModal({ clientId, open, onOpenChange }: ClientDossi
                               
                               {item.isActionable && (
                                 <div className="mt-3 pl-2 flex gap-2">
-                                  <Button onClick={() => { onOpenChange(false); navigate('/appointments'); }} size="sm" className="h-7 px-3 text-[10px] bg-secondary hover:bg-secondary/90 rounded-md font-bold">
+                                  <Button onClick={() => { onOpenChange(false); navigate('/agenda'); }} size="sm" className="h-7 px-3 text-[10px] bg-secondary hover:bg-secondary/90 rounded-md font-bold">
                                     Agendar Agora
                                   </Button>
                                 </div>

@@ -13,7 +13,7 @@ const menuItems = [
   },
   {
     title: 'Clientes',
-    url: '/clients',
+    url: '/pacientes',
     icon: 'group',
     moduleCode: 'clientes',
   },
@@ -25,7 +25,7 @@ const menuItems = [
   },
   {
     title: 'Agenda',
-    url: '/appointments',
+    url: '/agenda',
     icon: 'calendar_month',
     moduleCode: 'agendamentos',
   },
