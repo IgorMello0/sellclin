@@ -564,7 +564,7 @@ const Integrations = () => {
               Conecte os canais usados pela clínica e acompanhe cada configuração separadamente.
             </p>
           </div>
-          <Button variant="outline" onClick={() => navigate('/conversations')} className="w-full sm:w-auto">
+          <Button variant="outline" onClick={() => navigate('/conversas')} className="w-full sm:w-auto">
             <MessagesSquare size={16} className="mr-2" />
             Abrir conversas
           </Button>

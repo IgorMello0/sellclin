@@ -49,7 +49,7 @@ const SelectPlan = () => {
                   title: '📞 Solicitação de contato registrada!',
                   description: 'Seu gestor de contas VIP entrará em contato em minutos.',
                 });
-                navigate('/dashboard');
+                navigate('/painel');
               }, 800);
               return prev;
             }
@@ -67,7 +67,7 @@ const SelectPlan = () => {
                   title: '⚡ CRM Ativado com sucesso!',
                   description: 'Seja bem-vindo à sua nova infraestrutura comercial.',
                 });
-                navigate('/dashboard');
+                navigate('/painel');
               }, 800);
               return prev;
             }
@@ -81,7 +81,7 @@ const SelectPlan = () => {
 
   const handleActivate = async () => {
     if (!localStorage.getItem('token')) {
-      navigate(`/signup?plan=${selectedPlan}&cycle=${billingCycle}`);
+      navigate(`/cadastro?plan=${selectedPlan}&cycle=${billingCycle}`);
       return;
     }
 
@@ -204,7 +204,7 @@ const SelectPlan = () => {
       {/* High-End Header */}
       <header className="relative z-10 py-8 px-8 border-b border-slate-200/40 bg-white/70 backdrop-blur-md">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <Link to="/dashboard" aria-label="Voltar ao dashboard" className="inline-flex items-center transition-opacity hover:opacity-80">
+          <Link to="/painel" aria-label="Voltar ao dashboard" className="inline-flex items-center transition-opacity hover:opacity-80">
             <img src="/logo-site.png" alt="SellClin" className="h-7 w-auto translate-y-0.5" />
           </Link>
           <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-full border border-slate-200/50 shadow-sm">

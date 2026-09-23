@@ -132,7 +132,7 @@ export const SiteNavbar = () => {
             <Link to="/sobre" className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-slate-50/60 ${location.pathname === '/sobre' ? activeTextColor + ' font-bold' : textColor}`}>
               Sobre
             </Link>
-            <Link to="/faq" className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-slate-50/60 ${location.pathname === '/faq' ? activeTextColor + ' font-bold' : textColor}`}>
+            <Link to="/perguntas-frequentes" className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-slate-50/60 ${location.pathname === '/perguntas-frequentes' ? activeTextColor + ' font-bold' : textColor}`}>
               FAQ
             </Link>
           </div>
@@ -140,13 +140,13 @@ export const SiteNavbar = () => {
           {/* RIGHT — CTA buttons (desktop) */}
           <div className="hidden lg:flex items-center gap-3">
             <Link
-              to="/login"
+              to="/entrar"
               className={`text-sm font-semibold px-4 py-2 rounded-xl transition-all ${textColor}`}
             >
               Entrar
             </Link>
             <Link
-              to="/signup"
+              to="/cadastro"
               className="group relative overflow-hidden bg-[#0F172A] text-white px-6 py-2.5 rounded-full text-[11px] font-black uppercase tracking-[0.15em] transition-all duration-500 flex items-center gap-2.5 hover:scale-105 active:scale-95 shadow-[0_8px_20px_-8px_rgba(15,23,42,0.5)] hover:shadow-[0_0_30px_rgba(249,115,22,0.4)]"
             >
               <span className="absolute -inset-[1px] bg-[#F97316] translate-x-[-101%] group-hover:translate-x-0 transition-transform duration-500 ease-out z-0 rounded-full" />
@@ -206,7 +206,7 @@ export const SiteNavbar = () => {
                 { to: '/precos', label: 'Preços' },
                 { to: '/clientes', label: 'Clientes' },
                 { to: '/sobre', label: 'Sobre' },
-                { to: '/faq', label: 'FAQ' },
+                { to: '/perguntas-frequentes', label: 'FAQ' },
               ].map((link) => (
                 <Link key={link.to} to={link.to} className="block px-3 py-3 text-sm font-semibold text-[#0F172A]/70 hover:text-[#0F172A] hover:bg-slate-50 rounded-xl transition-colors">
                   {link.label}
@@ -215,10 +215,10 @@ export const SiteNavbar = () => {
             </div>
 
             <div className="px-4 pb-8 pt-4 border-t border-slate-100 space-y-3">
-              <Link to="/login" className="block w-full text-center py-3 rounded-full text-sm font-bold text-[#0F172A] border border-slate-200 hover:border-slate-300 transition-colors">
+              <Link to="/entrar" className="block w-full text-center py-3 rounded-full text-sm font-bold text-[#0F172A] border border-slate-200 hover:border-slate-300 transition-colors">
                 Entrar
               </Link>
-              <Link to="/signup" className="block w-full text-center py-3.5 rounded-full text-[11px] font-black uppercase tracking-[0.2em] bg-[#F97316] text-white hover:bg-orange-500 transition-colors shadow-lg shadow-orange-200">
+              <Link to="/cadastro" className="block w-full text-center py-3.5 rounded-full text-[11px] font-black uppercase tracking-[0.2em] bg-[#F97316] text-white hover:bg-orange-500 transition-colors shadow-lg shadow-orange-200">
                 Começar Grátis
               </Link>
             </div>

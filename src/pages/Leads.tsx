@@ -544,7 +544,7 @@ const Leads = () => {
         
         <div className="flex flex-wrap items-center gap-2 sm:gap-4">
           <Button 
-            onClick={() => navigate('/sales-funnel')}
+            onClick={() => navigate('/comercial')}
             variant="outline"
             className="h-9 sm:h-12 px-3 sm:px-6 font-bold gap-1 sm:gap-2 rounded-xl border-secondary/20 text-secondary hover:bg-secondary/5 text-xs sm:text-sm"
           >
@@ -994,7 +994,7 @@ const Leads = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => navigate('/sales-funnel')}
+                          onClick={() => navigate('/comercial')}
                           className="h-9 px-3 text-[11px] font-bold text-secondary hover:bg-secondary/10 rounded-lg flex items-center gap-1"
                         >
                           Detalhes

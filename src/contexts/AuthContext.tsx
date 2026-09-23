@@ -140,7 +140,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('activeCompanyId', String(selectedCompany.id));
     
     // Recarrega as permissões e a página para isolar os dados
-    window.location.href = '/dashboard';
+    window.location.href = '/painel';
   };
 
   // Verificar se o usuário tem acesso a um módulo
@@ -439,16 +439,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error('[Auth] Falha na requisição de onboarding (ignorando para não travar):', error);
-    } finally {
-      // Sempre marca como concluído localmente para liberar o acesso do usuário
-      setProfessional(prev => {
-        if (!prev) return prev;
-        const updated = { ...prev, onboardingCompleted: true };
-        localStorage.setItem('professional', JSON.stringify(updated));
-        return updated;
-      });
-      return { success: true };
     }
+    // Sempre marca como concluído localmente para liberar o acesso do usuário
+    setProfessional(prev => {
+      if (!prev) return prev;
+      const updated = { ...prev, onboardingCompleted: true };
+      localStorage.setItem('professional', JSON.stringify(updated));
+      return updated;
+    });
+    return { success: true };
   };
 
   const logout = () => {

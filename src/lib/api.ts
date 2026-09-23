@@ -99,7 +99,9 @@ function getMockResponse(endpoint: string, options: RequestInit): ApiResponse<an
       const body = JSON.parse(options.body as string)
       if (body.email) email = body.email
     }
-  } catch (e) {}
+  } catch {
+    // Mock requests without a JSON body keep the default email.
+  }
 
   // 1. Auth/Login
   if (cleanEndpoint.includes('/profissionais/login') || cleanEndpoint.includes('/usuarios/login')) {
@@ -562,10 +564,10 @@ async function apiRequest<T>(
       if (response.status === 401) {
         localStorage.removeItem('token')
         localStorage.removeItem('professional')
-        const publicAuthPaths = ['/login', '/signup', '/accept-invite', '/verify-email', '/forgot-password', '/reset-password']
+        const publicAuthPaths = ['/entrar', '/cadastro', '/aceitar-convite', '/verificar-email', '/esqueci-senha', '/redefinir-senha']
         // Redirecionar para login apenas fora das telas publicas de autenticação.
         if (!publicAuthPaths.includes(window.location.pathname)) {
-          window.location.href = '/login'
+          window.location.href = '/entrar'
         }
       }
       

@@ -279,7 +279,7 @@ export const InteractiveAppBrowser = () => {
                     <p className="text-xs text-slate-400 font-medium">Centro de controle e métricas de conversão da clínica.</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <Link to="/signup" className="text-xs font-black text-blue-600 hover:text-blue-700 flex items-center gap-1 hover:underline">
+                    <Link to="/cadastro" className="text-xs font-black text-blue-600 hover:text-blue-700 flex items-center gap-1 hover:underline">
                       Criar Conta Grátis <ArrowRight size={12} />
                     </Link>
                     <span className="text-[10px] font-black uppercase text-emerald-600 bg-emerald-50 border border-emerald-100 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5">

@@ -92,7 +92,7 @@ export default function WhatsAppTemplateCreate() {
   }, [bodyVariables.length])
 
   useEffect(() => {
-    if (!canManage) navigate('/templates', { replace: true })
+    if (!canManage) navigate('/modelos', { replace: true })
   }, [canManage, navigate])
 
   const addVariable = (target: 'header' | 'body') => {
@@ -167,7 +167,7 @@ export default function WhatsAppTemplateCreate() {
       const response = await whatsappTemplatesApi.create(payload)
       if (!response.success) throw new Error(response.error?.message || 'Não foi possível enviar o template.')
       toast({ title: 'Template confirmado na Meta', description: `ID ${response.data.externalId}. Acompanhe o status na página de templates.` })
-      navigate('/templates')
+      navigate('/modelos')
     } catch (error: any) {
       toast({ title: 'Erro ao criar template', description: error.message, variant: 'destructive' })
     } finally {
@@ -187,7 +187,7 @@ export default function WhatsAppTemplateCreate() {
   return (
     <div className="space-y-6">
       <header className="border-b border-slate-200 pb-5">
-        <Button variant="ghost" className="mb-3 -ml-3" onClick={() => navigate('/templates')}>
+        <Button variant="ghost" className="mb-3 -ml-3" onClick={() => navigate('/modelos')}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Voltar para templates
         </Button>

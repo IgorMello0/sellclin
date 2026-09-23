@@ -189,7 +189,7 @@ const SobrePage = () => {
               </p>
               
               <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-                <Link to="/login" className="inline-flex items-center justify-center gap-4 bg-[#F97316] text-white px-10 py-5 md:px-12 md:py-6 rounded-full font-black text-sm uppercase tracking-[0.2em] hover:bg-orange-600 transition-all duration-500 shadow-[0_20px_40px_-15px_rgba(249,115,22,0.4)] hover:shadow-[0_20px_60px_-15px_rgba(249,115,22,0.6)] hover:-translate-y-1 group w-full sm:w-auto">
+                <Link to="/entrar" className="inline-flex items-center justify-center gap-4 bg-[#F97316] text-white px-10 py-5 md:px-12 md:py-6 rounded-full font-black text-sm uppercase tracking-[0.2em] hover:bg-orange-600 transition-all duration-500 shadow-[0_20px_40px_-15px_rgba(249,115,22,0.4)] hover:shadow-[0_20px_60px_-15px_rgba(249,115,22,0.6)] hover:-translate-y-1 group w-full sm:w-auto">
                   Solicitar Demonstração
                   <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
                 </Link>

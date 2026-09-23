@@ -43,14 +43,14 @@ const ResetPassword = () => {
     }
 
     toast({ title: 'Senha redefinida', description: 'Agora voce ja pode entrar com e-mail e senha.' });
-    navigate('/login');
+    navigate('/entrar');
   };
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] flex items-center justify-center px-4">
       <div className="absolute inset-0 pointer-events-none opacity-[0.25]" style={{ backgroundImage: 'radial-gradient(#CBD5E1 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
       <div className="relative w-full max-w-md rounded-[2rem] border border-slate-100 bg-white p-8 shadow-[0_24px_70px_-28px_rgba(15,23,42,0.35)]">
-        <Link to="/login" className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-[#F97316]">
+        <Link to="/entrar" className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-[#F97316]">
           <ArrowLeft className="h-4 w-4" />
           Voltar ao login
         </Link>

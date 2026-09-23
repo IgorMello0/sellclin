@@ -66,7 +66,7 @@ const AgendaPage = () => {
               Chega de agendas no papel, planilhas soltas e WhatsApp bagunçado. O SellClin centraliza tudo em uma agenda visual, intuitiva e conectada ao seu comercial.
             </p>
             <div className="flex items-center gap-4 flex-wrap">
-              <Link to="/login" className="bg-[#F97316] text-white px-10 py-5 rounded-full font-black text-xs uppercase tracking-[0.2em] hover:scale-105 transition-all shadow-2xl shadow-orange-200 flex items-center gap-3">
+              <Link to="/entrar" className="bg-[#F97316] text-white px-10 py-5 rounded-full font-black text-xs uppercase tracking-[0.2em] hover:scale-105 transition-all shadow-2xl shadow-orange-200 flex items-center gap-3">
                 Começar Agora <ArrowRight size={16} />
               </Link>
             </div>
@@ -513,10 +513,10 @@ const AgendaPage = () => {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto shrink-0 relative z-10">
-              <Link to="/signup" className="bg-[#F97316] text-white px-8 py-4 rounded-xl font-black text-xs uppercase tracking-widest text-center shadow-lg shadow-orange-500/20 hover:scale-[1.02] transition-all">
+              <Link to="/cadastro" className="bg-[#F97316] text-white px-8 py-4 rounded-xl font-black text-xs uppercase tracking-widest text-center shadow-lg shadow-orange-500/20 hover:scale-[1.02] transition-all">
                 Começar Grátis
               </Link>
-              <Link to="/login" className="bg-white/10 hover:bg-white/15 text-white px-8 py-4 rounded-xl font-black text-xs uppercase tracking-widest text-center border border-white/10 transition-all">
+              <Link to="/entrar" className="bg-white/10 hover:bg-white/15 text-white px-8 py-4 rounded-xl font-black text-xs uppercase tracking-widest text-center border border-white/10 transition-all">
                 Fazer Login
               </Link>
             </div>

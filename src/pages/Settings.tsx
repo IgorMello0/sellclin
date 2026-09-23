@@ -2002,6 +2002,27 @@ const ViewsMap: Record<string, React.FC<any>> = {
   discount: DiscountSettingsView,
 };
 
+const tabSlugs: Record<string, string> = {
+  profile: 'perfil',
+  billing: 'planos',
+  security: 'seguranca',
+  notifications: 'notificacoes',
+  business: 'clinica',
+  services: 'servicos',
+  team: 'equipe',
+  specialists: 'especialistas',
+  roles: 'cargos',
+  clinics: 'unidades',
+  funnels: 'funis',
+  cadence: 'cadencia',
+  lead_statuses: 'status',
+  lead_origins: 'origens',
+  lead_routing: 'roteamento',
+  discount: 'desconto',
+};
+
+const tabKeysBySlug = Object.fromEntries(Object.entries(tabSlugs).map(([key, slug]) => [slug, key]));
+
 const Settings = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -2054,18 +2075,25 @@ const Settings = () => {
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const requestedTab = params.get('tab') || params.get('view');
+    const requestedSlug = params.get('tab') || params.get('view');
+    const requestedTab = requestedSlug ? (tabKeysBySlug[requestedSlug] || requestedSlug) : null;
     if (requestedTab && allItems.some(item => item.key === requestedTab)) {
       setSelectedKey(requestedTab);
+      const canonicalSlug = tabSlugs[requestedTab] || requestedTab;
+      if (requestedSlug !== canonicalSlug || params.has('view')) {
+        params.set('tab', canonicalSlug);
+        params.delete('view');
+        navigate(`${location.pathname}?${params.toString()}`, { replace: true });
+      }
     } else {
       setSelectedKey('profile');
     }
-  }, [isOwner, location.search]);
+  }, [isOwner, location.pathname, location.search, navigate]);
 
   const handleSelect = (item: SettingsItem) => {
     setSelectedKey(item.key);
     const url = new URL(window.location.href);
-    url.searchParams.set('tab', item.key);
+    url.searchParams.set('tab', tabSlugs[item.key] || item.key);
     url.searchParams.delete('view');
     navigate(`${url.pathname}${url.search}`, { replace: true });
   };

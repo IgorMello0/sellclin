@@ -40,7 +40,7 @@ export const SiteFooter = () => {
             <ul className="space-y-2">
               <li><Link to="/sobre" className="text-sm text-slate-500 font-medium hover:text-[#F97316] transition-colors">Sobre a SellClin</Link></li>
               <li><Link to="/clientes" className="text-sm text-slate-500 font-medium hover:text-[#F97316] transition-colors">Nossos Clientes</Link></li>
-              <li><Link to="/faq" className="text-sm text-slate-500 font-medium hover:text-[#F97316] transition-colors">FAQ & Ajuda</Link></li>
+              <li><Link to="/perguntas-frequentes" className="text-sm text-slate-500 font-medium hover:text-[#F97316] transition-colors">FAQ & Ajuda</Link></li>
               <li><a href="#" className="text-sm text-slate-500 font-medium hover:text-[#F97316] transition-colors">Falar com Consultor</a></li>
             </ul>
           </div>

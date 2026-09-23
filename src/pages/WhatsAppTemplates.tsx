@@ -261,7 +261,7 @@ export default function WhatsAppTemplates() {
             </Button>
           )}
           {canManage && (
-            <Button onClick={() => navigate('/templates/new')}>
+            <Button onClick={() => navigate('/modelos/novo')}>
               <Plus className="mr-2 h-4 w-4" />
               Novo template
             </Button>

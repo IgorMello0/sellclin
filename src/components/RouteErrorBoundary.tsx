@@ -38,7 +38,7 @@ export class RouteErrorBoundary extends React.Component<RouteErrorBoundaryProps,
               <Button variant="outline" onClick={() => window.location.reload()}>
                 Recarregar
               </Button>
-              <Button onClick={() => { window.location.href = '/dashboard'; }}>
+              <Button onClick={() => { window.location.href = '/painel'; }}>
                 Ir para dashboard
               </Button>
             </div>

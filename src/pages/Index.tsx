@@ -105,7 +105,7 @@ const Index = () => {
                 }}
                 className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-4 sm:gap-8 mb-10"
               >
-                <Link to="/signup" className="bg-[#F97316] text-white px-8 sm:px-10 py-4 sm:py-5 rounded-full font-black text-xs uppercase tracking-[0.2em] shadow-2xl shadow-orange-200 hover:scale-105 transition-all flex items-center gap-3 w-full sm:w-auto justify-center">
+                <Link to="/cadastro" className="bg-[#F97316] text-white px-8 sm:px-10 py-4 sm:py-5 rounded-full font-black text-xs uppercase tracking-[0.2em] shadow-2xl shadow-orange-200 hover:scale-105 transition-all flex items-center gap-3 w-full sm:w-auto justify-center">
                   Começar agora <ArrowRight size={16}/>
                 </Link>
                 <a href="#funcionalidades" className="text-xs font-black uppercase tracking-[0.2em] text-[#64748B] hover:text-[#0F172A] transition-all py-3 px-4 sm:py-2 sm:px-0">
@@ -635,7 +635,7 @@ const Index = () => {
                 transition={{ delay: 0.6, duration: 0.8 }}
                 className="mt-12"
               >
-                <Link to="/signup" className="inline-flex items-center gap-3 bg-gradient-to-r from-[#F97316] to-orange-500 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl shadow-orange-500/25 hover:scale-105 hover:shadow-orange-500/40 transition-all duration-300 group">
+                <Link to="/cadastro" className="inline-flex items-center gap-3 bg-gradient-to-r from-[#F97316] to-orange-500 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl shadow-orange-500/25 hover:scale-105 hover:shadow-orange-500/40 transition-all duration-300 group">
                   Criar Minha Primeira Campanha <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
                 </Link>
               </motion.div>
@@ -759,7 +759,7 @@ const Index = () => {
                     ))}
                   </div>
                   
-                  <Link to={`/signup?plan=${p.plan}&cycle=monthly`} className={`block text-center w-full py-5 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] transition-all duration-300 ${p.featured ? 'bg-[#F97316] text-white shadow-lg shadow-orange-200 hover:scale-105' : 'bg-[#0F172A] text-white hover:bg-slate-800'}`}>
+                  <Link to={`/cadastro?plan=${p.plan}&cycle=monthly`} className={`block text-center w-full py-5 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] transition-all duration-300 ${p.featured ? 'bg-[#F97316] text-white shadow-lg shadow-orange-200 hover:scale-105' : 'bg-[#0F172A] text-white hover:bg-slate-800'}`}>
                     Escolher Plano
                   </Link>
                 </div>
@@ -835,7 +835,7 @@ const Index = () => {
                 </p>
                 <div className="pt-4">
                   <Link 
-                    to="/signup" 
+                    to="/cadastro"
                     className="inline-flex items-center gap-3 px-8 py-4.5 bg-[#0B1225] hover:bg-white hover:text-[#0B1225] text-white rounded-full font-black text-xs uppercase tracking-[0.2em] transition-all hover:scale-105 active:scale-95 shadow-lg shadow-[#0B1225]/20"
                   >
                     Vai, clica nesse botão <ArrowRight size={16} />

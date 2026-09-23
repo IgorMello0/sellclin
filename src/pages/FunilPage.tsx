@@ -67,10 +67,10 @@ const FunilPage = () => {
               Visualize cada lead, em cada etapa, in real time. Com o Funil Kanban do SellClin, você para de perder oportunidades que já estavam na sua mão.
             </p>
             <div className="flex items-center gap-4 flex-wrap">
-              <Link to="/login" className="bg-[#F97316] text-white px-10 py-5 rounded-full font-black text-xs uppercase tracking-[0.2em] hover:scale-105 transition-all shadow-2xl shadow-orange-900/40 flex items-center gap-3">
+              <Link to="/entrar" className="bg-[#F97316] text-white px-10 py-5 rounded-full font-black text-xs uppercase tracking-[0.2em] hover:scale-105 transition-all shadow-2xl shadow-orange-900/40 flex items-center gap-3">
                 Começar Agora <ArrowRight size={16} />
               </Link>
-              <Link to="/faq" className="text-sm font-black uppercase tracking-widest text-slate-400 hover:text-white transition-colors">Ver o FAQ →</Link>
+              <Link to="/perguntas-frequentes" className="text-sm font-black uppercase tracking-widest text-slate-400 hover:text-white transition-colors">Ver o FAQ →</Link>
             </div>
           </motion.div>
 
@@ -416,10 +416,10 @@ const FunilPage = () => {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto shrink-0 relative z-10">
-              <Link to="/signup" className="bg-[#F97316] text-white px-8 py-4 rounded-xl font-black text-xs uppercase tracking-widest text-center shadow-lg shadow-orange-500/20 hover:scale-[1.02] transition-all">
+              <Link to="/cadastro" className="bg-[#F97316] text-white px-8 py-4 rounded-xl font-black text-xs uppercase tracking-widest text-center shadow-lg shadow-orange-500/20 hover:scale-[1.02] transition-all">
                 Começar Grátis
               </Link>
-              <Link to="/login" className="bg-white/10 hover:bg-white/15 text-white px-8 py-4 rounded-xl font-black text-xs uppercase tracking-widest text-center border border-white/10 transition-all">
+              <Link to="/entrar" className="bg-white/10 hover:bg-white/15 text-white px-8 py-4 rounded-xl font-black text-xs uppercase tracking-widest text-center border border-white/10 transition-all">
                 Fazer Login
               </Link>
             </div>

@@ -69,19 +69,19 @@ router.get('/callback', async (req, res) => {
   const redirectBase = process.env.PUBLIC_APP_URL || process.env.APP_URL || process.env.FRONTEND_URL || '/'
 
   if (error) {
-    return res.redirect(`${redirectBase.replace(/\/+$/, '')}/integrations?channel=google-calendar&googleCalendar=error`)
+    return res.redirect(`${redirectBase.replace(/\/+$/, '')}/integracoes?channel=google-calendar&googleCalendar=error`)
   }
 
   if (!code || !state) {
-    return res.redirect(`${redirectBase.replace(/\/+$/, '')}/integrations?channel=google-calendar&googleCalendar=missing`)
+    return res.redirect(`${redirectBase.replace(/\/+$/, '')}/integracoes?channel=google-calendar&googleCalendar=missing`)
   }
 
   try {
     await handleGoogleCalendarCallback(code, state)
-    res.redirect(`${redirectBase.replace(/\/+$/, '')}/integrations?channel=google-calendar&googleCalendar=connected`)
+    res.redirect(`${redirectBase.replace(/\/+$/, '')}/integracoes?channel=google-calendar&googleCalendar=connected`)
   } catch (err) {
     console.error('[GoogleCalendar] Callback error:', err)
-    res.redirect(`${redirectBase.replace(/\/+$/, '')}/integrations?channel=google-calendar&googleCalendar=error`)
+    res.redirect(`${redirectBase.replace(/\/+$/, '')}/integracoes?channel=google-calendar&googleCalendar=error`)
   }
 })
 

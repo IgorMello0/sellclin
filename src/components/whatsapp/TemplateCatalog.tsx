@@ -50,7 +50,7 @@ export function TemplateCatalog({ compact = false }: { compact?: boolean }) {
           <p className="mt-1 text-xs font-medium text-slate-500">Aprovados pela Meta para iniciar conversas e campanhas.</p>
         </div>
         <div className="flex shrink-0 gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={() => navigate('/templates')}>Gerenciar</Button>
+          <Button type="button" variant="outline" size="sm" onClick={() => navigate('/modelos')}>Gerenciar</Button>
           <Button type="button" variant="outline" size="icon" title="Sincronizar templates" onClick={() => void sync()} disabled={syncing}>
             {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
           </Button>

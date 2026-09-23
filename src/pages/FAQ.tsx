@@ -393,7 +393,7 @@ const FAQ = () => {
                 Falar com Consultor
               </a>
               <Link 
-                to="/login" 
+                to="/entrar"
                 className="bg-white/5 hover:bg-white/10 text-white border border-white/10 px-6 py-3.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all text-center flex items-center justify-center gap-2"
               >
                 Falar com o Suporte

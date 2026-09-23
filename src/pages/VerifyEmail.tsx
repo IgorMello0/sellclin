@@ -40,7 +40,7 @@ const VerifyEmail = () => {
         </h1>
         <p className="mt-3 text-sm leading-relaxed text-slate-500">{message}</p>
         <Link
-          to="/login"
+          to="/entrar"
           className="mt-6 inline-flex rounded-full bg-[#F97316] px-6 py-3 text-sm font-bold text-white hover:bg-orange-600"
         >
           Ir para login

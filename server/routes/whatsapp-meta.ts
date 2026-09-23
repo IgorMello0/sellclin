@@ -94,20 +94,20 @@ router.get('/callback', async (req, res) => {
   const error = req.query.error || req.query.error_reason
 
   if (error) {
-    return res.redirect(`${appUrl}/settings?view=whatsapp&whatsappMeta=error`)
+    return res.redirect(`${appUrl}/integracoes?channel=whatsapp&whatsappMeta=error`)
   }
 
   if (!code || !state) {
-    return res.redirect(`${appUrl}/settings?view=whatsapp&whatsappMeta=error`)
+    return res.redirect(`${appUrl}/integracoes?channel=whatsapp&whatsappMeta=error`)
   }
 
   try {
     const result = await connectMetaWhatsappFromCode(code, state)
     const channel = result.officialMode === 'coexistence' ? 'whatsapp-coexistence' : 'whatsapp-official'
-    return res.redirect(`${appUrl}/integrations?channel=${channel}&whatsappMeta=connected&mode=${result.officialMode}`)
+    return res.redirect(`${appUrl}/integracoes?channel=${channel}&whatsappMeta=connected&mode=${result.officialMode}`)
   } catch (err: any) {
     console.error('[WhatsApp Meta Callback] Erro:', err)
-    return res.redirect(`${appUrl}/settings?view=whatsapp&whatsappMeta=error`)
+    return res.redirect(`${appUrl}/integracoes?channel=whatsapp&whatsappMeta=error`)
   }
 })
 

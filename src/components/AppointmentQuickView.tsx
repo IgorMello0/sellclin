@@ -368,7 +368,7 @@ export function AppointmentQuickView({ appointmentId, isOpen, onClose, onUpdate 
 
             {isLead ? (
               <Button 
-                onClick={() => { onClose(); navigate('/sales-funnel'); }}
+                onClick={() => { onClose(); navigate('/comercial'); }}
                 variant="outline"
                 className="flex-1 h-9 rounded-lg font-bold border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800 px-2 text-[11px] shadow-sm"
               >

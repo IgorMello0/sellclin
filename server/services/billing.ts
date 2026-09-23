@@ -760,8 +760,8 @@ export async function createAddonCheckout(input: {
   const payload = {
     items: [{ id: productId, quantity }],
     externalId,
-    returnUrl: `${appUrl}/settings?billing=addon-return`,
-    completionUrl: `${appUrl}/settings?billing=addon-success`,
+    returnUrl: `${appUrl}/configuracoes?tab=planos&billing=addon-return`,
+    completionUrl: `${appUrl}/configuracoes?tab=planos&billing=addon-success`,
     methods: ['CARD'],
     metadata: {
       billingAddonId: String(addon.id),
@@ -863,8 +863,8 @@ export async function createAbacateSubscriptionCheckout(
     quantity: 1,
     items: [{ id: abacateConfig.productId, quantity: 1 }],
     externalId,
-    returnUrl: `${appUrl}/dashboard?billing=return`,
-    completionUrl: `${appUrl}/dashboard?billing=success`,
+    returnUrl: `${appUrl}/painel?billing=return`,
+    completionUrl: `${appUrl}/painel?billing=success`,
     methods: ['CARD'],
     metadata: {
       companyId: String(companyId),
@@ -1051,8 +1051,8 @@ export async function createPendingSignupCheckout(input: {
     quantity: 1,
     items: [{ id: abacateConfig.productId, quantity: 1 }],
     externalId,
-    returnUrl: `${appUrl}/login?signup=return`,
-    completionUrl: `${appUrl}/login?signup=success`,
+    returnUrl: `${appUrl}/entrar?signup=return`,
+    completionUrl: `${appUrl}/entrar?signup=success`,
     methods: ['CARD'],
     metadata: {
       pendingSignupId: String(pending.id),

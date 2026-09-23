@@ -47,14 +47,14 @@ export function ModuleBlockedPage({ moduleName, reason = 'permission' }: ModuleB
         {/* Actions */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
           <button
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate('/painel')}
             className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all"
           >
             <span className="material-symbols-outlined text-lg">arrow_back</span>
             Voltar ao Dashboard
           </button>
           <button
-            onClick={() => navigate('/settings')}
+            onClick={() => navigate('/configuracoes')}
             className="inline-flex items-center gap-2 px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl font-bold text-sm hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
           >
             <span className="material-symbols-outlined text-lg">settings</span>

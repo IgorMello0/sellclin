@@ -431,7 +431,7 @@ const Signup = () => {
                     <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between text-xs font-semibold gap-3 text-slate-400">
                       <div>
                         Já é cliente?{' '}
-                        <Link to="/login" className="text-[#F97316] hover:underline font-bold transition-colors">
+                        <Link to="/entrar" className="text-[#F97316] hover:underline font-bold transition-colors">
                           Fazer login
                         </Link>
                       </div>

@@ -1036,7 +1036,7 @@ export default function Campaigns() {
                   {!connectionsLoading && !metaStatus?.connected && !uazapiStatus?.connected && (
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
                       <p className="text-xs font-semibold text-amber-800">Conecte pelo menos um WhatsApp antes de criar a campanha.</p>
-                      <Button type="button" size="sm" variant="outline" onClick={() => navigate('/integrations')}>Abrir integrações</Button>
+                      <Button type="button" size="sm" variant="outline" onClick={() => navigate('/integracoes')}>Abrir integrações</Button>
                     </div>
                   )}
                 </section>
@@ -1096,7 +1096,7 @@ export default function Campaigns() {
                       ) : (
                         <div className="rounded-lg border border-dashed border-blue-300 bg-white p-4 text-center">
                           <p className="text-sm font-bold text-slate-800">Nenhum template aprovado sincronizado</p>
-                          <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => navigate('/templates')}>Gerenciar templates</Button>
+                          <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => navigate('/modelos')}>Gerenciar templates</Button>
                         </div>
                       )}
                       {selectedMetaTemplate && (

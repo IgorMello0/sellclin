@@ -23,7 +23,7 @@ export function ProtectedRoute({ children, moduleCode, moduleName, subPermission
 
   // Se não está autenticado, redirecionar para login
   if (!professional) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/entrar" replace />;
   }
 
   // Se um módulo foi especificado, verificar permissão

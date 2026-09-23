@@ -65,7 +65,7 @@ const Admin = () => {
         description: 'Apenas profissionais têm acesso à página de Administração.',
         variant: 'destructive',
       });
-      navigate('/dashboard');
+      navigate('/painel');
     }
   }, [navigate]);
 

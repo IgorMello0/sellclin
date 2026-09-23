@@ -32,7 +32,7 @@ const AcceptInvite = () => {
 
     if (response.success) {
       toast({ title: 'Convite aceito', description: 'Agora você já pode entrar no SellClin.' });
-      navigate('/login');
+      navigate('/entrar');
       return;
     }
 
@@ -84,7 +84,7 @@ const AcceptInvite = () => {
         </button>
 
         <div className="mt-5 text-center">
-          <Link to="/login" className="text-xs font-bold text-slate-400 hover:text-[#F97316]">
+          <Link to="/entrar" className="text-xs font-bold text-slate-400 hover:text-[#F97316]">
             Voltar para login
           </Link>
         </div>

@@ -8,7 +8,7 @@ import { getImageUrl } from '@/lib/api';
 const menuItems = [
   {
     title: 'Dashboard',
-    url: '/dashboard',
+    url: '/painel',
     icon: 'grid_view', // More geometric and modern than 'dashboard'
     moduleCode: 'dashboard',
   },
@@ -20,7 +20,7 @@ const menuItems = [
   },
   {
     title: 'Leads',
-    url: '/leads',
+    url: '/oportunidades',
     icon: 'person_add',
     moduleCode: 'clientes',
   },
@@ -32,25 +32,25 @@ const menuItems = [
   },
   {
     title: 'Comercial',
-    url: '/sales-funnel',
+    url: '/comercial',
     icon: 'filter_alt', // Real funnel shape instead of 3 lines ('filter_list')
     moduleCode: 'funnel',
   },
   {
     title: 'Tarefas',
-    url: '/tasks',
+    url: '/tarefas',
     icon: 'task_alt',
     moduleCode: 'tarefas',
   },
   {
     title: 'Conversas',
-    url: '/conversations',
+    url: '/conversas',
     icon: 'message',
     moduleCode: 'conversas',
   },
   {
     title: 'Templates',
-    url: '/templates',
+    url: '/modelos',
     icon: 'text_snippet',
     moduleCode: 'conversas',
   },
@@ -62,13 +62,13 @@ const menuItems = [
   },
   {
     title: 'Campanhas',
-    url: '/campaigns',
+    url: '/campanhas',
     icon: 'rocket_launch', // Much cooler for marketing/campaigns than 'campaign' (megaphone)
     moduleCode: 'campanhas',
   },
   {
     title: 'Integrações',
-    url: '/integrations',
+    url: '/integracoes',
     icon: 'extension', // Puzzle piece is universally understood for integrations
     moduleCode: 'integrations',
     ownerOnly: true,
@@ -100,7 +100,7 @@ export function AppSidebar() {
     if (item.url === '/pacientes' && !hasPermission('clientes', 'verClientes')) {
       return false;
     }
-    if (item.url === '/leads' && !hasPermission('clientes', 'verLeads')) {
+    if (item.url === '/oportunidades' && !hasPermission('clientes', 'verLeads')) {
       return false;
     }
 
@@ -109,7 +109,7 @@ export function AppSidebar() {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/entrar');
   };
 
   useEffect(() => {
@@ -134,7 +134,7 @@ export function AppSidebar() {
         >
           <span className="material-symbols-outlined text-2xl">menu</span>
         </button>
-        <Link to="/dashboard" className="flex items-center">
+        <Link to="/painel" className="flex items-center">
           <img
             alt="SellClin Logo"
             className="h-6 w-auto object-contain translate-y-0.5"
@@ -163,7 +163,7 @@ export function AppSidebar() {
           isSidebarCollapsed && !isMobileSidebarOpen ? "flex-col gap-4 px-2" : "justify-between px-6"
         )}>
           {isSidebarCollapsed && !isMobileSidebarOpen ? (
-             <Link to="/dashboard" className="transition-transform hover:scale-110">
+             <Link to="/painel" className="transition-transform hover:scale-110">
                <img
                  src="/SELLCLIN%20LOGOTIPO.png"
                  alt="SellClin Logo"
@@ -171,7 +171,7 @@ export function AppSidebar() {
                />
              </Link>
           ) : (
-            <Link to="/dashboard" className="flex-1">
+            <Link to="/painel" className="flex-1">
               <img 
                 alt="SellClin Logo"
                 className="h-6 w-auto object-contain max-w-[140px] translate-y-0.5" 
@@ -280,7 +280,7 @@ export function AppSidebar() {
           isSidebarCollapsed && !isMobileSidebarOpen ? "px-2" : "px-4"
         )}>
           {filteredMenuItems.map((item) => {
-            const isActive = location.pathname === item.url || (item.url !== '/dashboard' && location.pathname.startsWith(item.url));
+            const isActive = location.pathname === item.url || (item.url !== '/painel' && location.pathname.startsWith(item.url));
             const showOnlyIcons = isSidebarCollapsed && !isMobileSidebarOpen;
 
             return (
@@ -370,7 +370,7 @@ export function AppSidebar() {
                 </div>
                 <div className="py-1">
                   <Link
-                    to="/settings?tab=profile"
+                    to="/configuracoes?tab=perfil"
                     onClick={() => setProfileMenuOpen(false)}
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
                   >
@@ -379,7 +379,7 @@ export function AppSidebar() {
                   </Link>
                   {(professional?.role === 'admin' || professional?.role === 'profissional') && (
                     <Link
-                      to="/settings"
+                      to="/configuracoes"
                       onClick={() => setProfileMenuOpen(false)}
                       className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
                     >

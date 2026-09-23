@@ -18,10 +18,10 @@ const AppLayout = () => {
   }
 
   if (!professional) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/entrar" replace />;
   }
 
-  const isFullScreen = location.pathname === '/conversations';
+  const isFullScreen = location.pathname === '/conversas';
   const showOnboarding = professional.onboardingCompleted !== true;
 
   return (

@@ -63,7 +63,7 @@ const MetasPage = () => {
             <p className="text-lg text-slate-400 font-medium leading-relaxed mb-12 max-w-lg">
               Nossa Engenharia de Metas usa o cálculo reverso baseado nos seus dados reais para te dizer exatamente quanto você precisa vender, captar e converter para bater sua meta.
             </p>
-            <Link to="/login" className="inline-flex items-center gap-3 bg-[#F97316] text-white px-10 py-5 rounded-full font-black text-xs uppercase tracking-[0.2em] hover:scale-105 transition-all shadow-2xl shadow-orange-900/30">
+            <Link to="/entrar" className="inline-flex items-center gap-3 bg-[#F97316] text-white px-10 py-5 rounded-full font-black text-xs uppercase tracking-[0.2em] hover:scale-105 transition-all shadow-2xl shadow-orange-900/30">
               Começar Agora <ArrowRight size={16} />
             </Link>
           </motion.div>
@@ -396,10 +396,10 @@ const MetasPage = () => {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto shrink-0 relative z-10">
-              <Link to="/signup" className="bg-[#F97316] text-white px-8 py-4 rounded-xl font-black text-xs uppercase tracking-widest text-center shadow-lg shadow-orange-500/20 hover:scale-[1.02] transition-all">
+              <Link to="/cadastro" className="bg-[#F97316] text-white px-8 py-4 rounded-xl font-black text-xs uppercase tracking-widest text-center shadow-lg shadow-orange-500/20 hover:scale-[1.02] transition-all">
                 Começar Grátis
               </Link>
-              <Link to="/login" className="bg-white/10 hover:bg-white/15 text-white px-8 py-4 rounded-xl font-black text-xs uppercase tracking-widest text-center border border-white/10 transition-all">
+              <Link to="/entrar" className="bg-white/10 hover:bg-white/15 text-white px-8 py-4 rounded-xl font-black text-xs uppercase tracking-widest text-center border border-white/10 transition-all">
                 Fazer Login
               </Link>
             </div>

@@ -108,7 +108,7 @@ export async function sendVerificationEmail(params: {
     professionalId: params.professionalId,
     userId: params.userId,
   })
-  const link = `${getPublicAppUrl()}/verify-email?token=${encodeURIComponent(token)}`
+  const link = `${getPublicAppUrl()}/verificar-email?token=${encodeURIComponent(token)}`
 
   await sendResendEmail(
     params.email,
@@ -137,7 +137,7 @@ export async function sendTeamInviteEmail(params: {
     type: EMAIL_TOKEN_TYPES.teamInvite,
     userId: params.userId,
   })
-  const link = `${getPublicAppUrl()}/accept-invite?token=${encodeURIComponent(token)}`
+  const link = `${getPublicAppUrl()}/aceitar-convite?token=${encodeURIComponent(token)}`
 
   await sendResendEmail(
     params.email,
@@ -167,7 +167,7 @@ export async function sendPasswordResetEmail(params: {
     professionalId: params.professionalId,
     userId: params.userId,
   })
-  const link = `${getPublicAppUrl()}/reset-password?token=${encodeURIComponent(token)}`
+  const link = `${getPublicAppUrl()}/redefinir-senha?token=${encodeURIComponent(token)}`
 
   await sendResendEmail(
     params.email,

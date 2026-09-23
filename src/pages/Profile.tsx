@@ -534,7 +534,7 @@ const Profile = ({ embedded = false }: { embedded?: boolean }) => {
                     </p>
                   </div>
                 </div>
-                <Button variant="outline" size="sm" className="rounded-xl" onClick={() => navigate('/settings?tab=security')}>
+                <Button variant="outline" size="sm" className="rounded-xl" onClick={() => navigate('/configuracoes?tab=seguranca')}>
                   Alterar
                 </Button>
               </div>
@@ -551,7 +551,7 @@ const Profile = ({ embedded = false }: { embedded?: boolean }) => {
                     </p>
                   </div>
                 </div>
-                <Button variant="outline" size="sm" className="rounded-xl" onClick={() => navigate('/settings?tab=notifications')}>
+                <Button variant="outline" size="sm" className="rounded-xl" onClick={() => navigate('/configuracoes?tab=notificacoes')}>
                   Configurar
                 </Button>
               </div>

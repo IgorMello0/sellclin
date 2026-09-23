@@ -55,7 +55,7 @@ const Login = () => {
         title: 'Que bom ter você aqui!', 
         description: `Login realizado com sucesso no seu painel.` 
       });
-      navigate('/dashboard');
+      navigate('/painel');
     } else {
       const message = result.error || 'E-mail ou senha incorretos.';
       setUnverifiedEmail(message.toLowerCase().includes('verifique seu e-mail') ? email : '');
@@ -272,7 +272,7 @@ const Login = () => {
                         title: 'Login com Google realizado!', 
                         description: 'Que bom ter você de volta!' 
                       });
-                      navigate('/dashboard');
+                      navigate('/painel');
                     } else {
                       toast({ 
                         title: 'Erro no login com Google', 
@@ -333,7 +333,7 @@ const Login = () => {
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center ml-1">
                   <label htmlFor="password" className="block text-[12px] font-bold text-slate-600">Senha de acesso</label>
-                  <Link to="/forgot-password" className="text-[11px] text-slate-400 hover:text-[#F97316] font-bold transition-colors duration-300">Esqueceu a senha?</Link>
+                  <Link to="/esqueci-senha" className="text-[11px] text-slate-400 hover:text-[#F97316] font-bold transition-colors duration-300">Esqueceu a senha?</Link>
                 </div>
                 <div className="relative group">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#F97316] transition-colors duration-300">
