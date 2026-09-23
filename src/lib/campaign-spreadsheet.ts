@@ -21,6 +21,13 @@ export type SpreadsheetImport = {
   columns: SpreadsheetColumn[]; rows: SpreadsheetRow[];
 };
 
+export function normalizeBrazilianWhatsAppPhone(value: string): string | null {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (/^55\d{10,11}$/.test(digits)) return digits;
+  if (/^\d{10,11}$/.test(digits)) return `55${digits}`;
+  return null;
+}
+
 export function parseSpreadsheetContacts(text: string): SpreadsheetImport {
   const parsed = Papa.parse<string[]>(text, { skipEmptyLines: 'greedy', delimitersToGuess: [',', ';', '\t'] });
   if (parsed.errors.some(error => error.type === 'Quotes')) throw new Error('Aspas inválidas na planilha. Exporte o arquivo novamente como CSV.');
@@ -35,7 +42,7 @@ export function parseSpreadsheetContacts(text: string): SpreadsheetImport {
   const seen = new Set<string>();
   data.slice(0, SPREADSHEET_CONTACT_LIMIT).forEach((values, index) => {
     const [name, rawPhone, date, time, specialist] = indexes.map(column => (values[column] || '').trim());
-    const phone = rawPhone.replace(/\D/g, '');
+    const phone = normalizeBrazilianWhatsAppPhone(rawPhone);
     if (!phone) { stats.invalidRows++; return; }
     if (seen.has(phone)) { stats.duplicateRows++; return; }
     seen.add(phone);

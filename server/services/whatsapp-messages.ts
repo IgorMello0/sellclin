@@ -179,6 +179,19 @@ export async function updateWhatsAppMessageStatus(input: {
           } : {}),
         },
       })
+
+      const [sentCount, failedCount] = await Promise.all([
+        prisma.campaignRecipient.count({
+          where: { campaignId: recipient.campaignId, status: { in: ['sent', 'delivered', 'read'] } },
+        }),
+        prisma.campaignRecipient.count({
+          where: { campaignId: recipient.campaignId, status: 'failed' },
+        }),
+      ])
+      await prisma.messageCampaign.update({
+        where: { id: recipient.campaignId },
+        data: { sentCount, failedCount },
+      })
     }
   }
 }

@@ -4,6 +4,7 @@ import { auth, requireModule } from '../middleware/auth.js'
 import { createErrorResponse, createSuccessResponse, parsePagination } from '../utils/response.js'
 import { sendUazapiRequest } from '../services/uazapi-whatsapp.js'
 import { getApprovedWhatsAppTemplate } from '../services/whatsapp-templates.js'
+import { processOutgoingMessage } from '../services/whatsapp-integration.js'
 import crypto from 'node:crypto'
 import { getJwtSecret } from '../config/security.js'
 
@@ -512,6 +513,7 @@ router.post('/:id/send', auth(), async (req, res) => {
       where: { id: companyId! },
       select: {
         id: true,
+        ownerId: true,
         webhookToken: true,
         whatsappProvider: true,
         evolutionMode: true,
@@ -599,6 +601,8 @@ router.post('/:id/send', auth(), async (req, res) => {
 
     // Processar envios em background
     processCampaignSend(id, campaign.recipients, {
+      companyId: empresa!.id,
+      ownerId: empresa!.ownerId,
       provider,
       evolutionUrl: empresa!.evolutionApiUrl!,
       evolutionKey: empresa!.apiKey!,
@@ -735,6 +739,13 @@ interface AudienceResolution {
   audienceFilter?: any
 }
 
+function normalizeBrazilianWhatsAppPhone(value: unknown): string | null {
+  const digits = String(value || '').replace(/\D/g, '')
+  if (/^55\d{10,11}$/.test(digits)) return digits
+  if (/^\d{10,11}$/.test(digits)) return `55${digits}`
+  return null
+}
+
 function normalizeSpreadsheetContacts(audienceFilter: any): {
   recipients: RecipientData[]
   metadata: Record<string, any>
@@ -747,7 +758,7 @@ function normalizeSpreadsheetContacts(audienceFilter: any): {
   let invalidRows = 0
 
   for (const contact of contacts) {
-    const phone = String(contact?.phone || contact?.telefone || contact?.whatsapp || contact?.celular || '').replace(/\D/g, '')
+    const phone = normalizeBrazilianWhatsAppPhone(contact?.phone || contact?.telefone || contact?.whatsapp || contact?.celular)
     const name = String(contact?.name || contact?.nome || contact?.cliente || contact?.contato || '').trim() || 'Contato'
     const date = String(contact?.date || contact?.data || contact?.dia || contact?.dataAgendamento || contact?.data_consulta || '').trim()
     const time = String(contact?.time || contact?.hora || contact?.horario || contact?.horaAgendamento || contact?.hora_consulta || '').trim()
@@ -1059,6 +1070,8 @@ function formatTime(date: any): string {
 
 // Configuração agrupada
 interface WhatsAppConfig {
+  companyId: number
+  ownerId: number | null
   provider: string
   evolutionUrl: string
   evolutionKey: string
@@ -1607,6 +1620,25 @@ export async function processCampaignSend(campaignId: number, recipients: any[],
       const result = await sendWhatsAppMessage(config, recipient.phone, messageToSend, recipient)
 
       if (result.success) {
+        try {
+          await processOutgoingMessage({
+            companyId: config.companyId,
+            ownerId: config.ownerId,
+            phone: formatPhoneForWhatsApp(recipient.phone, config.provider),
+            pushName: recipient.name || 'Contato WhatsApp',
+            messageText: messageToSend,
+            rawPayload: {
+              campaignId,
+              campaignRecipientId: recipient.id,
+              templateName: config.metaTemplate?.name || null,
+            },
+            origin: config.provider === 'meta' ? 'Campanha WhatsApp Meta' : 'Campanha WhatsApp',
+            providerMessageId: result.providerMessageId || null,
+          })
+        } catch (persistError) {
+          console.error('[campaigns] mensagem enviada, mas nao registrada na conversa:', persistError)
+        }
+
         await prisma.campaignRecipient.update({
           where: { id: recipient.id },
           data: { status: 'sent', sentAt: new Date(), providerMessageId: result.providerMessageId || null, processingAt: null }
@@ -1675,6 +1707,8 @@ export async function resumeInterruptedCampaigns() {
       template: true,
       company: {
         select: {
+          id: true,
+          ownerId: true,
           whatsappProvider: true,
           evolutionApiUrl: true,
           apiKey: true,
@@ -1710,6 +1744,8 @@ export async function resumeInterruptedCampaigns() {
     const mediaUrl = normalizeMediaUrlPayload(campaign.mediaUrl)
 
     void processCampaignSend(campaign.id, recipients, {
+      companyId: campaign.company.id,
+      ownerId: campaign.company.ownerId,
       provider,
       evolutionUrl: campaign.company.evolutionApiUrl || '',
       evolutionKey: campaign.company.apiKey || '',
