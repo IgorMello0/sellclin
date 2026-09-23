@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Loader2 } from 'lucide-react';
-import { permissionsApi, modulesApi } from '@/lib/api';
+import { permissionsApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import * as LucideIcons from 'lucide-react';
 
@@ -19,6 +19,8 @@ interface ModulesAccessTabProps {
   targetId: number;
   targetType: 'professional' | 'user';
 }
+
+const INTERNAL_ONLY_MODULES = new Set(['pagamentos', 'catalogos', 'contratos', 'relatorios']);
 
 export const ModulesAccessTab = ({ targetId, targetType }: ModulesAccessTabProps) => {
   const [modules, setModules] = useState<Module[]>([]);
@@ -38,7 +40,7 @@ export const ModulesAccessTab = ({ targetId, targetType }: ModulesAccessTabProps
         : await permissionsApi.getUserPermissions(targetId);
 
       if (response.success && response.data) {
-        setModules(response.data);
+        setModules(response.data.filter((module: Module) => !INTERNAL_ONLY_MODULES.has(module.moduleCode)));
       } else {
         toast({
           title: 'Erro',

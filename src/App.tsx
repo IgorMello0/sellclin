@@ -20,15 +20,10 @@ import SelectPlan from "./pages/SelectPlan";
 import Dashboard from "./pages/Dashboard";
 import Appointments from "./pages/Appointments";
 import Clients from "./pages/Clients";
-import Reports from "./pages/Reports";
-import Payments from "./pages/Payments";
 import Conversations from "./pages/Conversations";
 import Settings from "./pages/Settings";
 const Admin = lazy(() => import("./pages/Admin"));
 import Integrations from "./pages/Integrations";
-import ContractSignature from "./pages/ContractSignature";
-import Catalogs from "./pages/Catalogs";
-import CatalogDetail from "./pages/CatalogDetail";
 import AppLayout from "./components/AppLayout";
 import NotFound from "./pages/NotFound";
 import Leads from "./pages/Leads";
@@ -86,13 +81,9 @@ const App = () => (
                   <Route path="appointments" element={<ProtectedRoute moduleCode="agendamentos" moduleName="Agenda"><Appointments /></ProtectedRoute>} />
                   <Route path="clients" element={<ProtectedRoute moduleCode="clientes" moduleName="Clientes" subPermissionKey="verClientes"><Clients /></ProtectedRoute>} />
                   <Route path="leads" element={<ProtectedRoute moduleCode="clientes" moduleName="Leads" subPermissionKey="verLeads"><Leads /></ProtectedRoute>} />
-                  <Route path="reports" element={<Reports />} />
-                  <Route path="payments" element={<ProtectedRoute moduleCode="pagamentos" moduleName="Financeiro"><Payments /></ProtectedRoute>} />
                   <Route path="conversations" element={<ProtectedRoute moduleCode="conversas" moduleName="Conversas"><Conversations /></ProtectedRoute>} />
                   <Route path="templates" element={<ProtectedRoute moduleCode="conversas" moduleName="Templates"><WhatsAppTemplates /></ProtectedRoute>} />
                   <Route path="templates/new" element={<ProtectedRoute moduleCode="conversas" moduleName="Templates"><WhatsAppTemplateCreate /></ProtectedRoute>} />
-                  <Route path="catalogs" element={<ProtectedRoute moduleCode="catalogos" moduleName="Catálogos"><Catalogs /></ProtectedRoute>} />
-                  <Route path="catalogs/:id" element={<ProtectedRoute moduleCode="catalogos" moduleName="Catálogos"><CatalogDetail /></ProtectedRoute>} />
                   <Route path="settings" element={<Settings />} />
                   <Route path="integrations" element={<ProtectedRoute moduleCode="integrations" moduleName="Integrações"><Integrations /></ProtectedRoute>} />
                   <Route
@@ -104,7 +95,6 @@ const App = () => (
                     }
                   />
                   <Route path="profile" element={<Navigate to="/settings?tab=profile" replace />} />
-                  <Route path="contracts" element={<ProtectedRoute moduleCode="contratos" moduleName="Contratos"><ContractSignature /></ProtectedRoute>} />
                   <Route path="sales-funnel" element={<ProtectedRoute moduleCode="funnel" moduleName="Comercial"><SalesFunnel /></ProtectedRoute>} />
                   <Route path="metas" element={<ProtectedRoute moduleCode="metas" moduleName="Metas"><Goals /></ProtectedRoute>} />
                   <Route path="tasks" element={<ProtectedRoute moduleCode="tarefas" moduleName="Tarefas"><Tasks /></ProtectedRoute>} />

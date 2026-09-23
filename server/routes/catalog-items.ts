@@ -6,7 +6,10 @@ import { getCompanyOwnerProfessionalId } from '../services/tenant.js'
 
 export const router = Router()
 
-router.get('/', auth(), requireModule('catalogos'), async (req, res) => {
+// Catalog items are shared infrastructure for appointments, leads and the sales funnel.
+// Any authenticated clinic user may read them; mutations remain protected by the
+// internal catalog permission used by owners and administrators.
+router.get('/', auth(), async (req, res) => {
   try {
     const { skip, take, page, pageSize } = parsePagination(req.query)
     const profId = await getCompanyOwnerProfessionalId(req.user?.companyId)
@@ -30,7 +33,7 @@ router.get('/', auth(), requireModule('catalogos'), async (req, res) => {
   }
 })
 
-router.get('/:id', auth(), requireModule('catalogos'), async (req, res) => {
+router.get('/:id', auth(), async (req, res) => {
   const id = Number(req.params.id)
   const professionalId = await getCompanyOwnerProfessionalId(req.user?.companyId)
   const item = await prisma.catalogItem.findFirst({

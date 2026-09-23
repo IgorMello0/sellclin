@@ -3,7 +3,6 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useState, useRef, useEffect } from 'react';
 import { getImageUrl, notificationsApi } from '@/lib/api';
-import { canAccessHiddenDevelopmentPages, HIDDEN_DEVELOPMENT_MODULES } from '@/lib/internalAccess';
 
 const menuItems = [
   {
@@ -43,12 +42,6 @@ const menuItems = [
     moduleCode: 'tarefas',
   },
   {
-    title: 'Financeiro',
-    url: '/payments',
-    icon: 'account_balance_wallet',
-    moduleCode: 'pagamentos',
-  },
-  {
     title: 'Conversas',
     url: '/conversations',
     icon: 'message',
@@ -59,24 +52,6 @@ const menuItems = [
     url: '/templates',
     icon: 'text_snippet',
     moduleCode: 'conversas',
-  },
-  {
-    title: 'Catálogos',
-    url: '/catalogs',
-    icon: 'inventory_2',
-    moduleCode: 'catalogos',
-  },
-  {
-    title: 'Contratos',
-    url: '/contracts',
-    icon: 'description',
-    moduleCode: 'contratos',
-  },
-  {
-    title: 'Análises',
-    url: '/reports',
-    icon: 'bar_chart',
-    moduleCode: 'relatorios',
   },
   {
     title: 'Metas',
@@ -108,21 +83,8 @@ export function AppTopNavbar() {
   const notificationsRef = useRef<HTMLDivElement>(null);
   const tooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Módulos restritos da v1 (ficam ocultos para não-admin)
-  const restrictedV1Modules = ['Financeiro', 'Conversas', 'Catálogos', 'Contratos'];
-
-  // Filtra módulos v1 restritos e módulos bloqueados por permissão
+  // Filtra módulos bloqueados por permissão.
   const visibleMenuItems = menuItems.filter((item) => {
-    // Módulos que NÃO estão no MVP (Gestão Financeira, Conversas, Catálogos, Contratos, Relatórios)
-    // Devem aparecer APENAS para a conta do desenvolvedor (admin@admin.com)
-    const nonMVPModules = HIDDEN_DEVELOPMENT_MODULES;
-    // Definido como false para ocultar funções antigas e simular a visão real do cliente/profissional
-    const isDeveloper = canAccessHiddenDevelopmentPages(professional?.email);
-    
-    if (nonMVPModules.includes(item.moduleCode) && !isDeveloper) {
-      return false;
-    }
-    
     // Regra de Permissão Modular
     // Se tivermos permissões carregadas, verificamos o acesso
     if (!permissionsLoaded) return false;

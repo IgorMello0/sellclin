@@ -4,7 +4,6 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { getImageUrl } from '@/lib/api';
-import { canAccessHiddenDevelopmentPages, HIDDEN_DEVELOPMENT_MODULES } from '@/lib/internalAccess';
 
 const menuItems = [
   {
@@ -44,12 +43,6 @@ const menuItems = [
     moduleCode: 'tarefas',
   },
   {
-    title: 'Gestão Financeira',
-    url: '/payments',
-    icon: 'account_balance_wallet', // Cleaner than 'payments'
-    moduleCode: 'pagamentos',
-  },
-  {
     title: 'Conversas',
     url: '/conversations',
     icon: 'message',
@@ -60,24 +53,6 @@ const menuItems = [
     url: '/templates',
     icon: 'text_snippet',
     moduleCode: 'conversas',
-  },
-  {
-    title: 'Catálogos',
-    url: '/catalogs',
-    icon: 'inventory_2',
-    moduleCode: 'catalogos',
-  },
-  {
-    title: 'Contratos',
-    url: '/contracts',
-    icon: 'description',
-    moduleCode: 'contratos',
-  },
-  {
-    title: 'Análises',
-    url: '/reports',
-    icon: 'bar_chart', // Classic and very clear
-    moduleCode: 'relatorios',
   },
   {
     title: 'Metas',
@@ -115,12 +90,6 @@ export function AppSidebar() {
 
     if ((item as any).skipPermission) {
       return true;
-    }
-
-    const isDeveloper = canAccessHiddenDevelopmentPages(professional?.email);
-    
-    if (HIDDEN_DEVELOPMENT_MODULES.includes(item.moduleCode) && !isDeveloper) {
-      return false;
     }
 
     if (!permissionsLoaded) return false;

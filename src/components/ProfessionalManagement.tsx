@@ -25,7 +25,6 @@ import {
 } from 'lucide-react';
 import { ModulesAccessTab } from './ModulesAccessTab';
 import { FormModelsTab } from './FormModelsTab';
-import { ReportsPermissionsTab } from './ReportsPermissionsTab';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
 import { professionalsApi, categoriesApi } from '@/lib/api';
@@ -253,10 +252,9 @@ export const ProfessionalManagement = () => {
           </CardHeader>
         <CardContent>
           <Tabs defaultValue="modules" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
+            <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3">
               <TabsTrigger value="modules">Módulos e Acessos</TabsTrigger>
               <TabsTrigger value="forms">Modelos de Fichas</TabsTrigger>
-              <TabsTrigger value="reports">Relatórios e Permissões</TabsTrigger>
               <TabsTrigger value="categories">Categorias Atribuídas</TabsTrigger>
             </TabsList>
 
@@ -266,10 +264,6 @@ export const ProfessionalManagement = () => {
 
             <TabsContent value="forms" className="mt-6">
               <FormModelsTab professionalId={selectedProfessional.id.toString()} />
-            </TabsContent>
-
-            <TabsContent value="reports" className="mt-6">
-              <ReportsPermissionsTab professionalId={selectedProfessional.id} />
             </TabsContent>
 
             <TabsContent value="categories" className="mt-6">
