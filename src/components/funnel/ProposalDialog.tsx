@@ -94,7 +94,7 @@ export function ProposalDialog({
           salesperson: (editingProposal?.salespersonId ?? lead.closerId)?.toString() || '',
           specialist: editingProposal?.specialistId?.toString() || '',
           sdr: (editingProposal?.sdrId ?? lead.sdrId)?.toString() || '',
-          treatment: '',
+          treatment: editingProposal?.treatment || '',
           tags: editingProposal?.tags || lead.tags || [] as string[],
           justification: editingProposal?.justification || '',
           showJustification: false,
@@ -205,6 +205,7 @@ export function ProposalDialog({
         specialistId: proposalData.specialist ? Number(proposalData.specialist) : null,
         sdrId: proposalData.sdr ? Number(proposalData.sdr) : null,
         tags: proposalData.tags,
+        treatment: proposalData.treatment?.trim() || null,
         justification: proposalData.justification || null,
       }));
       if (editingProposal) {

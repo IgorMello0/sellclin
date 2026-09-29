@@ -3,6 +3,7 @@ import { prisma } from '../prisma.js'
 import { auth, requireModule } from '../middleware/auth.js'
 import { createErrorResponse, createSuccessResponse, parsePagination } from '../utils/response.js'
 import { logAudit } from '../utils/audit.js'
+import { proposalInput, validateProposalTeam } from '../services/funnel-proposals.js'
 
 export const router = Router()
 router.use(auth(), actionPermissions('clientes'))
@@ -424,7 +425,7 @@ router.post('/:id/proposals', auth(), requireModule('clientes'), async (req, res
       return res.status(403).json(createErrorResponse('Acesso negado', 403));
     }
 
-    const { title, value, status, validUntil, salespersonId, specialistId, sdrId, tags, justification, discountApplied } = req.body
+    const { title, value, status, validUntil, salespersonId, specialistId, sdrId, tags, treatment, justification, discountApplied } = req.body
 
     const client = await prisma.client.findUnique({
       where: { id: clientId },
@@ -435,11 +436,25 @@ router.post('/:id/proposals', auth(), requireModule('clientes'), async (req, res
       return res.status(404).json(createErrorResponse('Cliente não encontrado', 404))
     }
 
-    let leadId = client.originLead?.id
+    const parsedProposal = proposalInput.parse({
+      title: title || 'Nova Proposta',
+      value: value ?? 0,
+      validUntil: validUntil || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      salespersonId: salespersonId ? Number(salespersonId) : null,
+      specialistId: specialistId ? Number(specialistId) : null,
+      sdrId: sdrId ? Number(sdrId) : null,
+      tags: tags || [],
+      treatment: typeof treatment === 'string' ? treatment.trim() || null : treatment ?? null,
+      justification: justification || null,
+      discountApplied: Boolean(discountApplied),
+    })
 
-    if (!client.originLead) {
-        // Criar um lead base para anexar a proposta
-        const newLead = await prisma.lead.create({
+    const proposal = await prisma.$transaction(async tx => {
+      await validateProposalTeam(tx, client.companyId!, parsedProposal)
+      let leadId = client.originLead?.id
+
+      if (!leadId) {
+        const newLead = await tx.lead.create({
           data: {
             professionalId: client.professionalId,
             companyId: client.companyId,
@@ -448,37 +463,37 @@ router.post('/:id/proposals', auth(), requireModule('clientes'), async (req, res
             phone: client.phone,
             status: 'comercial_proposal',
             convertedToClientId: client.id,
-            sdrId: sdrId ? Number(sdrId) : null,
-            closerId: salespersonId ? Number(salespersonId) : null,
+            sdrId: parsedProposal.sdrId,
+            closerId: parsedProposal.salespersonId,
           }
         })
         leadId = newLead.id
       } else {
-        const leadUpdateData: any = {};
-        if (sdrId !== undefined) leadUpdateData.sdrId = sdrId ? Number(sdrId) : null;
-        if (salespersonId !== undefined) leadUpdateData.closerId = salespersonId ? Number(salespersonId) : null;
-        if (Object.keys(leadUpdateData).length > 0) {
-           await prisma.lead.update({
-             where: { id: client.originLead.id },
-             data: leadUpdateData
-           });
-        }
+        await tx.lead.update({
+          where: { id: leadId },
+          data: {
+            ...(sdrId !== undefined ? { sdrId: parsedProposal.sdrId } : {}),
+            ...(salespersonId !== undefined ? { closerId: parsedProposal.salespersonId } : {}),
+          }
+        })
       }
 
-    const proposal = await prisma.proposal.create({
-      data: {
-        leadId,
-        title: title || 'Nova Proposta',
-        value: value || 0,
-        status: status || 'pending',
-        validUntil: validUntil ? new Date(validUntil) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        salespersonId: salespersonId ? Number(salespersonId) : null,
-        specialistId: specialistId ? Number(specialistId) : null,
-        sdrId: sdrId ? Number(sdrId) : null,
-        tags: tags || [],
-        justification,
-        discountApplied: Boolean(discountApplied)
-      }
+      return tx.proposal.create({
+        data: {
+          leadId,
+          title: parsedProposal.title!,
+          value: parsedProposal.value!,
+          validUntil: parsedProposal.validUntil!,
+          salespersonId: parsedProposal.salespersonId,
+          specialistId: parsedProposal.specialistId,
+          sdrId: parsedProposal.sdrId,
+          tags: parsedProposal.tags || [],
+          treatment: parsedProposal.treatment,
+          justification: parsedProposal.justification,
+          discountApplied: parsedProposal.discountApplied,
+          status: status || 'pending',
+        }
+      })
     })
 
     if (req.user) {

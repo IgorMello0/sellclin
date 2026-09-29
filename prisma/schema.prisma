@@ -196,6 +196,7 @@ model Proposal {
   specialistId       Int?     @map("specialist_id")
   sdrId              Int?     @map("sdr_id")
   tags               String[] @default([])
+  treatment          String?  @db.Text
   status             String   @default("pending")
   justification      String?
   discountApplied    Boolean  @default(false) @map("discount_applied")

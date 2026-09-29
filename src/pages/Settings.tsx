@@ -879,13 +879,16 @@ const InfoNegocioView = () => {
       toast({ title: 'Atenção', description: 'O nome da empresa é obrigatório.', variant: 'destructive' });
       return;
     }
+    if (!companyData.openHour || !companyData.closeHour || companyData.openHour >= companyData.closeHour) {
+      toast({ title: 'Atenção', description: 'O horário de abertura deve ser anterior ao horário de fechamento.', variant: 'destructive' });
+      return;
+    }
     setSaving(true);
     try {
       const res = await empresasApi.update(companyData.id, {
         name: companyData.name,
         domain: companyData.domain || null,
         whatsapp: companyData.whatsapp || null,
-        plan: companyData.plan || null,
         openHour: companyData.openHour,
         closeHour: companyData.closeHour,
         chargeConsultation: companyData.chargeConsultation,
@@ -2028,7 +2031,7 @@ const Settings = () => {
   const navigate = useNavigate();
   const [selectedKey, setSelectedKey] = useState('profile');
   const { professional: authUser } = useAuth();
-  const isOwner = authUser?.role === 'profissional' || authUser?.role === 'admin';
+  const isOwner = localStorage.getItem('userType') === 'professional';
 
 
   const settingsSections: SettingsSection[] = [

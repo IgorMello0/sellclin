@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { format, addDays, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, addWeeks, subWeeks, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { appointmentsApi, professionalsApi, usuariosApi } from '@/lib/api';
+import { appointmentsApi, professionalsApi, usuariosApi, empresasApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { NewAppointmentModal } from '@/components/NewAppointmentModal';
 import { AppointmentQuickView } from '@/components/AppointmentQuickView';
@@ -29,6 +29,7 @@ const Appointments = () => {
 
   const [professionalsList, setProfessionalsList] = useState<any[]>([]);
   const [selectedProfFilter, setSelectedProfFilter] = useState<string>("");
+  const [businessHours, setBusinessHours] = useState({ openHour: '07:00', closeHour: '20:00' });
 
 
 
@@ -38,7 +39,13 @@ const Appointments = () => {
     const request = ++listRequest.current;
     setIsLoading(true);
     try {
-      const data = await loadAllPages(params => appointmentsApi.getAll({ ...params, professionalId: Number(selectedProfFilter) }));
+      const selected = professionalsList.find(item => item._selectionKey === selectedProfFilter);
+      if (!selected) return;
+      const data = await loadAllPages(params => appointmentsApi.getAll({
+        ...params,
+        professionalId: Number(selected.id),
+        isUsuario: Boolean(selected._isUsuario),
+      }));
       if (request !== listRequest.current) return;
       if (data) {
         const mapped = data.map((apt: any) => ({
@@ -66,29 +73,37 @@ const Appointments = () => {
 
   const loadProfessionals = async () => {
     try {
-      const [profRes, usrRes] = await Promise.all([
+      const [profRes, usrRes, companyRes] = await Promise.all([
         professionalsApi.getAll({ pageSize: 50 }),
-        usuariosApi.getAll({ pageSize: 100 })
+        usuariosApi.getAll({ pageSize: 100 }),
+        empresasApi.getMyCompany(),
       ]);
       
       let allProfs: any[] = [];
       if (profRes.success && profRes.data) {
-        allProfs = [...profRes.data];
+        allProfs = profRes.data.map((item: any) => ({
+          ...item,
+          _isUsuario: false,
+          _selectionKey: `professional:${item.id}`,
+        }));
       }
       
       if (usrRes.success && usrRes.data) {
         const medics = usrRes.data.filter((u: any) => {
+          if (u.isActive === false) return false;
           if (u.role?.isSpecialist) return true;
           const role = (u.role?.name || u.role || '').toLowerCase();
           return role.includes('medico') || role.includes('médico') || role.includes('doutor') || role.includes('especialista');
         });
         
-        const existingIds = new Set(allProfs.map(p => p.id.toString()));
         medics.forEach((m: any) => {
-          if (!existingIds.has(m.id.toString())) {
-            allProfs.push(m);
-            existingIds.add(m.id.toString());
-          }
+          allProfs.push({ ...m, _isUsuario: true, _selectionKey: `user:${m.id}` });
+        });
+      }
+      if (companyRes.success && companyRes.data) {
+        setBusinessHours({
+          openHour: companyRes.data.openHour || '07:00',
+          closeHour: companyRes.data.closeHour || '20:00',
         });
       }
       setProfessionalsList(allProfs);
@@ -108,10 +123,12 @@ const Appointments = () => {
 
   useEffect(() => {
     if (professionalsList.length > 0 && !selectedProfFilter) {
-      const defaultProf = professional && professionalsList.find(p => p.id.toString() === professional.id?.toString()) 
-        ? professional.id.toString() 
-        : professionalsList[0].id.toString();
-      setSelectedProfFilter(defaultProf);
+      const loggedType = localStorage.getItem('userType');
+      const defaultProf = professional && professionalsList.find(item =>
+        item.id.toString() === professional.id?.toString()
+        && item._isUsuario === (loggedType === 'user')
+      );
+      setSelectedProfFilter((defaultProf || professionalsList[0])._selectionKey);
     }
   }, [professionalsList, professional, selectedProfFilter]);
 
@@ -124,7 +141,13 @@ const Appointments = () => {
     end: endOfWeek(currentWeek, { weekStartsOn: 0 }),
   });
 
-  const timeSlots = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, '0')}:00`);
+  const openGridHour = Math.max(0, Math.min(23, Number(businessHours.openHour.split(':')[0]) || 0));
+  const closeParts = businessHours.closeHour.split(':').map(Number);
+  const closeGridHour = Math.max(openGridHour + 1, Math.min(24, (closeParts[0] || 0) + ((closeParts[1] || 0) > 0 ? 1 : 0)));
+  const visibleTimeSlots = Array.from(
+    { length: closeGridHour - openGridHour },
+    (_, index) => `${String(openGridHour + index).padStart(2, '0')}:00`,
+  );
 
   const getStatusConfig = (apt: any) => {
     // Lead que compareceu (prospect_attended) ou consulta feita → verde mesmo
@@ -217,12 +240,12 @@ const Appointments = () => {
             <Select value={selectedProfFilter} onValueChange={setSelectedProfFilter}>
               <SelectTrigger className="w-[160px] sm:w-[200px] border-slate-200 bg-white text-xs sm:text-sm">
                 <SelectValue placeholder="Filtrar por especialista">
-                  {professionalsList.find(p => p.id.toString() === selectedProfFilter)?.name || "Todos os especialistas"}
+                  {professionalsList.find(p => p._selectionKey === selectedProfFilter)?.name || "Todos os especialistas"}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {professionalsList.map((prof) => (
-                  <SelectItem key={prof.id} value={prof.id.toString()}>
+                  <SelectItem key={prof._selectionKey} value={prof._selectionKey}>
                     {prof.name}
                   </SelectItem>
                 ))}
@@ -230,10 +253,6 @@ const Appointments = () => {
             </Select>
           )}
 
-          <Button variant="outline">
-            <span className="material-symbols-outlined text-lg">filter_list</span>
-            <span className="hidden sm:inline">Filtros</span>
-          </Button>
           <Button disabled={!hasPermission('agendamentos', 'criarAgendamentos')} variant="secondary" size="xl" onClick={() => setOpenModal(true)} className="shadow-lg shadow-secondary/20 h-9 sm:h-auto text-xs sm:text-sm">
             <span className="material-symbols-outlined text-base sm:text-lg">add</span>
             <span className="hidden sm:inline">Novo Agendamento</span>
@@ -276,7 +295,11 @@ const Appointments = () => {
             <Calendar
               mode="single"
               selected={selectedDate}
-              onSelect={(date) => date && setSelectedDate(date)}
+              onSelect={(date) => {
+                if (!date) return;
+                setSelectedDate(date);
+                setCurrentWeek(date);
+              }}
               className="rounded-md border-0 p-0 w-full"
               classNames={{
                 months: "flex flex-col space-y-2 w-full",
@@ -393,7 +416,7 @@ const Appointments = () => {
                     <div className="relative">
                     {/* Grid de Fundo */}
                     <div>
-                      {timeSlots.slice(7, 20).map((time) => (
+                      {visibleTimeSlots.map((time) => (
                         <div key={time} className="grid grid-cols-[64px_1fr] border-b border-slate-100/80 transition-colors" style={{ height: '64px' }}>
                           <div className="p-2 text-xs text-muted-foreground border-r border-slate-100 flex items-start justify-end pt-2 font-mono bg-white/50">{time}</div>
                           <div className="p-2" />
@@ -405,9 +428,9 @@ const Appointments = () => {
                     <div className="absolute top-0 left-[64px] right-0 bottom-0 pointer-events-none">
                       {filteredAppointments.filter(apt => isSameDay(apt.date, selectedDate)).map((apt) => {
                         const [h, m] = apt.time.split(':').map(Number);
-                        if (h < 7 || h >= 20) return null; // Fora do horário comercial visível
+                        if (h < openGridHour || h >= closeGridHour) return null;
 
-                        const topOffset = ((h - 7) * 64) + ((m / 60) * 64);
+                        const topOffset = ((h - openGridHour) * 64) + ((m / 60) * 64);
                         const height = (apt.duration / 60) * 64;
                         const st = getStatusConfig(apt);
 
@@ -478,7 +501,7 @@ const Appointments = () => {
                     <div className="relative">
                     {/* Grid de Fundo da Semana */}
                     <div>
-                      {timeSlots.slice(7, 20).map((time) => (
+                      {visibleTimeSlots.map((time) => (
                         <div key={time} className="grid grid-cols-[56px_repeat(7,minmax(0,1fr))] border-b border-slate-100/80 transition-colors" style={{ height: '64px' }}>
                           <div className="p-1.5 text-[10px] text-muted-foreground border-r border-slate-100 flex items-start justify-end pt-2 font-mono bg-white/50">{time}</div>
                           {weekDays.map((_, idx) => (
@@ -496,9 +519,9 @@ const Appointments = () => {
                           <div key={idx} className="flex-1 relative">
                             {dayApts.map((apt) => {
                               const [h, m] = apt.time.split(':').map(Number);
-                              if (h < 7 || h >= 20) return null;
+                              if (h < openGridHour || h >= closeGridHour) return null;
 
-                              const topOffset = ((h - 7) * 64) + ((m / 60) * 64);
+                              const topOffset = ((h - openGridHour) * 64) + ((m / 60) * 64);
                               const height = (apt.duration / 60) * 64;
                               const st = getStatusConfig(apt);
 

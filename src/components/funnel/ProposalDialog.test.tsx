@@ -17,13 +17,13 @@ afterEach(cleanup);
 
 it('loads and updates the chosen proposal, preserving cents and its id', async () => {
   const onSuccess = vi.fn();
-  render(<ProposalDialog open onOpenChange={vi.fn()} lead={lead} professional={professional} services={[]} onSuccess={onSuccess} editingProposal={{ id: 101, leadId: 1, title: 'Original', value: 350.29, validUntil: '2026-09-30', tags: ['Clínico'] }} />);
+  render(<ProposalDialog open onOpenChange={vi.fn()} lead={lead} professional={professional} services={[]} onSuccess={onSuccess} editingProposal={{ id: 101, leadId: 1, title: 'Original', value: 350.29, validUntil: '2026-09-30', tags: ['Clínico'], treatment: 'Tratamento já registrado' }} />);
   const title = await screen.findByDisplayValue('Original');
   expect(screen.queryByText('Adicionar Outra Proposta')).toBeNull();
   fireEvent.change(title, { target: { value: 'Editada' } });
   fireEvent.click(screen.getByRole('button', { name: 'Salvar Alterações' }));
   await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
-  expect(leadsApi.updateProposal).toHaveBeenCalledWith(1, 101, expect.objectContaining({ title: 'Editada', value: 350.29, tags: ['Clínico'] }));
+  expect(leadsApi.updateProposal).toHaveBeenCalledWith(1, 101, expect.objectContaining({ title: 'Editada', value: 350.29, tags: ['Clínico'], treatment: 'Tratamento já registrado' }));
   expect(leadsApi.addProposal).not.toHaveBeenCalled(); expect(leadsApi.addProposals).not.toHaveBeenCalled();
 });
 

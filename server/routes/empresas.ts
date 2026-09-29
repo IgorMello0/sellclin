@@ -487,7 +487,7 @@ router.put('/:id', auth(), requireCompanyOwner('id'), async (req, res) => {
   try {
     const id = Number(req.params.id)
     const {
-      name, domain, whatsapp, apiKey, plan, isActive, openHour, closeHour,
+      name, domain, whatsapp, apiKey, isActive, openHour, closeHour,
       // Campos de integração WhatsApp
       whatsappProvider, evolutionMode, evolutionApiUrl, evolutionInstance, metaToken, metaPhoneNumberId,
       metaWabaId, metaBusinessId, metaPhoneDisplayNumber, metaWebhookVerifyToken, metaTwoStepPin, metaConnectionStatus,
@@ -496,11 +496,27 @@ router.put('/:id', auth(), requireCompanyOwner('id'), async (req, res) => {
 
     const currentCompany = await prisma.empresa.findUnique({
       where: { id },
-      select: { isActive: true },
+      select: { isActive: true, openHour: true, closeHour: true },
     })
     if (!currentCompany) return res.status(404).json(createErrorResponse('Clinica nao encontrada', 404))
     if (isActive === true && !currentCompany.isActive) {
       await assertCanCreateClinic(req.user!.id)
+    }
+
+    const timePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/
+    const nextOpenHour = openHour ?? currentCompany.openHour
+    const nextCloseHour = closeHour ?? currentCompany.closeHour
+    if (!timePattern.test(nextOpenHour) || !timePattern.test(nextCloseHour) || nextOpenHour >= nextCloseHour) {
+      return res.status(400).json(createErrorResponse('Informe um horario de funcionamento valido, com abertura anterior ao fechamento', 400))
+    }
+    if (maxDiscountPercentage !== undefined) {
+      const discount = Number(maxDiscountPercentage)
+      if (!Number.isFinite(discount) || discount < 0 || discount > 100) {
+        return res.status(400).json(createErrorResponse('O desconto maximo deve estar entre 0 e 100', 400))
+      }
+    }
+    if (leadRoutingMode !== undefined && !['manual', 'automatic_equal', 'semi_automatic'].includes(leadRoutingMode)) {
+      return res.status(400).json(createErrorResponse('Modo de roteamento invalido', 400))
     }
 
     const data: any = {}
@@ -510,7 +526,6 @@ router.put('/:id', auth(), requireCompanyOwner('id'), async (req, res) => {
     if (apiKey !== undefined) data.apiKey = apiKey
     if (maxDiscountPercentage !== undefined) data.maxDiscountPercentage = Number(maxDiscountPercentage)
     if (contactCadence !== undefined) data.contactCadence = Number(contactCadence)
-    if (plan !== undefined) data.plan = plan
     if (isActive !== undefined) data.isActive = isActive
     if (openHour !== undefined) data.openHour = openHour
     if (closeHour !== undefined) data.closeHour = closeHour

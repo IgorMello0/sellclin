@@ -517,7 +517,7 @@ router.put('/:id/proposals/:proposalId', auth(), async (req, res) => {
     if (existingSale) return res.status(409).json(createErrorResponse('Cancele esta venda antes de editar a proposta confirmada.', 409));
 
     const proposalId = Number(req.params.proposalId)
-    const { title, value, validUntil, salespersonId, specialistId, sdrId, tags, justification, discountApplied, stage, status } = req.body
+    const { title, value, validUntil, salespersonId, specialistId, sdrId, tags, treatment, justification, discountApplied, stage, status } = req.body
 
     const updateData: any = {}
     if (title !== undefined) updateData.title = title
@@ -527,6 +527,7 @@ router.put('/:id/proposals/:proposalId', auth(), async (req, res) => {
     if (specialistId !== undefined) updateData.specialistId = specialistId ? Number(specialistId) : null
     if (sdrId !== undefined) updateData.sdrId = sdrId ? Number(sdrId) : null
     if (tags !== undefined) updateData.tags = tags
+    if (treatment !== undefined) updateData.treatment = treatment
     if (justification !== undefined) updateData.justification = justification
     if (discountApplied !== undefined) updateData.discountApplied = Boolean(discountApplied)
     if (stage !== undefined || status !== undefined) {

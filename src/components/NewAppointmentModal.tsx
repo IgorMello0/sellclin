@@ -146,7 +146,11 @@ export function NewAppointmentModal({
       
       let allProfs: any[] = [];
       if (profsRes.success && profsRes.data) {
-        allProfs = [...profsRes.data.map((p: any) => ({ ...p, _isUsuario: false }))];
+        allProfs = profsRes.data.map((p: any) => ({
+          ...p,
+          _isUsuario: false,
+          _selectionKey: `professional:${p.id}`,
+        }));
       }
       if (usrRes.success && usrRes.data) {
         const medics = usrRes.data.filter((u: any) => {
@@ -166,22 +170,19 @@ export function NewAppointmentModal({
           }
         }
 
-        const existingIds = new Set(allProfs.map(p => p.id.toString()));
         medics.forEach((m: any) => {
-          if (!existingIds.has(m.id.toString())) {
-            allProfs.push({ ...m, _isUsuario: true });
-            existingIds.add(m.id.toString());
-          }
+          allProfs.push({ ...m, _isUsuario: true, _selectionKey: `user:${m.id}` });
         });
       }
       
       if (allProfs.length > 0) {
         setCompanyProfessionals(allProfs);
+        const loggedType = localStorage.getItem('userType');
         const defaultProf =
-          allProfs.find((p: any) => p.id.toString() === professional.id) || allProfs[0];
-        setSelectedProfessionalId(defaultProf?.id.toString() || professional.id);
+          allProfs.find((p: any) => p.id.toString() === professional.id && p._isUsuario === (loggedType === 'user')) || allProfs[0];
+        setSelectedProfessionalId(defaultProf?._selectionKey || '');
       } else {
-        setSelectedProfessionalId(professional.id);
+        setSelectedProfessionalId('');
       }
     } catch (error) {
       console.error("Error loading modal initial data:", error);
@@ -195,9 +196,9 @@ export function NewAppointmentModal({
     if (open && selectedProfessionalId) loadServices(selectedProfessionalId);
   }, [open, selectedProfessionalId]);
 
-  const loadServices = async (profId: string) => {
+  const loadServices = async (_selectionKey: string) => {
     try {
-      const res = await catalogsApi.getAll({ pageSize: 100, professionalId: Number(profId) });
+      const res = await catalogsApi.getAll({ pageSize: 100 });
       if (res.success) {
         const svcList = res.data || [];
         setServices(svcList);
@@ -226,10 +227,11 @@ export function NewAppointmentModal({
     setSlotsLoading(true);
     setTime(""); // Reset time when inputs change
     try {
-      const selectedProf = companyProfessionals.find(p => p.id.toString() === selectedProfessionalId);
+      const selectedProf = companyProfessionals.find(p => p._selectionKey === selectedProfessionalId);
+      if (!selectedProf) return;
       const isUsuario = selectedProf ? selectedProf._isUsuario : false;
       const res = await appointmentsApi.getAvailableSlots(
-        selectedProfessionalId,
+        String(selectedProf.id),
         date,
         serviceDuration,
         isUsuario
@@ -264,11 +266,15 @@ export function NewAppointmentModal({
       const startDateTime = new Date(`${date}T${time}:00`);
       const endDateTime = new Date(startDateTime.getTime() + serviceDuration * 60000);
 
-      const selectedProf = companyProfessionals.find(p => p.id.toString() === selectedProfessionalId);
+      const selectedProf = companyProfessionals.find(p => p._selectionKey === selectedProfessionalId);
+      if (!selectedProf) {
+        toast({ title: "Erro", description: "Selecione um especialista válido.", variant: "destructive" });
+        return;
+      }
 
       const response = await appointmentsApi.create({
-        professionalId: selectedProf && !selectedProf._isUsuario ? Number(selectedProfessionalId) : undefined,
-        especialistaId: selectedProf && selectedProf._isUsuario ? Number(selectedProfessionalId) : undefined,
+        professionalId: !selectedProf._isUsuario ? Number(selectedProf.id) : undefined,
+        especialistaId: selectedProf._isUsuario ? Number(selectedProf.id) : undefined,
         sdrId: selectedSdrId !== "none" ? Number(selectedSdrId) : undefined,
         clientId: initialLeadId ? null : Number(selectedClient),
         leadId: initialLeadId ? Number(initialLeadId) : null,
@@ -345,12 +351,12 @@ export function NewAppointmentModal({
               <Select value={selectedProfessionalId} onValueChange={setSelectedProfessionalId}>
                 <SelectTrigger className="w-full h-11 bg-slate-50 border-slate-200">
                   <SelectValue placeholder="Selecione...">
-                    {companyProfessionals.find(p => p.id.toString() === selectedProfessionalId)?.name}
+                    {companyProfessionals.find(p => p._selectionKey === selectedProfessionalId)?.name}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {companyProfessionals.map((prof) => (
-                    <SelectItem key={prof.id} value={prof.id.toString()}>
+                    <SelectItem key={prof._selectionKey} value={prof._selectionKey}>
                       {prof.name}
                     </SelectItem>
                   ))}

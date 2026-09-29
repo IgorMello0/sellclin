@@ -16,31 +16,38 @@ router.use(auth(), actionPermissions('agendamentos'))
 
 router.get('/', auth(), requireModule('agendamentos'), async (req, res) => {
   const { skip, take, page, pageSize } = parsePagination(req.query)
-  const { professionalId, clientId, status } = req.query as any
+  const { professionalId, clientId, status, isUsuario } = req.query as any
   let profId: number | undefined;
-  let companyId: number | undefined;
+  const companyId = req.user?.companyId;
 
-  if (req.user?.type === 'profissional') {
+  if (professionalId) {
+    const requestedId = Number(professionalId)
+    if (!Number.isInteger(requestedId) || requestedId <= 0) {
+      return res.status(400).json(createErrorResponse('Profissional inválido', 400))
+    }
+    try {
+      if (isUsuario === 'true') {
+        await assertUserBelongsToCompany(requestedId, companyId)
+      } else {
+        await assertProfessionalBelongsToCompany(requestedId, companyId)
+        profId = requestedId
+      }
+    } catch {
+      return res.status(404).json(createErrorResponse('Profissional não encontrado nesta clínica', 404))
+    }
+  } else if (req.user?.type === 'profissional') {
     profId = req.user.id;
-    companyId = req.user.companyId;
   } else if (req.user?.type === 'usuario') {
-    // Buscar o dono da empresa do usuário
-    const empresa = await prisma.empresa.findUnique({
-      where: { id: req.user.companyId! },
-      select: { ownerId: true }
-    });
-    profId = empresa?.ownerId || undefined;
-    companyId = req.user.companyId;
-  } else if (professionalId) {
-    profId = Number(professionalId);
-    companyId = req.user?.companyId;
+    profId = await getCompanyOwnerProfessionalId(companyId)
   }
 
-  if (!profId) {
+  if (!profId && isUsuario !== 'true') {
     return res.json(createSuccessResponse([], { page, pageSize, total: 0 }));
   }
 
-  const where: any = { professionalId: profId };
+  const where: any = isUsuario === 'true'
+    ? { especialistaId: Number(professionalId) }
+    : { professionalId: profId, especialistaId: null };
   if (companyId) {
     where.companyId = companyId;
   }
@@ -115,9 +122,21 @@ router.get('/check-availability', auth(), requireModule('agendamentos'), async (
       return res.status(400).json(createErrorResponse('Parâmetros incompletos', 400))
     }
 
+    const parsedProfessionalId = Number(professionalId)
+    if (!Number.isInteger(parsedProfessionalId) || parsedProfessionalId <= 0) {
+      return res.status(400).json(createErrorResponse('Profissional inválido', 400))
+    }
+
+    try {
+      await assertProfessionalBelongsToCompany(parsedProfessionalId, req.user?.companyId)
+    } catch {
+      return res.status(404).json(createErrorResponse('Profissional não encontrado nesta clínica', 404))
+    }
+
     const conflicting = await prisma.appointment.findFirst({
       where: {
-        professionalId: Number(professionalId),
+        professionalId: parsedProfessionalId,
+        companyId: req.user!.companyId,
         status: { not: 'cancelado' },
         AND: [
           { startTime: { lt: new Date(endTime) } },
@@ -138,9 +157,25 @@ router.get('/check-availability', auth(), requireModule('agendamentos'), async (
 // Horários disponíveis para um dia específico
 router.get('/available-slots', auth(), requireModule('agendamentos'), async (req, res) => {
   try {
-    let { professionalId, date, durationMinutes, isUsuario } = req.query as any
+    const { professionalId, durationMinutes, isUsuario } = req.query as any
+    let { date } = req.query as any
     if (!professionalId || !date) {
       return res.status(400).json(createErrorResponse('Parâmetros incompletos', 400))
+    }
+
+    const parsedProfessionalId = Number(professionalId)
+    if (!Number.isInteger(parsedProfessionalId) || parsedProfessionalId <= 0) {
+      return res.status(400).json(createErrorResponse('Profissional inválido', 400))
+    }
+
+    try {
+      if (isUsuario === 'true') {
+        await assertUserBelongsToCompany(parsedProfessionalId, req.user?.companyId)
+      } else {
+        await assertProfessionalBelongsToCompany(parsedProfessionalId, req.user?.companyId)
+      }
+    } catch {
+      return res.status(404).json(createErrorResponse('Profissional não encontrado nesta clínica', 404))
     }
 
     if (date.includes('/')) {
@@ -151,29 +186,19 @@ router.get('/available-slots', auth(), requireModule('agendamentos'), async (req
     const duration = Number(durationMinutes) || 60
     const SLOT_INTERVAL = 15 // minutos
 
-    // 1. Busca os horários da empresa
+    // Usa sempre a empresa ativa da sessão, nunca a empresa indicada pelo ID recebido.
     let openHourStr = "08:00";
     let closeHourStr = "20:00";
-    
-    if (isUsuario === 'true') {
-      const user = await prisma.usuario.findUnique({
-        where: { id: Number(professionalId) },
-        include: { company: { select: { openHour: true, closeHour: true } } }
-      })
-      if (user?.company) {
-        openHourStr = user.company.openHour || openHourStr;
-        closeHourStr = user.company.closeHour || closeHourStr;
-      }
-    } else {
-      const prof = await prisma.professional.findUnique({
-        where: { id: Number(professionalId) },
-        include: { company: { select: { openHour: true, closeHour: true } } }
-      })
-      if (prof?.company) {
-        openHourStr = prof.company.openHour || openHourStr;
-        closeHourStr = prof.company.closeHour || closeHourStr;
-      }
+
+    const company = await prisma.empresa.findUnique({
+      where: { id: req.user!.companyId! },
+      select: { openHour: true, closeHour: true }
+    })
+    if (!company) {
+      return res.status(404).json(createErrorResponse('Clínica ativa não encontrada', 404))
     }
+    openHourStr = company.openHour || openHourStr;
+    closeHourStr = company.closeHour || closeHourStr;
 
     const [openH, openM] = openHourStr.split(':').map(Number)
     const [closeH, closeM] = closeHourStr.split(':').map(Number)
@@ -186,13 +211,14 @@ router.get('/available-slots', auth(), requireModule('agendamentos'), async (req
     const dayStart = new Date(`${date}T00:00:00.000-03:00`)
     const dayEnd   = new Date(`${date}T23:59:59.999-03:00`)
     const whereClause: any = {
+      companyId: req.user!.companyId,
       status: { not: 'cancelado' },
       startTime: { gte: dayStart, lte: dayEnd }
     };
     if (isUsuario === 'true') {
-      whereClause.especialistaId = Number(professionalId);
+      whereClause.especialistaId = parsedProfessionalId;
     } else {
-      whereClause.professionalId = Number(professionalId);
+      whereClause.professionalId = parsedProfessionalId;
       whereClause.especialistaId = null;
     }
 
@@ -388,7 +414,7 @@ router.post('/', auth(), requireModule('agendamentos'), async (req, res) => {
     // Create consultation payment if provided
     if (consultationAmount && consultationPaymentMethod && Number(consultationAmount) > 0) {
       let paymentClientId = created.clientId;
-      let finalLeadId = created.leadId;
+      const finalLeadId = created.leadId;
       
       if (!paymentClientId && finalLeadId) {
         const lead = await prisma.lead.findUnique({ where: { id: finalLeadId } });
@@ -497,7 +523,7 @@ router.put('/:id', auth(), requireModule('agendamentos'), async (req, res) => {
       ]
     };
     
-    const finalEspecialistaId = req.body.hasOwnProperty('especialistaId') ? req.body.especialistaId : current.especialistaId;
+    const finalEspecialistaId = Object.prototype.hasOwnProperty.call(req.body, 'especialistaId') ? req.body.especialistaId : current.especialistaId;
     
     if (finalEspecialistaId) {
       putOverbookingWhere.especialistaId = Number(finalEspecialistaId);

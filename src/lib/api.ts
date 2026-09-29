@@ -709,11 +709,12 @@ export const usuariosApi = {
 
 // Agendamentos
 export const appointmentsApi = {
-  getAll: async (params?: { page?: number; pageSize?: number; professionalId?: number; clientId?: number; status?: string }) => {
+  getAll: async (params?: { page?: number; pageSize?: number; professionalId?: number; isUsuario?: boolean; clientId?: number; status?: string }) => {
     const query = new URLSearchParams()
     if (params?.page) query.append('page', params.page.toString())
     if (params?.pageSize) query.append('pageSize', params.pageSize.toString())
     if (params?.professionalId) query.append('professionalId', params.professionalId.toString())
+    if (params?.isUsuario) query.append('isUsuario', 'true')
     if (params?.clientId) query.append('clientId', params.clientId.toString())
     if (params?.status) query.append('status', params.status)
     

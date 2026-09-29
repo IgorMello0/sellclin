@@ -9,6 +9,7 @@ export const proposalInput = z.object({
   specialistId: z.number().int().positive().nullable().optional(),
   sdrId: z.number().int().positive().nullable().optional(),
   tags: z.array(z.string()).optional(),
+  treatment: z.string().trim().max(10000).nullable().optional(),
   justification: z.string().nullable().optional(),
   discountApplied: z.boolean().optional(),
 })
