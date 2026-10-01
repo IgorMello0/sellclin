@@ -14,10 +14,13 @@ export async function leadVisibility(prisma: PrismaClient, user: any, companyId:
   }
   const role = access?.role || account.role
   if (role?.isAdmin || role?.isManager) return { companyId }
+  const assignments: any[] = []
+  if (role?.isSDR) assignments.push({ sdrId: user.id })
+  if (role?.isCloser) assignments.push({ closerId: user.id })
+  if (role?.isSpecialist) assignments.push({ especialistaId: user.id })
   return { companyId, OR: [
-    { sdrId: user.id }, { closerId: user.id },
-    { proposals: { some: { sdrId: user.id } } },
-    { proposals: { some: { salespersonId: user.id } } },
+    ...assignments,
+    { visibilityGrants: { some: { userId: user.id, companyId } } },
     { sdrId: null, closerId: null },
   ] }
 }

@@ -254,10 +254,13 @@ router.get('/', auth(), requireModule('conversas'), async (req, res) => {
     andFilters.push({ assignedProfessionalId: null, OR: [{ lead: { is: { sdrId: null } } }, { leadId: null, assignedUserId: null }] })
   } else if (assignment === 'mine') {
     if (req.user?.type === 'profissional') where.assignedProfessionalId = Number(req.user.id)
-    if (req.user?.type === 'usuario') andFilters.push({ OR: [
+    // Para membros operacionais, o proprio scope ja inclui as atribuicoes do cargo
+    // atual e os acessos historicos concedidos. Reaplicar apenas o SDR aqui excluiria
+    // closers e pessoas autorizadas a manter os leads anteriores.
+    if (req.user?.type === 'usuario' && scope.canManage) andFilters.push({ OR: [
       { lead: { sdrId: Number(req.user.id) } },
       { leadId: null, assignedUserId: Number(req.user.id) },
-      { lead: { sdrId: null }, assignedUserId: Number(req.user.id) },
+      { lead: { sdrId: null, closerId: null }, assignedUserId: Number(req.user.id) },
     ] })
   }
 
@@ -789,7 +792,7 @@ router.post('/', auth(), requireModule('conversas'), async (req, res) => {
   try {
     const { agentId, clientId, app, channel, startedAt } = req.body
     
-    let companyId = req.user?.companyId;
+    const companyId = req.user?.companyId;
     if (!companyId) return res.status(400).json(createErrorResponse('Empresa não identificada', 400));
 
     let professionalId: number;

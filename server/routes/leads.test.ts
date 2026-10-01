@@ -69,9 +69,13 @@ beforeEach(() => {
 });
 
 describe('funnel transactions and access', () => {
-  it('uses the active clinic role over a global admin role', async () => {
+  it('uses the active clinic role and explicit historical grants over a global admin role', async () => {
     const where = await leadVisibility(state.db, user, 2);
-    expect(where).toMatchObject({ companyId: 2, OR: expect.arrayContaining([{ proposals: { some: { sdrId: 5 } } }]) });
+    expect(where).toMatchObject({ companyId: 2, OR: expect.arrayContaining([
+      { sdrId: 5 },
+      { visibilityGrants: { some: { userId: 5, companyId: 2 } } },
+    ]) });
+    expect(where.OR).not.toContainEqual({ proposals: { some: { sdrId: 5 } } });
   });
   it('denies inactive clinic membership', async () => {
     state.db.userCompanyAccess.findUnique.mockResolvedValue({ isActive: false });
@@ -81,9 +85,9 @@ describe('funnel transactions and access', () => {
     state.db.userCompanyAccess.findUnique.mockResolvedValue({ isActive: true, role: { isManager: true } });
     expect(await leadVisibility(state.db, user, 2)).toEqual({ companyId: 2 });
   });
-  it('applies the same proposal participation filter to detail access', async () => {
+  it('applies the same explicit visibility grant to detail access', async () => {
     await call('get', '/:id/proposals', {});
-    expect(state.db.lead.findFirst).toHaveBeenCalledWith({ where: { AND: [{ id: 1 }, expect.objectContaining({ OR: expect.arrayContaining([{ proposals: { some: { salespersonId: 5 } } }]) })] } });
+    expect(state.db.lead.findFirst).toHaveBeenCalledWith({ where: { AND: [{ id: 1 }, expect.objectContaining({ OR: expect.arrayContaining([{ visibilityGrants: { some: { userId: 5, companyId: 2 } } }]) })] } });
   });
   it('cannot edit a proposal from another lead', async () => {
     const before = snapshot();

@@ -19,6 +19,9 @@ const requiredConstraints = [
   'goals_company_id_fkey',
   'payments_lead_id_fkey',
   'payments_sale_id_fkey',
+  'lead_visibility_grants_lead_id_fkey',
+  'lead_visibility_grants_user_id_fkey',
+  'lead_visibility_grants_company_id_fkey',
 ]
 
 const requiredIndexes = [
@@ -28,6 +31,7 @@ const requiredIndexes = [
   'sales_proposal_id_voided_at_idx',
   'payments_lead_id_idx',
   'payments_sale_id_idx',
+  'lead_visibility_grants_company_user_idx',
 ]
 
 async function count(sql: string) {
@@ -36,6 +40,16 @@ async function count(sql: string) {
 }
 
 async function main() {
+  const tables = await prisma.$queryRaw<{ table_name: string }[]>`
+    SELECT table_name
+    FROM information_schema.tables
+    WHERE table_schema = current_schema()
+      AND table_name IN ('lead_visibility_grants')
+  `
+  const missingTables = ['lead_visibility_grants'].filter(
+    (table) => !tables.some((row) => row.table_name === table),
+  )
+
   const columns = await prisma.$queryRaw<ColumnRow[]>`
     SELECT table_name, column_name
     FROM information_schema.columns
@@ -51,7 +65,14 @@ async function main() {
   const constraints = await prisma.$queryRaw<NameRow[]>`
     SELECT conname AS name
     FROM pg_constraint
-    WHERE conname IN ('goals_company_id_fkey', 'payments_lead_id_fkey', 'payments_sale_id_fkey')
+    WHERE conname IN (
+      'goals_company_id_fkey',
+      'payments_lead_id_fkey',
+      'payments_sale_id_fkey',
+      'lead_visibility_grants_lead_id_fkey',
+      'lead_visibility_grants_user_id_fkey',
+      'lead_visibility_grants_company_id_fkey'
+    )
       AND connamespace = current_schema()::regnamespace
   `
   const constraintNames = new Set(constraints.map(({ name }) => name))
@@ -67,16 +88,18 @@ async function main() {
         'sales_lead_id_voided_at_idx',
         'sales_proposal_id_voided_at_idx',
         'payments_lead_id_idx',
-        'payments_sale_id_idx'
+        'payments_sale_id_idx',
+        'lead_visibility_grants_company_user_idx'
       )
   `
   const indexNames = new Set(indexes.map(({ name }) => name))
   const missingIndexes = requiredIndexes.filter((name) => !indexNames.has(name))
 
-  const structureComplete = missingColumns.length === 0 && missingConstraints.length === 0 && missingIndexes.length === 0
+  const structureComplete = missingTables.length === 0 && missingColumns.length === 0 && missingConstraints.length === 0 && missingIndexes.length === 0
 
   const result: Record<string, unknown> = {
     schema: structureComplete ? 'OK' : 'INCOMPLETO',
+    missingTables,
     missingColumns,
     missingConstraints,
     missingIndexes,

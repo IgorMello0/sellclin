@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { beforeEach, expect, it, vi } from 'vitest'
 
-const state = vi.hoisted(() => ({ active: true, accessActive: true, role: { isSDR: true, isAdmin: false, isManager: false } }))
+const state = vi.hoisted(() => ({ active: true, accessActive: true, role: { isSDR: true, isCloser: false, isSpecialist: false, isAdmin: false, isManager: false } }))
 vi.mock('../prisma.js', () => ({ prisma: {
   empresa: { findFirst: async () => ({ id: 2 }) },
   usuario: { findUnique: async () => ({ id: 7, companyId: 2, isActive: state.active, role: state.role }) },
@@ -9,14 +9,24 @@ vi.mock('../prisma.js', () => ({ prisma: {
 } }))
 import { conversationScope } from './conversation-access.js'
 
-beforeEach(() => { state.active = true; state.accessActive = true; state.role = { isSDR: true, isAdmin: false, isManager: false } })
+beforeEach(() => { state.active = true; state.accessActive = true; state.role = { isSDR: true, isCloser: false, isSpecialist: false, isAdmin: false, isManager: false } })
 
 it('limits SDRs to conversations whose lead is assigned to them', async () => {
   const scope = await conversationScope({ id: 7, type: 'usuario', companyId: 2 })
   expect(scope).toEqual({ canManage: false, where: { companyId: 2, OR: [
-    { lead: { sdrId: 7 } }, { leadId: null, assignedUserId: 7 },
-    { lead: { sdrId: null }, assignedUserId: 7 },
+    { lead: { sdrId: 7 } },
+    { lead: { visibilityGrants: { some: { userId: 7, companyId: 2 } } } },
+    { leadId: null, assignedUserId: 7 },
+    { lead: { sdrId: null, closerId: null }, assignedUserId: 7 },
   ] } })
+})
+
+it('switches current conversation access from SDR to closer assignments after a role change', async () => {
+  state.role.isSDR = false
+  state.role.isCloser = true
+  const scope = await conversationScope({ id: 7, type: 'usuario', companyId: 2 })
+  expect(scope.where.OR).toContainEqual({ lead: { closerId: 7 } })
+  expect(scope.where.OR).not.toContainEqual({ lead: { sdrId: 7 } })
 })
 
 it('allows managers and clinic professionals to oversee all conversations', async () => {

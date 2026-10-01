@@ -9,6 +9,16 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 import { 
   ChevronDown,
@@ -199,6 +209,7 @@ const EquipeView = ({ isSpecialistMode = false }: { isSpecialistMode?: boolean }
   const [loadingPermissions, setLoadingPermissions] = useState(false);
   const [savingPermissions, setSavingPermissions] = useState(false);
   const [roles, setRoles] = useState<any[]>([]);
+  const [roleChangePrompt, setRoleChangePrompt] = useState<{ previousRole: any; nextRole: any } | null>(null);
 
   const [billingUsage, setBillingUsage] = useState<BillingUsage | null>(null);
   const [buyingUserExtra, setBuyingUserExtra] = useState(false);
@@ -427,15 +438,22 @@ const EquipeView = ({ isSpecialistMode = false }: { isSpecialistMode?: boolean }
       ...(user.companyId ? [Number(user.companyId)] : []),
     ]));
 
+    const activeCompanyId = Number(professional?.companyId);
+    const activeAccess = Array.isArray(user.companyAccess)
+      ? user.companyAccess.find((access: any) => Number(access?.companyId) === activeCompanyId && access?.isActive !== false)
+      : null;
+    const effectiveRoleId = activeAccess?.roleId ?? user.roleId;
+
     setEditingMember({ 
       ...user, 
-      roleId: getRoleIdValue(user.roleId),
+      roleId: getRoleIdValue(effectiveRoleId),
+      originalRoleId: getRoleIdValue(effectiveRoleId),
       companyIds: userCompanyIds
     });
     loadUserPermissions(user.id);
   };
 
-  const handleUpdateProfile = async () => {
+  const saveMemberProfile = async (preservePreviousLeadVisibility: boolean) => {
     if (!editingMember) return;
     setSavingProfile(true);
     try {
@@ -444,10 +462,12 @@ const EquipeView = ({ isSpecialistMode = false }: { isSpecialistMode?: boolean }
         email: editingMember.email,
         roleId: editingMember.roleId ? Number(editingMember.roleId) : null,
         companyIds: editingMember.companyIds,
-        leadRoutingWeight: editingMember.leadRoutingWeight !== undefined ? Number(editingMember.leadRoutingWeight) : undefined
+        leadRoutingWeight: editingMember.leadRoutingWeight !== undefined ? Number(editingMember.leadRoutingWeight) : undefined,
+        preservePreviousLeadVisibility,
       });
       if (res.success) {
         toast({ title: 'Sucesso', description: 'Perfil atualizado!' });
+        setEditingMember((current: any) => current ? { ...current, originalRoleId: current.roleId } : current);
         loadTeam();
       }
     } catch (e: any) {
@@ -455,6 +475,24 @@ const EquipeView = ({ isSpecialistMode = false }: { isSpecialistMode?: boolean }
     } finally {
       setSavingProfile(false);
     }
+  };
+
+  const handleUpdateProfile = async () => {
+    if (!editingMember) return;
+    const previousRole = roles.find((role) => String(role.id) === String(editingMember.originalRoleId));
+    const nextRole = roles.find((role) => String(role.id) === String(editingMember.roleId));
+    const losesAssignedLeads = previousRole && nextRole && previousRole.id !== nextRole.id && (
+      (previousRole.isSDR && !nextRole.isSDR)
+      || (previousRole.isCloser && !nextRole.isCloser)
+      || (previousRole.isSpecialist && !nextRole.isSpecialist)
+    );
+
+    if (losesAssignedLeads) {
+      setRoleChangePrompt({ previousRole, nextRole });
+      return;
+    }
+
+    await saveMemberProfile(false);
   };
 
   const handleResetPassword = async () => {
@@ -827,6 +865,44 @@ const EquipeView = ({ isSpecialistMode = false }: { isSpecialistMode?: boolean }
           </div>
         ))}
       </div>
+
+      <AlertDialog open={!!roleChangePrompt} onOpenChange={(open) => !open && setRoleChangePrompt(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Manter acesso aos leads anteriores?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <span className="block">
+                O cargo de {editingMember?.name} será alterado de {roleChangePrompt?.previousRole?.name} para {roleChangePrompt?.nextRole?.name}.
+              </span>
+              <span className="block">
+                Se você retirar o acesso, essa pessoa deixará de ver os leads e as conversas do WhatsApp que pertenciam ao cargo anterior. Ela continuará vendo somente os leads atribuídos ao novo cargo.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="sm:justify-between">
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row">
+              <AlertDialogAction
+                className="bg-slate-700 hover:bg-slate-800"
+                onClick={() => {
+                  setRoleChangePrompt(null);
+                  void saveMemberProfile(true);
+                }}
+              >
+                Manter acesso anterior
+              </AlertDialogAction>
+              <AlertDialogAction
+                onClick={() => {
+                  setRoleChangePrompt(null);
+                  void saveMemberProfile(false);
+                }}
+              >
+                Retirar acesso anterior
+              </AlertDialogAction>
+            </div>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

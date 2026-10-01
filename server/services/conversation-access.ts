@@ -23,12 +23,16 @@ export async function conversationScope(user: AuthenticatedUser) {
   }
   const role = access?.role || account.role
   if (role?.isAdmin || role?.isManager) return { where: { companyId }, canManage: true }
-  // A lead's current SDR is authoritative, including after a transfer in the funnel.
+  const assignments: any[] = []
+  if (role?.isSDR) assignments.push({ lead: { sdrId: user.id } })
+  if (role?.isCloser) assignments.push({ lead: { closerId: user.id } })
+  if (role?.isSpecialist) assignments.push({ lead: { especialistaId: user.id } })
   return {
     where: { companyId, OR: [
-      { lead: { sdrId: user.id } },
+      ...assignments,
+      { lead: { visibilityGrants: { some: { userId: user.id, companyId } } } },
       { leadId: null, assignedUserId: user.id },
-      { lead: { sdrId: null }, assignedUserId: user.id },
+      { lead: { sdrId: null, closerId: null }, assignedUserId: user.id },
     ] },
     canManage: false,
   }

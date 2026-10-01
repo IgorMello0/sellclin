@@ -169,6 +169,7 @@ model Lead {
   payments             Payment[]
   tasks                Task[]
   conversas            Conversa[]
+  visibilityGrants     LeadVisibilityGrant[]
 
   @@unique([phone, companyId])
   @@map("leads")
@@ -211,6 +212,22 @@ model Proposal {
   sdr                Usuario? @relation("SdrProposals", fields: [sdrId], references: [id])
 
   @@map("proposals")
+}
+
+model LeadVisibilityGrant {
+  id        Int      @id @default(autoincrement())
+  leadId    Int      @map("lead_id")
+  userId    Int      @map("user_id")
+  companyId Int      @map("company_id")
+  reason    String   @default("role_change")
+  createdAt DateTime @default(now()) @map("created_at")
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  user      Usuario  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company   Empresa  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([leadId, userId, companyId])
+  @@index([companyId, userId])
+  @@map("lead_visibility_grants")
 }
 
 model Sale {
@@ -480,6 +497,7 @@ model Empresa {
   leads                    Lead[]
   leadStatuses             LeadStatus[]
   leadOrigins              LeadOriginConfig[]
+  leadVisibilityGrants     LeadVisibilityGrant[]
   appointments             Appointment[]
   payments                 Payment[]
   funnelConfigs            FunnelConfig[]
@@ -647,6 +665,7 @@ model Usuario {
   conversasAtribuidas    Conversa[]              @relation("ConversationAssignedUser")
   conversationNotes      ConversationNote[]      @relation("ConversationNoteUser")
   conversationEvents     ConversationEvent[]     @relation("ConversationEventUser")
+  leadVisibilityGrants   LeadVisibilityGrant[]
 
   @@map("usuarios")
 }

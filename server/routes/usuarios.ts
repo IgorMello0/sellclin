@@ -442,6 +442,7 @@ router.put('/:id', auth(), requireCompanyOwner(), async (req, res) => {
     }
 
     const { name, email, password, role, isActive, companyIds, leadRoutingWeight } = req.body
+    const preservePreviousLeadVisibility = req.body.preservePreviousLeadVisibility === true
     
     // Validações
     if (!name || !email) {
@@ -466,6 +467,61 @@ router.put('/:id', auth(), requireCompanyOwner(), async (req, res) => {
     if (password) data.passwordHash = await bcrypt.hash(password, 10)
     if (usuario.isActive === false && isActive === true && !Array.isArray(companyIds)) {
       await assertCanAddUserToCompany(professional.id, activeCompanyId, id)
+    }
+
+    // Ao sair de uma funcao operacional, a responsabilidade atual deixa de conceder acesso.
+    // Se o gestor optar por manter o historico, registramos explicitamente os leads atuais.
+    let activeRequestedRole: any = null
+    if (req.body.roleId !== undefined) {
+      activeRequestedRole = await prisma.role.findFirst({
+        where: { id: Number(req.body.roleId), companyId: activeCompanyId },
+      })
+      if (!activeRequestedRole) {
+        return res.status(400).json(createErrorResponse('Cargo invalido para esta clinica', 400))
+      }
+
+      const activeAccess = usuario.companyAccess.find((access) => access.companyId === activeCompanyId && access.isActive)
+      const previousRoleId = activeAccess?.roleId || (usuario.companyId === activeCompanyId ? usuario.roleId : null)
+      const previousRole = previousRoleId
+        ? await prisma.role.findFirst({ where: { id: previousRoleId, companyId: activeCompanyId } })
+        : null
+
+      if (previousRole && previousRole.id !== activeRequestedRole.id) {
+        const previousAssignments: any[] = []
+        if (previousRole.isSDR && !activeRequestedRole.isSDR) {
+          previousAssignments.push({ sdrId: id }, { proposals: { some: { sdrId: id } } })
+        }
+        if (previousRole.isCloser && !activeRequestedRole.isCloser) {
+          previousAssignments.push({ closerId: id }, { proposals: { some: { salespersonId: id } } })
+        }
+        if (previousRole.isSpecialist && !activeRequestedRole.isSpecialist) {
+          previousAssignments.push({ especialistaId: id }, { proposals: { some: { specialistId: id } } })
+        }
+
+        if (previousAssignments.length > 0) {
+          if (preservePreviousLeadVisibility) {
+            const previousLeads = await prisma.lead.findMany({
+              where: { companyId: activeCompanyId, OR: previousAssignments },
+              select: { id: true },
+            })
+            if (previousLeads.length > 0) {
+              await prisma.leadVisibilityGrant.createMany({
+                data: previousLeads.map((lead) => ({
+                  leadId: lead.id,
+                  userId: id,
+                  companyId: activeCompanyId,
+                  reason: 'role_change',
+                })),
+                skipDuplicates: true,
+              })
+            }
+          } else {
+            await prisma.leadVisibilityGrant.deleteMany({
+              where: { userId: id, companyId: activeCompanyId },
+            })
+          }
+        }
+      }
     }
     
     // Atualizar Múltiplas Clínicas
@@ -507,7 +563,9 @@ router.put('/:id', auth(), requireCompanyOwner(), async (req, res) => {
         const primaryCompanyId = validCompanyIds.includes(activeCompanyId) ? activeCompanyId : validCompanyIds[0]
         await ensureCompanyDefaults(prisma, primaryCompanyId, professional.id)
         const requestedRole = req.body.roleId
-          ? await prisma.role.findFirst({ where: { id: Number(req.body.roleId), companyId: primaryCompanyId } })
+          ? (primaryCompanyId === activeCompanyId
+              ? activeRequestedRole
+              : await prisma.role.findFirst({ where: { id: Number(req.body.roleId), companyId: primaryCompanyId } }))
           : null
         if (req.body.roleId && !requestedRole) {
           return res.status(400).json(createErrorResponse('Cargo invalido para a clinica principal', 400))
@@ -539,15 +597,11 @@ router.put('/:id', auth(), requireCompanyOwner(), async (req, res) => {
         data.roleId = primaryRole?.id || null
       }
     } else if (req.body.roleId !== undefined) {
-      const requestedRole = await prisma.role.findFirst({
-        where: { id: Number(req.body.roleId), companyId: activeCompanyId },
-      })
-      if (!requestedRole) return res.status(400).json(createErrorResponse('Cargo invalido para esta clinica', 400))
       await prisma.userCompanyAccess.updateMany({
         where: { userId: id, companyId: activeCompanyId },
-        data: { roleId: requestedRole.id },
+        data: { roleId: activeRequestedRole.id },
       })
-      if (usuario.companyId === activeCompanyId) data.roleId = requestedRole.id
+      if (usuario.companyId === activeCompanyId) data.roleId = activeRequestedRole.id
     }
     
     const updated = await prisma.usuario.update({ 
