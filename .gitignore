@@ -30,3 +30,9 @@ vite.config.ts.timestamp-*
 
 # Uploads / user assets
 uploads/
+
+# Private environment variants and local security test builds
+.env.*
+!.env.example
+!.env.*.example
+.security-check/

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express'
-import jwt from 'jsonwebtoken'
+import { verifySessionToken } from '../services/session-security.js'
 import { createErrorResponse } from '../utils/response.js'
 import { prisma } from '../prisma.js'
 import { canCompanyAccessModule } from '../services/billing.js'
@@ -30,7 +30,7 @@ export function auth(required = true) {
     }
 
     try {
-      const payload = jwt.verify(token, getJwtSecret()) as AuthUser & { allowedCompanies?: number[] }
+      const payload = verifySessionToken(token, getJwtSecret()) as AuthUser & { allowedCompanies?: number[] }
 
       // Always rebuild tenant access from the database. JWT claims are only identity hints.
       if (payload.type === 'profissional') {

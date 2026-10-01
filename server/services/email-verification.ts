@@ -1,4 +1,5 @@
 import crypto from 'node:crypto'
+import { claimEmailToken } from './session-security.js'
 import { prisma } from '../prisma.js'
 
 export const EMAIL_TOKEN_HOURS = 24
@@ -199,10 +200,9 @@ export async function consumeEmailToken(token: string, type: EmailTokenType) {
     throw new Error('Link expirado. Solicite um novo envio.')
   }
 
-  await prisma.emailVerificationToken.update({
-    where: { id: record.id },
-    data: { usedAt: new Date() },
-  })
+  await claimEmailToken(record.id, type, (where, usedAt) =>
+    prisma.emailVerificationToken.updateMany({ where, data: { usedAt } }),
+  )
 
   return record
 }
