@@ -24,4 +24,4 @@ Chamadas Graph comuns enviam o token pelo cabeçalho Authorization, em vez da UR
 4. Conferir imagem, vídeo e áudio no histórico, envio manual, campanha com mídia e retomada de campanha. Os provedores externos não foram exercitados nos testes locais.
 5. Conferir Nginx com `nginx -t` dentro do novo container. A configuração foi revisada, mas não há Nginx disponível no ambiente Windows para validá-la.
 
-Criptografia em repouso, rotação de chaves na VPS e tratamento completo de downloads externos permanecem trabalhos separados. Esta etapa não representa uma auditoria completa de segurança.
+A criptografia em repouso e a proteção dos downloads externos de mídia foram implementadas na etapa seguinte; a aplicação na VPS segue `encryption-deployment.md`. Rotação de chaves e revisão das demais chamadas de API externa continuam separadas. Esta etapa não representa uma auditoria completa de segurança.

@@ -1,3 +1,4 @@
+import { publicMediaClient } from '../services/public-download.js'
 import { Router } from 'express'
 import { localMediaPath, signMediaUrl } from '../services/media-access.js'
 import fs from 'node:fs/promises'
@@ -112,14 +113,11 @@ async function readMediaForProvider(mediaUrl: string, mediaType: string) {
     }
   }
 
-  const source = await fetch(mediaUrl)
-  if (!source.ok) {
-    throw new Error(`Nao foi possivel ler a midia publica (${source.status}).`)
-  }
+  const source = await publicMediaClient.download(mediaUrl, { maxBytes: 16 * 1024 * 1024 })
 
   return {
-    buffer: Buffer.from(await source.arrayBuffer()),
-    contentType: source.headers.get('content-type')?.split(';')[0]?.trim() || getMimeTypeFromUrl(mediaUrl, mediaType),
+    buffer: source.buffer,
+    contentType: String(source.headers['content-type'] || '').split(';')[0]?.trim() || getMimeTypeFromUrl(mediaUrl, mediaType),
     filename: getFileNameFromUrl(mediaUrl, mediaType),
     source: 'public-url',
   }

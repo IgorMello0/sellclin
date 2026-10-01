@@ -1,3 +1,4 @@
+import { publicMediaClient } from './public-download.js'
 import { randomBytes, randomUUID } from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
@@ -286,28 +287,28 @@ async function resolveMetaMedia(input: Parameters<MetaMediaResolver>[0]): Promis
     throw new Error(metadata?.error?.message || `Meta nao retornou a URL da midia (HTTP ${metadataResponse.status}).`)
   }
 
-  const mediaResponse = await fetch(String(metadata.url), {
+  const mediaResponse = await publicMediaClient.download(String(metadata.url), {
     headers: { Authorization: `Bearer ${accessToken}` },
-    signal: AbortSignal.timeout(30_000),
+    timeoutMs: 30_000,
+    maxBytes: 16 * 1024 * 1024,
+    allowedHosts: ['facebook.com', 'fbcdn.net', 'fbsbx.com'],
+    httpsOnly: true,
   })
-  if (!mediaResponse.ok) {
-    throw new Error(`Falha ao baixar a midia da Meta (HTTP ${mediaResponse.status}).`)
-  }
 
   const mimeType = String(
-    mediaResponse.headers.get('content-type') || metadata?.mime_type || input.declaredMimeType || '',
+    mediaResponse.headers['content-type'] || metadata?.mime_type || input.declaredMimeType || '',
   ).split(';')[0].trim().toLowerCase()
   const mediaConfig = META_MEDIA_TYPES.get(mimeType)
   if (!mediaConfig || mediaConfig.mediaType !== input.mediaType) {
     throw new Error(`Formato de midia recebido nao suportado: ${mimeType || input.mediaType}.`)
   }
 
-  const declaredSize = Number(mediaResponse.headers.get('content-length') || metadata?.file_size || 0)
+  const declaredSize = Number(mediaResponse.headers['content-length'] || metadata?.file_size || 0)
   if (declaredSize > mediaConfig.maxBytes) {
     throw new Error(`Midia recebida excede o limite de ${Math.floor(mediaConfig.maxBytes / 1024 / 1024)} MB.`)
   }
 
-  const buffer = Buffer.from(await mediaResponse.arrayBuffer())
+  const buffer = mediaResponse.buffer
   if (buffer.length > mediaConfig.maxBytes) {
     throw new Error(`Midia recebida excede o limite de ${Math.floor(mediaConfig.maxBytes / 1024 / 1024)} MB.`)
   }

@@ -18,8 +18,8 @@ Testes cobrem sessões válidas, identidade malformada, token OAuth, algoritmo d
 ## Pendências antes do lançamento
 
 - Rotacionar segredos que tenham sido expostos no histórico, especialmente JWT_SECRET, com atualização coordenada da VPS. Trocar JWT_SECRET encerra sessões existentes. Não foi feita rotação automática.
-- Implementar criptografia em repouso dos tokens de integrações, com uma chave própria, cópia segura e migração dos valores existentes. Os tokens continuam armazenados no banco no formato atual; as proteções de saída não equivalem a criptografia do banco.
-- Revisar URLs externas baixadas pelo servidor e configurações de APIs externas para prevenção completa de SSRF.
+- Configurar a chave e aplicar a migração de credenciais preparada em `encryption-deployment.md`. O código de criptografia está pronto, mas o banco publicado só fica protegido após essa aplicação.
+- A proteção de downloads de mídia está implementada. As configurações e demais chamadas de APIs externas ainda precisam de revisão própria para prevenção completa de SSRF.
 - Conferir backup e restauração, acesso SSH e exposição de portas do banco na infraestrutura.
 - Fazer os testes de integração em produção descritos em `immediate-security.md` antes de concluir a publicação.
 
