@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
+import { corsOptions, installAuthLimits } from './middleware/public-security.js'
 import { json, urlencoded } from 'express'
 import { assertProductionSecurityConfig } from './config/security.js'
 import { router as professionalsRouter } from './routes/professionals.js'
@@ -63,8 +64,13 @@ const apiLimiter = rateLimit({
   },
 })
 
-app.use(cors())
+app.use(cors(corsOptions()))
+app.disable('x-powered-by')
 app.use(apiLimiter)
+app.use('/api/webhooks', rateLimit({
+  windowMs: 60_000, limit: 3000, standardHeaders: true, legacyHeaders: false,
+  handler: (_req, res) => res.status(429).json(createErrorResponse('Muitas requisições. Tente novamente em um minuto.', 429)),
+}))
 app.use(json({
   limit: '20mb',
   verify: (req, _res, buffer) => {
@@ -72,6 +78,8 @@ app.use(json({
   },
 }))
 app.use(urlencoded({ limit: '20mb', extended: true }))
+installAuthLimits(app)
+
 
 app.get('/api/health', async (_req, res) => {
   try {
@@ -125,8 +133,10 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')))
 // Error handler
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  const status = err?.status || 500
-  res.status(status).json(createErrorResponse(err?.message || 'Erro interno', status))
+  const status = Number.isInteger(err?.status) && err.status >= 400 && err.status <= 599 ? err.status : 500
+  console.error('[server] request failed:', err)
+  const message = status === 403 ? 'Acesso não autorizado' : status === 413 ? 'Conteúdo muito grande' : status < 500 ? 'Requisição inválida' : 'Erro interno'
+  res.status(status).json(createErrorResponse(message, status))
 })
 
 const port = process.env.PORT || 4000

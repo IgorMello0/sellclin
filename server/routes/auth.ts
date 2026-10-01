@@ -69,7 +69,9 @@ router.get('/verify-email', async (req, res) => {
 
     return res.json(createSuccessResponse({ verified: true }))
   } catch (error: any) {
-    return res.status(400).json(createErrorResponse(error.message || 'Nao foi possivel verificar o e-mail', 400))
+    console.error('[auth] token operation failed:', error)
+    const message = ['Link invalido ou ja utilizado.', 'Link expirado. Solicite um novo envio.'].includes(error?.message) ? error.message : 'Nao foi possivel verificar o e-mail'
+    return res.status(400).json(createErrorResponse(message, 400))
   }
 })
 
@@ -175,7 +177,9 @@ router.post('/reset-password', async (req, res) => {
 
     return res.json(createSuccessResponse({ reset: true }))
   } catch (error: any) {
-    return res.status(400).json(createErrorResponse(error.message || 'Nao foi possivel redefinir a senha', 400))
+    console.error('[auth] token operation failed:', error)
+    const message = ['Link invalido ou ja utilizado.', 'Link expirado. Solicite um novo envio.'].includes(error?.message) ? error.message : 'Nao foi possivel redefinir a senha'
+    return res.status(400).json(createErrorResponse(message, 400))
   }
 })
 
@@ -203,7 +207,9 @@ router.post('/team-invite/accept', async (req, res) => {
 
     return res.json(createSuccessResponse({ accepted: true }))
   } catch (error: any) {
-    return res.status(400).json(createErrorResponse(error.message || 'Nao foi possivel aceitar o convite', 400))
+    console.error('[auth] token operation failed:', error)
+    const message = ['Link invalido ou ja utilizado.', 'Link expirado. Solicite um novo envio.'].includes(error?.message) ? error.message : 'Nao foi possivel aceitar o convite'
+    return res.status(400).json(createErrorResponse(message, 400))
   }
 })
 

@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { verifyMetaBody } from '../middleware/public-security.js';
 import { Router } from 'express';
 import { prisma } from '../prisma.js';
 import { createErrorResponse, createSuccessResponse } from '../utils/response.js';
@@ -21,7 +22,6 @@ import {
   type PlanCode,
 } from '../services/billing.js';
 import {
-  findCompanyByInstance as findWhatsappCompanyByInstance,
   handleEvolutionPayload as handleWhatsappEvolutionPayload,
   handleMetaMessages as handleWhatsappMetaMessages,
   handleUazapiPayload as handleWhatsappUazapiPayload,
@@ -686,7 +686,7 @@ async function processIncomingMessage(opts: {
 // URL SEGURA (com token único por clínica):
 //   POST https://<domain>/api/webhooks/evolution/<webhookToken>
 //
-// URL LEGADA (fallback por nome de instância — menos seguro):
+// URL LEGADA DESATIVADA (retorna 410; configurar URL com token):
 //   POST https://<domain>/api/webhooks/evolution
 //
 
@@ -760,7 +760,7 @@ router.post('/evolution/:token', async (req, res) => {
     });
 
     if (!empresa || !empresa.isActive) {
-      console.warn(`[Webhook/Evolution] Token "${token}" não encontrado ou empresa inativa.`);
+      console.warn(`[Webhook/Evolution] Token inválido ou empresa inativa.`);
       return res.json({ received: true, ignored: true, reason: 'invalid_token' });
     }
 
@@ -771,44 +771,14 @@ router.post('/evolution/:token', async (req, res) => {
 
   } catch (error: any) {
     console.error('[Webhook/Evolution] Erro:', error);
-    return res.status(200).json({ received: true, error: error.message });
+    return res.status(200).json({ received: true, error: 'Falha ao processar evento' });
   }
 });
 
-// ── ROTA LEGADA: sem token, usa nome da instância (compatibilidade retroativa) ──
-router.post('/evolution', async (req, res) => {
-  try {
-    const body = req.body;
-
-    const event = body.event || '';
-    if (!event.includes('messages') && !event.includes('MESSAGES')) {
-      return res.json({ received: true, ignored: true });
-    }
-
-    const instance = body.instance || body.instanceName || '';
-
-    if (!instance) {
-      return res.status(400).json(createErrorResponse('Dados insuficientes (instance)', 400));
-    }
-
-    // Identificar clínica pela instância (fallback — menos seguro)
-    const empresa = await findWhatsappCompanyByInstance(instance);
-    if (!empresa) {
-      console.warn(`[Webhook/Evolution] Instância "${instance}" não encontrada no DB.`);
-      return res.json({ received: true, ignored: true, reason: 'unknown_instance' });
-    }
-
-    console.log(`[Webhook/Evolution/Legacy] Recebido via rota legada para "${empresa.name}" (ID: ${empresa.id})`);
-
-    const result = await handleWhatsappEvolutionPayload(body, empresa);
-    return res.json(result);
-
-  } catch (error: any) {
-    console.error('[Webhook/Evolution] Erro:', error);
-    return res.status(200).json({ received: true, error: error.message });
-  }
+// Rota sem autenticação desativada; integrações devem usar /evolution/:token.
+router.post('/evolution', (_req, res) => {
+  return res.status(410).json(createErrorResponse('Configure o webhook usando a URL com token da clínica.', 410));
 });
-
 
 // ═══════════════════════════════════════════════════════════
 // 2) WEBHOOK — UAZAPI
@@ -833,7 +803,7 @@ router.post('/uazapi/:token', async (req, res) => {
   } catch (error: any) {
     console.error('[Webhook/UAZAPI] Erro:', error);
     // UAZAPI retries non-2xx deliveries. Acknowledge malformed events after logging.
-    return res.status(200).json({ received: true, error: error.message });
+    return res.status(200).json({ received: true, error: 'Falha ao processar evento' });
   }
 });
 
@@ -851,30 +821,14 @@ router.post('/uazapi/:token', async (req, res) => {
 
 /** Lógica compartilhada de verificação do Meta challenge */
 function verifyMetaSignature(req: any) {
-  const appSecret = process.env.META_APP_SECRET;
-  if (!appSecret) return true;
-
-  const signature = String(req.headers['x-hub-signature-256'] || '');
-  if (!signature.startsWith('sha256=')) return false;
-
-  const expected = crypto
-    .createHmac('sha256', appSecret)
-    .update(req.rawBody || '')
-    .digest('hex');
-  const received = signature.slice('sha256='.length);
-
-  try {
-    return crypto.timingSafeEqual(Buffer.from(received, 'hex'), Buffer.from(expected, 'hex'));
-  } catch {
-    return false;
-  }
+  return verifyMetaBody(req.rawBody, req.headers['x-hub-signature-256'], process.env.META_APP_SECRET);
 }
 
 async function handleMetaVerification(req: any, res: any, webhookToken?: string) {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
-  let expectedToken = process.env.META_WEBHOOK_VERIFY_TOKEN || 'sellclin-verify';
+  let expectedToken = process.env.META_WEBHOOK_VERIFY_TOKEN;
 
   if (webhookToken) {
     const empresa = await prisma.empresa.findUnique({
@@ -887,7 +841,8 @@ async function handleMetaVerification(req: any, res: any, webhookToken?: string)
     expectedToken = empresa.metaWebhookVerifyToken || expectedToken;
   }
 
-  if (mode === 'subscribe' && token === expectedToken && challenge) {
+  if (!expectedToken) return res.sendStatus(503);
+  if (mode === 'subscribe' && typeof token === 'string' && secureStringEquals(token, expectedToken) && typeof challenge === 'string' && challenge) {
     console.log('[Webhook/Meta] Challenge verificado com sucesso.');
     return res.status(200).type('text/plain').send(challenge);
   }
@@ -958,6 +913,7 @@ router.get('/meta', (req, res) => handleMetaVerification(req, res));
 // Receber mensagens (POST) — com token
 router.post('/meta/:token', async (req, res) => {
   try {
+    if (!process.env.META_APP_SECRET) return res.status(503).json(createErrorResponse('Webhook indisponível', 503));
     if (!verifyMetaSignature(req)) {
       console.warn('[Webhook/Meta] Assinatura invalida.');
       return res.sendStatus(403);
@@ -970,7 +926,7 @@ router.post('/meta/:token', async (req, res) => {
     });
 
     if (!empresa || !empresa.isActive) {
-      console.warn(`[Webhook/Meta] Token "${token}" não encontrado ou empresa inativa.`);
+      console.warn(`[Webhook/Meta] Token inválido ou empresa inativa.`);
       return res.sendStatus(200);
     }
 
@@ -987,6 +943,7 @@ router.post('/meta/:token', async (req, res) => {
 // Receber mensagens (POST) — legada (busca por phone_number_id)
 router.post('/meta', async (req, res) => {
   try {
+    if (!process.env.META_APP_SECRET) return res.status(503).json(createErrorResponse('Webhook indisponível', 503));
     if (!verifyMetaSignature(req)) {
       console.warn('[Webhook/Meta] Assinatura invalida.');
       return res.sendStatus(403);

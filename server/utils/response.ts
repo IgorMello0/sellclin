@@ -9,6 +9,7 @@ export function createSuccessResponse<T>(data: T, pagination?: Pagination) {
 }
 
 export function createErrorResponse(message: string, code?: number, details?: Record<string, unknown>) {
+  if (code && code >= 500) return { success: false, error: { message: 'Não foi possível concluir a solicitação. Tente novamente mais tarde.', code } }
   return { success: false, error: { message, code, ...(details || {}) } }
 }
 
