@@ -5,6 +5,7 @@ type NameRow = { name: string }
 type CountRow = { count: bigint }
 
 const requiredColumns = [
+  ['empresas', 'api_key_hash'],
   ['goals', 'company_id'],
   ['payments', 'lead_id'],
   ['payments', 'sale_id'],
@@ -25,6 +26,7 @@ const requiredConstraints = [
 ]
 
 const requiredIndexes = [
+  'empresas_api_key_hash_idx',
   'goals_company_id_idx',
   'sales_company_id_confirmed_at_idx',
   'sales_lead_id_voided_at_idx',
@@ -54,7 +56,7 @@ async function main() {
     SELECT table_name, column_name
     FROM information_schema.columns
     WHERE table_schema = current_schema()
-      AND table_name IN ('goals', 'payments', 'sales', 'proposals')
+      AND table_name IN ('empresas', 'goals', 'payments', 'sales', 'proposals')
   `
 
   const existing = new Set(columns.map(({ table_name, column_name }) => `${table_name}.${column_name}`))
@@ -83,6 +85,7 @@ async function main() {
     FROM pg_indexes
     WHERE schemaname = current_schema()
       AND indexname IN (
+        'empresas_api_key_hash_idx',
         'goals_company_id_idx',
         'sales_company_id_confirmed_at_idx',
         'sales_lead_id_voided_at_idx',

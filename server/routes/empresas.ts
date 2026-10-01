@@ -24,6 +24,7 @@ function sanitizeCompanySecrets(company: any) {
   if (!company) return company
   const {
     apiKey,
+    apiKeyHash: _apiKeyHash,
     metaToken,
     metaWebhookVerifyToken,
     metaTwoStepPin,

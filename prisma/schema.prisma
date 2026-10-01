@@ -455,6 +455,7 @@ model Empresa {
   whatsapp               String?
   whatsappProvider       String?   @default("evolution") @map("whatsapp_provider")
   apiKey                 String?   @map("api_key")
+  apiKeyHash             String?   @map("api_key_hash") @db.VarChar(64)
   evolutionApiUrl        String?   @map("evolution_api_url")
   evolutionInstance      String?   @map("evolution_instance")
   evolutionMode          String?   @map("evolution_mode")
@@ -515,6 +516,7 @@ model Empresa {
   cadenceConfigs           CadenceConfig[]
   goals                    Goal[]
 
+  @@index([apiKeyHash], map: "empresas_api_key_hash_idx")
   @@map("empresas")
 }
 

@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { apiKeyLookupHash } from '../services/integration-encryption.js';
 import { verifyMetaBody } from '../middleware/public-security.js';
 import { Router } from 'express';
 import { prisma } from '../prisma.js';
@@ -973,7 +974,7 @@ router.post('/leads/:apiKey', async (req, res) => {
 
     // 1. Identificar a Empresa dona do Webhook
     const empresa = await prisma.empresa.findFirst({
-      where: { apiKey, isActive: true },
+      where: { OR: [{ apiKeyHash: apiKeyLookupHash(apiKey) }, { apiKeyHash: null, apiKey }], isActive: true },
     });
 
     if (!empresa) {
