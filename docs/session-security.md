@@ -5,6 +5,9 @@
 - O middleware de autenticação aceita somente JWT HS256 com expiração e identidade válida (`id` inteiro positivo e tipo `profissional`, `usuario` ou `cliente`). Tokens de estado OAuth não podem funcionar como sessões. As sessões de login existentes usam esse formato.
 - O consumo de links de verificação, convite e recuperação exige uma atualização condicional no banco: token ainda não usado, do tipo esperado e ainda não expirado. Duas requisições concorrentes não conseguem consumir o mesmo link.
 - Variantes privadas de `.env` estão ignoradas pelo Git. Arquivos de exemplo continuam permitidos. Isso não remove segredos do histórico nem revoga chaves já expostas.
+- As sessões de proprietários e funcionários incluem uma assinatura HMAC da versão atual da senha, sem expor o hash bcrypt. O middleware compara a assinatura com a senha atual do banco. Alterações de senha feitas pelo usuário, recuperação por e-mail e redefinições pelo administrador revogam as sessões anteriores.
+
+**Na primeira publicação desta versão, proprietários e funcionários já conectados precisam entrar novamente**, pois as sessões antigas não contêm essa assinatura. Na tela de alteração de senha, o usuário é desconectado após a confirmação e pode entrar com a nova senha.
 
 Não há alteração de schema nem necessidade de patch SQL nesta etapa.
 
@@ -15,8 +18,8 @@ Testes cobrem sessões válidas, identidade malformada, token OAuth, algoritmo d
 ## Pendências antes do lançamento
 
 - Rotacionar segredos que tenham sido expostos no histórico, especialmente JWT_SECRET, com atualização coordenada da VPS. Trocar JWT_SECRET encerra sessões existentes. Não foi feita rotação automática.
-- Revisar armazenamento e exposição de tokens de integrações e acesso aos arquivos enviados por clínica, considerando que provedores WhatsApp precisam buscar determinadas mídias por URL.
-- Planejar revogação de sessões após troca/recuperação de senha; as sessões atuais continuam válidas até expirar. Isso exige implementação adicional.
+- Implementar criptografia em repouso dos tokens de integrações, com uma chave própria, cópia segura e migração dos valores existentes. Os tokens continuam armazenados no banco no formato atual; as proteções de saída não equivalem a criptografia do banco.
+- Revisar URLs externas baixadas pelo servidor e configurações de APIs externas para prevenção completa de SSRF.
 - Conferir backup e restauração, acesso SSH e exposição de portas do banco na infraestrutura.
 - Fazer os testes de integração em produção descritos em `immediate-security.md` antes de concluir a publicação.
 

@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { localMediaPath, signMediaUrl } from '../services/media-access.js'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { prisma } from '../prisma.js'
@@ -95,18 +96,8 @@ function getFileNameFromUrl(url: string, mediaType: string) {
 }
 
 function getLocalUploadPath(mediaUrl: string) {
-  try {
-    const parsed = new URL(mediaUrl)
-    if (!parsed.pathname.startsWith('/uploads/')) return null
-    const relative = parsed.pathname.replace(/^\/uploads\/+/, '')
-    if (!relative || relative.includes('..')) return null
-    return path.join(process.cwd(), 'uploads', ...relative.split('/'))
-  } catch {
-    if (!mediaUrl.startsWith('/uploads/')) return null
-    const relative = mediaUrl.replace(/^\/uploads\/+/, '')
-    if (!relative || relative.includes('..')) return null
-    return path.join(process.cwd(), 'uploads', ...relative.split('/'))
-  }
+  const media = localMediaPath(mediaUrl)
+  return media ? path.join(process.cwd(), ...media.path.slice(1).split('/')) : null
 }
 
 async function readMediaForProvider(mediaUrl: string, mediaType: string) {
@@ -533,7 +524,7 @@ router.post('/:id/messages', auth(), requireModule('conversas'), async (req, res
     const id = Number(req.params.id)
     const companyId = getCompanyId(req)
     const content = String(req.body?.content || '').trim()
-    const mediaUrl = String(req.body?.mediaUrl || '').trim()
+    const mediaUrl = signMediaUrl(String(req.body?.mediaUrl || '').trim(), companyId || 0)
     const mediaType = String(req.body?.mediaType || '').trim().toLowerCase()
     if (!companyId) return res.status(404).json(createErrorResponse('Clinica nao encontrada', 404))
     if (!content && !mediaUrl) return res.status(400).json(createErrorResponse('Digite uma mensagem ou selecione uma midia', 400))

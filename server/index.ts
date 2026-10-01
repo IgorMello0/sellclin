@@ -1,6 +1,8 @@
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
+import { refreshResponseMedia, protectStoredMedia } from './middleware/media-access.js'
+import { protectIntegrationOutput } from './middleware/integration-output.js'
 import { corsOptions, installAuthLimits } from './middleware/public-security.js'
 import { json, urlencoded } from 'express'
 import { assertProductionSecurityConfig } from './config/security.js'
@@ -79,6 +81,8 @@ app.use(json({
 }))
 app.use(urlencoded({ limit: '20mb', extended: true }))
 installAuthLimits(app)
+app.use(protectIntegrationOutput)
+app.use(refreshResponseMedia)
 
 
 app.get('/api/health', async (_req, res) => {
@@ -128,7 +132,7 @@ app.use('/api/lead-statuses', leadStatusesRouter)
 app.use('/api/lead-origins', leadOriginsRouter)
 app.use('/api/cadence', cadenceRouter)
 // Servir arquivos estáticos da pasta uploads
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')))
+app.use('/uploads', protectStoredMedia, express.static(path.join(process.cwd(), 'uploads'), { dotfiles: 'deny' }))
 
 // Error handler
 // eslint-disable-next-line @typescript-eslint/no-unused-vars

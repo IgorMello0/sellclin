@@ -93,12 +93,11 @@ function cleanRequired(value: unknown, label: string) {
 
 async function graphGet<T = any>(path: string, accessToken: string, params: Record<string, string> = {}): Promise<T> {
   const url = new URL(path.startsWith('http') ? path : `${GRAPH_BASE_URL}${path}`)
-  url.searchParams.set('access_token', accessToken)
   for (const [key, value] of Object.entries(params)) {
     if (value) url.searchParams.set(key, value)
   }
 
-  const response = await fetch(url.toString())
+  const response = await fetch(url.toString(), { headers: { Authorization: `Bearer ${accessToken}` } })
   const body = await response.json().catch(() => ({}))
   if (!response.ok) {
     throw new Error(body?.error?.message || `Meta Graph API HTTP ${response.status}`)
@@ -108,11 +107,10 @@ async function graphGet<T = any>(path: string, accessToken: string, params: Reco
 
 async function graphPost<T = any>(path: string, accessToken: string, body?: Record<string, unknown>): Promise<T> {
   const url = new URL(path.startsWith('http') ? path : `${GRAPH_BASE_URL}${path}`)
-  url.searchParams.set('access_token', accessToken)
 
   const response = await fetch(url.toString(), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
     body: body ? JSON.stringify(body) : undefined,
   })
   const payload = await response.json().catch(() => ({}))

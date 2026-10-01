@@ -1,3 +1,4 @@
+import { signMediaPayload, signMediaUrl } from '../services/media-access.js'
 import { Router } from 'express'
 import { prisma } from '../prisma.js'
 import { auth, requireModule } from '../middleware/auth.js'
@@ -33,6 +34,7 @@ function getPublicAppUrlFromRequest(req?: any) {
 }
 
 function toPublicMediaUrl(url: string, req?: any) {
+  if (req?.user?.companyId) url = signMediaUrl(url, Number(req.user.companyId))
   if (!url || url.startsWith('data:') || /^https?:\/\//i.test(url)) return url
   if (url.startsWith('/uploads/')) {
     const publicUrl = getPublicAppUrlFromRequest(req)
@@ -1565,6 +1567,16 @@ async function sendWhatsAppMessage(
   const formattedPhone = formatPhoneForWhatsApp(phone, config.provider)
 
   try {
+    config = {
+      ...config,
+      mediaUrl: config.mediaUrl ? signMediaPayload(config.mediaUrl, config.companyId) : config.mediaUrl,
+      metaTemplate: config.metaTemplate ? {
+        ...config.metaTemplate,
+        headerMediaUrl: config.metaTemplate.headerMediaUrl
+          ? signMediaUrl(config.metaTemplate.headerMediaUrl, config.companyId)
+          : undefined,
+      } : undefined,
+    }
     if (config.provider === 'meta') {
       return await sendMetaMessage(config, formattedPhone, message, recipient)
     } else if (config.provider === 'uazapi') {

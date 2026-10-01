@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express'
-import { verifySessionToken } from '../services/session-security.js'
+import { verifySessionToken, isCurrentPasswordSession } from '../services/session-security.js'
 import { createErrorResponse } from '../utils/response.js'
 import { prisma } from '../prisma.js'
 import { canCompanyAccessModule } from '../services/billing.js'
@@ -10,6 +10,7 @@ export type AuthUser = {
   role?: string | null
   companyId?: number | null
   allowedCompanies?: number[]
+  isCompanyOwner?: boolean
   type: 'usuario' | 'profissional' | 'cliente'
 }
 
@@ -30,13 +31,15 @@ export function auth(required = true) {
     }
 
     try {
-      const payload = verifySessionToken(token, getJwtSecret()) as AuthUser & { allowedCompanies?: number[] }
+      const payload = verifySessionToken(token, getJwtSecret()) as AuthUser & { allowedCompanies?: number[]; passwordStamp?: string }
 
+      let ownedCompanyIds: number[] = []
       // Always rebuild tenant access from the database. JWT claims are only identity hints.
       if (payload.type === 'profissional') {
         const professional = await prisma.professional.findUnique({
           where: { id: payload.id },
           select: {
+            passwordHash: true,
             companyId: true,
             company: { select: { id: true, isActive: true } },
             ownedCompanies: {
@@ -46,10 +49,11 @@ export function auth(required = true) {
           },
         })
 
-        if (!professional) {
+        if (!professional || !isCurrentPasswordSession(payload.passwordStamp, professional.passwordHash, getJwtSecret())) {
           return res.status(401).json(createErrorResponse('Conta nao encontrada', 401))
         }
 
+        ownedCompanyIds = professional.ownedCompanies.map(company => company.id)
         payload.allowedCompanies = Array.from(new Set([
           ...(professional.company?.isActive ? [professional.company.id] : []),
           ...professional.ownedCompanies.map(company => company.id),
@@ -58,6 +62,7 @@ export function auth(required = true) {
         const user = await prisma.usuario.findUnique({
           where: { id: payload.id },
           select: {
+            passwordHash: true,
             companyId: true,
             isActive: true,
             company: { select: { id: true, isActive: true } },
@@ -68,7 +73,7 @@ export function auth(required = true) {
           },
         })
 
-        if (!user?.isActive) {
+        if (!user?.isActive || !isCurrentPasswordSession(payload.passwordStamp, user.passwordHash, getJwtSecret())) {
           return res.status(401).json(createErrorResponse('Conta inativa ou nao encontrada', 401))
         }
 
@@ -127,6 +132,7 @@ export function auth(required = true) {
         payload.role = companyAccess?.role?.value || user?.role?.value || null
       }
       
+      payload.isCompanyOwner = payload.type === 'profissional' && ownedCompanyIds.includes(payload.companyId || 0)
       req.user = payload
       return next()
     } catch {

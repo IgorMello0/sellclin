@@ -133,7 +133,7 @@ router.post('/my-company/whatsapp/webhook/setup', auth(), requireCompanyOwner(),
   }
 })
 
-router.get('/my-company/whatsapp/diagnostics', auth(), async (req, res) => {
+router.get('/my-company/whatsapp/diagnostics', auth(), requireCompanyOwner(), async (req, res) => {
   try {
     const companyId = await getRequestCompanyId(req)
     if (!companyId) return res.status(404).json(createErrorResponse('Empresa nao encontrada', 404))
@@ -468,7 +468,7 @@ router.post('/', auth(), requireCompanyOwner(), async (req, res) => {
       } 
     })
     await ensureCompanyDefaults(prisma, created.id, req.user.id)
-    res.status(201).json(createSuccessResponse(created))
+    res.status(201).json(createSuccessResponse(sanitizeCompanySecrets(created)))
   } catch (error: any) {
     console.error('[Empresas] Erro ao criar empresa:', error)
     if (error instanceof BillingLimitError) {

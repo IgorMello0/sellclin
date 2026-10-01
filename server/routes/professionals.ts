@@ -5,6 +5,7 @@ import { createErrorResponse, createSuccessResponse, parsePagination } from '../
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { getJwtSecret } from '../config/security.js'
+import { passwordSessionStamp } from '../services/session-security.js'
 
 export const router = Router()
 
@@ -57,6 +58,7 @@ router.post('/login', async (req, res) => {
       id: professional.id, 
       companyId: professional.companyId, 
       type: 'profissional',
+      passwordStamp: passwordSessionStamp(professional.passwordHash, getJwtSecret()),
       allowedCompanies 
     }, getJwtSecret(), { expiresIn: '12h' })
     
@@ -121,6 +123,7 @@ router.get('/me', auth(), async (req, res) => {
       id: professional.id, 
       companyId: activeCompanyId, 
       type: 'profissional',
+      passwordStamp: passwordSessionStamp(professional.passwordHash, getJwtSecret()),
       allowedCompanies 
     }, getJwtSecret(), { expiresIn: '12h' })
 

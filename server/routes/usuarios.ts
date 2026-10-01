@@ -8,6 +8,7 @@ import { ensureCompanyDefaults } from '../bootstrap/defaults.js'
 import { assertCanAddUserToCompany, BillingLimitError } from '../services/billing.js'
 import { sendTeamInviteEmail } from '../services/email-verification.js'
 import { getJwtSecret } from '../config/security.js'
+import { passwordSessionStamp } from '../services/session-security.js'
 
 export const router = Router()
 
@@ -83,6 +84,7 @@ router.post('/login', async (req, res) => {
     role: user.role?.value || user.role?.name, 
     companyId: user.companyId, 
     type: 'usuario',
+      passwordStamp: passwordSessionStamp(user.passwordHash, getJwtSecret()),
     allowedCompanies 
   }, getJwtSecret(), { expiresIn: '12h' })
 

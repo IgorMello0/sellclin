@@ -4,10 +4,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { authApi } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from 'lucide-react';
 
 export const SecuritySettingsView = () => {
   const { toast } = useToast();
+  const { logout } = useAuth();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     currentPassword: '',
@@ -40,8 +42,9 @@ export const SecuritySettingsView = () => {
       setLoading(true);
       const res = await authApi.changePassword(formData.currentPassword, formData.newPassword);
       if (res.success) {
-        toast({ title: 'Sucesso', description: 'Sua senha foi alterada com segurança!' });
+        toast({ title: 'Sucesso', description: 'Senha alterada. Entre novamente com a nova senha.' });
         setFormData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        logout();
       } else {
         toast({ title: 'Erro', description: res.error?.message || 'Falha ao alterar senha.', variant: 'destructive' });
       }

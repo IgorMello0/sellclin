@@ -8,6 +8,7 @@ import { prisma } from '../prisma.js'
 import { createErrorResponse, createSuccessResponse } from '../utils/response.js'
 import { ensureCompanyDefaults } from '../bootstrap/defaults.js'
 import { getJwtSecret } from '../config/security.js'
+import { passwordSessionStamp } from '../services/session-security.js'
 import {
   consumeEmailToken,
   EMAIL_TOKEN_TYPES,
@@ -331,6 +332,7 @@ router.post('/google', async (req, res) => {
       id: professional.id,
       companyId: professional.companyId,
       type: 'profissional',
+      passwordStamp: passwordSessionStamp(professional.passwordHash, getJwtSecret()),
       allowedCompanies,
     }, getJwtSecret(), { expiresIn: '12h' })
 

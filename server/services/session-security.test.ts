@@ -1,9 +1,19 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import jwt from 'jsonwebtoken'
-import { claimEmailToken, verifySessionToken } from './session-security.js'
+import { claimEmailToken, verifySessionToken, passwordSessionStamp, isCurrentPasswordSession } from './session-security.js'
 
 const secret = 'a-test-secret-with-at-least-32-characters'
+
+test('password changes revoke old sessions without exposing the password hash', () => {
+  const stamp = passwordSessionStamp('old-password-hash', secret)
+  assert.equal(isCurrentPasswordSession(stamp, 'old-password-hash', secret), true)
+  assert.equal(isCurrentPasswordSession(stamp, 'new-password-hash', secret), false)
+  assert.equal(isCurrentPasswordSession(stamp, 'old-password-hash', 'different-secret'), false)
+  assert.equal(isCurrentPasswordSession(undefined, 'old-password-hash', secret), false)
+  assert.equal(isCurrentPasswordSession(stamp + 'zz', 'old-password-hash', secret), false)
+  assert.equal(stamp.includes('old-password-hash'), false)
+})
 
 test('valid account sessions work; OAuth states and malformed identities cannot authenticate', () => {
   for (const type of ['profissional', 'usuario', 'cliente']) {
