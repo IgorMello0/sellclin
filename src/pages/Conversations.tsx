@@ -3,8 +3,8 @@ import { format, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   Bot, Check, ChevronDown, Clock3, Download, Image as ImageIcon, Inbox, Loader2, MessageCircle, Mic, Pause,
-  Maximize2, Paperclip, Phone, Plus, RefreshCcw, Search, Send, Smile, Square,
-  Settings2, StickyNote, Tag, User, X, Play,
+  Maximize2, Paperclip, Phone, Plus, RefreshCcw, Search, Send, Smile,
+  Settings2, StickyNote, Tag, Trash2, User, X, Play,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -252,6 +252,81 @@ function VoiceMessagePlayer({
       >
         <Download className="h-3.5 w-3.5" />
       </Button>
+    </div>
+  );
+}
+
+function AudioDraftPlayer({ url }: { url: string }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const progress = duration > 0 ? Math.min(currentTime / duration, 1) : 0;
+  const completedBars = Math.round(progress * 24);
+
+  useEffect(() => () => { audioRef.current?.pause(); }, []);
+
+  const togglePlayback = async () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (audio.paused) {
+      try { await audio.play(); } catch { setIsPlaying(false); }
+    } else {
+      audio.pause();
+    }
+  };
+
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-3">
+      <audio
+        ref={audioRef}
+        src={url}
+        preload="metadata"
+        onLoadedMetadata={(event) => setDuration(event.currentTarget.duration)}
+        onDurationChange={(event) => setDuration(event.currentTarget.duration)}
+        onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        onEnded={() => { setIsPlaying(false); setCurrentTime(0); }}
+      />
+      <button
+        type="button"
+        onClick={() => void togglePlayback()}
+        className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white transition-colors hover:bg-slate-800"
+        aria-label={isPlaying ? 'Pausar prévia do áudio' : 'Reproduzir prévia do áudio'}
+      >
+        {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="ml-0.5 h-4 w-4 fill-current" />}
+      </button>
+      <div className="min-w-0 flex-1">
+        <div className="relative flex h-7 items-center gap-0.5">
+          {VOICE_WAVEFORM.slice(0, 24).map((height, index) => (
+            <span
+              key={`${height}-${index}`}
+              className={`w-0.5 flex-1 rounded-full ${index < completedBars ? 'bg-orange-500' : 'bg-slate-300'}`}
+              style={{ height: `${Math.max(18, height)}%` }}
+            />
+          ))}
+          <input
+            type="range"
+            min="0"
+            max={duration || 0}
+            step="0.1"
+            value={Math.min(currentTime, duration || 0)}
+            onChange={(event) => {
+              const nextTime = Number(event.target.value);
+              if (!audioRef.current || !Number.isFinite(nextTime)) return;
+              audioRef.current.currentTime = nextTime;
+              setCurrentTime(nextTime);
+            }}
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            aria-label="Avançar prévia do áudio"
+          />
+        </div>
+        <div className="mt-0.5 flex items-center justify-between text-[10px] font-semibold text-slate-400">
+          <span>{formatVoiceTime(currentTime)}</span>
+          <span>{formatVoiceTime(duration)}</span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -939,31 +1014,46 @@ const Conversations = () => {
               <div ref={messagesEndRef} />
             </div>
 
-            <div className="flex-shrink-0 border-t border-slate-200 bg-white p-4">
-              {pendingMedia && <div className="mx-auto mb-2 flex max-w-5xl items-center gap-3 rounded-md border border-slate-200 bg-slate-50 p-2">{pendingMedia.type === 'image' ? <img src={pendingMedia.previewUrl} alt="Previa" className="h-14 w-14 rounded object-cover" /> : pendingMedia.type === 'audio' ? <audio src={pendingMedia.previewUrl} controls className="h-10 max-w-[260px]" /> : <ImageIcon className="h-8 w-8 text-slate-500" />}<div className="min-w-0 flex-1"><p className="truncate text-xs font-bold text-slate-800">{pendingMedia.file.name}</p><p className="text-[10px] text-slate-500">{pendingMedia.type === 'audio' ? 'Mensagem de voz pronta' : pendingMedia.type}</p></div><Button variant="ghost" size="icon" onClick={clearPendingMedia} aria-label="Remover anexo"><X className="h-4 w-4" /></Button></div>}
+            <div className="flex-shrink-0 border-t border-slate-200 bg-slate-100/90 px-3 py-3 sm:px-5">
+              {pendingMedia && <div className="mx-auto mb-3 flex max-w-5xl items-center gap-3 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-sm">{pendingMedia.type === 'image' ? <img src={pendingMedia.previewUrl} alt="Previa" className="h-14 w-14 rounded-xl object-cover" /> : pendingMedia.type === 'audio' ? <AudioDraftPlayer url={pendingMedia.previewUrl} /> : <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-slate-100"><ImageIcon className="h-6 w-6 text-slate-500" /></div>}{pendingMedia.type !== 'audio' && <div className="min-w-0 flex-1"><p className="truncate text-xs font-bold text-slate-800">{pendingMedia.file.name}</p><p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">{pendingMedia.type}</p></div>}<Button variant="ghost" size="icon" className="h-9 w-9 flex-shrink-0 rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600" onClick={clearPendingMedia} aria-label="Remover anexo"><X className="h-4 w-4" /></Button></div>}
               {officialWindowClosed && <div className="mx-auto mb-2 flex max-w-5xl items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800"><span>A janela de atendimento da Meta terminou. Para retomar, envie um template aprovado.</span><Button size="sm" onClick={() => setShowTemplateDialog(true)} disabled={templates.length === 0}>Usar template</Button></div>}
-              <div className="relative mx-auto flex max-w-5xl items-center gap-2">
+              <div className="relative mx-auto flex max-w-5xl items-end gap-2.5">
                 <input ref={fileInputRef} type="file" accept="image/*,video/*,audio/*" className="hidden" onChange={(event) => { selectMedia(event.target.files?.[0]); event.currentTarget.value = ''; }} />
-                <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={sending || officialWindowClosed} aria-label="Anexar midia"><Paperclip className="h-4 w-4" /></Button>
                 {isRecording ? (
-                  <div className="flex h-11 flex-1 items-center gap-3 rounded-md border border-red-200 bg-red-50 px-3">
-                    <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-500" />
-                    <span className="font-mono text-sm font-bold text-red-700">{formatRecordingTime(recordingSeconds)}</span>
-                    <span className="flex-1 text-xs font-medium text-red-700">Gravando mensagem de voz</span>
-                    <Button variant="ghost" size="sm" className="text-red-700 hover:bg-red-100" onClick={() => finishRecording(true)}>Cancelar</Button>
-                    <Button size="icon" className="bg-red-600 hover:bg-red-700" onClick={() => finishRecording(false)} aria-label="Parar gravacao"><Square className="h-4 w-4 fill-current" /></Button>
+                  <div className="flex h-[52px] flex-1 items-center gap-2 rounded-[26px] border border-slate-200 bg-white px-1.5 shadow-sm">
+                    <Button variant="ghost" size="icon" className="h-10 w-10 flex-shrink-0 rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600" onClick={() => finishRecording(true)} aria-label="Cancelar gravação" title="Cancelar gravação"><Trash2 className="h-[18px] w-[18px]" /></Button>
+                    <span className="h-2 w-2 flex-shrink-0 animate-pulse rounded-full bg-red-500" />
+                    <span className="w-12 flex-shrink-0 font-mono text-xs font-bold tabular-nums text-slate-700">{formatRecordingTime(recordingSeconds)}</span>
+                    <div className="flex h-7 min-w-0 flex-1 items-center gap-0.5 overflow-hidden" aria-hidden="true">
+                      {VOICE_WAVEFORM.slice(0, 30).map((height, index) => (
+                        <span key={`${height}-${index}`} className="w-0.5 flex-1 animate-pulse rounded-full bg-red-300" style={{ height: `${Math.max(18, height)}%`, animationDelay: `${index * 35}ms` }} />
+                      ))}
+                    </div>
+                    <span className="hidden flex-shrink-0 text-xs font-medium text-slate-500 sm:block">Gravando áudio</span>
+                    <Button size="icon" className="h-10 w-10 flex-shrink-0 rounded-full bg-slate-900 text-white shadow-sm hover:bg-slate-800" onClick={() => finishRecording(false)} aria-label="Finalizar gravação" title="Finalizar gravação"><Check className="h-[18px] w-[18px]" /></Button>
                   </div>
                 ) : (
                   <>
-                    <Button variant="ghost" size="icon" onClick={() => setShowEmojis((open) => !open)} disabled={sending || officialWindowClosed} aria-label="Adicionar emoji"><Smile className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => void startRecording()} disabled={sending || officialWindowClosed || Boolean(pendingMedia)} aria-label="Gravar mensagem de voz" title="Gravar mensagem de voz"><Mic className="h-4 w-4" /></Button>
-                    {showEmojis && <div className="absolute bottom-14 left-10 z-20 grid w-56 grid-cols-8 gap-1 rounded-md border border-slate-200 bg-white p-2 shadow-xl">{EMOJIS.map((emoji) => <button key={emoji} type="button" onClick={() => { setNewMessage((value) => value + emoji); setShowEmojis(false); }} className="h-7 rounded text-lg hover:bg-slate-100">{emoji}</button>)}</div>}
-                    <Input value={newMessage} onChange={(event) => setNewMessage(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void sendMessage(); } }} placeholder="Digite uma mensagem" disabled={sending || officialWindowClosed} className="h-11" />
-                    <Button size="icon" onClick={() => void sendMessage()} disabled={sending || (!newMessage.trim() && !pendingMedia) || officialWindowClosed} aria-label="Enviar mensagem">{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}</Button>
+                    <div className="flex min-h-[52px] min-w-0 flex-1 items-center rounded-[26px] border border-slate-200 bg-white px-1.5 shadow-sm transition-colors focus-within:border-slate-300 focus-within:shadow-md">
+                      <Button variant="ghost" size="icon" className="h-10 w-10 flex-shrink-0 rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-800" onClick={() => setShowEmojis((open) => !open)} disabled={sending || officialWindowClosed} aria-label="Adicionar emoji"><Smile className="h-5 w-5" /></Button>
+                      <Input value={newMessage} onChange={(event) => setNewMessage(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void sendMessage(); } }} placeholder="Mensagem" disabled={sending || officialWindowClosed} className="h-11 min-w-0 flex-1 border-0 bg-transparent px-2 text-[15px] shadow-none placeholder:text-slate-400 focus-visible:ring-0" />
+                      <Button variant="ghost" size="icon" className="h-10 w-10 flex-shrink-0 rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-800" onClick={() => fileInputRef.current?.click()} disabled={sending || officialWindowClosed} aria-label="Anexar mídia"><Paperclip className="h-5 w-5" /></Button>
+                    </div>
+                    {showEmojis && <div className="absolute bottom-16 left-2 z-20 grid w-64 grid-cols-8 gap-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">{EMOJIS.map((emoji) => <button key={emoji} type="button" onClick={() => { setNewMessage((value) => value + emoji); setShowEmojis(false); }} className="h-7 rounded-lg text-lg hover:bg-slate-100">{emoji}</button>)}</div>}
+                    <Button
+                      size="icon"
+                      className="h-[50px] w-[50px] flex-shrink-0 rounded-full bg-slate-900 text-white shadow-md transition-transform hover:scale-[1.03] hover:bg-slate-800"
+                      onClick={() => newMessage.trim() || pendingMedia ? void sendMessage() : void startRecording()}
+                      disabled={sending || officialWindowClosed}
+                      aria-label={newMessage.trim() || pendingMedia ? 'Enviar mensagem' : 'Gravar mensagem de voz'}
+                      title={newMessage.trim() || pendingMedia ? 'Enviar mensagem' : 'Gravar mensagem de voz'}
+                    >
+                      {sending ? <Loader2 className="h-5 w-5 animate-spin" /> : newMessage.trim() || pendingMedia ? <Send className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                    </Button>
                   </>
                 )}
               </div>
-              <p className="mt-2 text-center text-[10px] text-slate-400">{uploading ? 'Enviando midia...' : 'A mensagem sera enviada pelo WhatsApp conectado a clinica.'}</p>
+              {uploading && <p className="mt-2 text-center text-[10px] font-medium text-slate-400">Enviando mídia...</p>}
             </div>
           </section>
         ) : <section className="flex flex-1 flex-col items-center justify-center bg-slate-50 p-8 text-center"><MessageCircle className="h-14 w-14 text-slate-300" /><p className="mt-4 font-bold text-slate-600">Selecione uma conversa</p><p className="mt-1 max-w-sm text-sm text-slate-400">As mensagens recebidas pelo WhatsApp conectado aparecerao nesta central.</p></section>}
