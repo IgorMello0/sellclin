@@ -964,9 +964,8 @@ export const whatsappUazapiApi = {
 }
 
 export const conversationsApi = {
-  list: async (filters?: { conversationId?: number; status?: string; assignment?: string; labelId?: number; conversion?: 'in_progress' | 'converted'; search?: string; page?: number; pageSize?: number }) => {
+  list: async (filters?: { status?: string; assignment?: string; labelId?: number; conversion?: 'in_progress' | 'converted'; search?: string; page?: number; pageSize?: number }) => {
     const query = new URLSearchParams({ page: String(filters?.page || 1), pageSize: String(filters?.pageSize || 100) })
-    if (filters?.conversationId) query.set('conversationId', String(filters.conversationId))
     if (filters?.status) query.set('status', filters.status)
     if (filters?.assignment) query.set('assignment', filters.assignment)
     if (filters?.labelId) query.set('labelId', String(filters.labelId))

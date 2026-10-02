@@ -222,7 +222,7 @@ function withConversationState(item: any) {
 
 router.get('/', auth(), requireModule('conversas'), async (req, res) => {
   const { skip, take, page, pageSize } = parsePagination(req.query)
-  const { conversationId, agentId, clientId, leadId, status, assignment, labelId, conversion, search } = req.query as any
+  const { agentId, clientId, leadId, status, assignment, labelId, conversion, search } = req.query as any
   
   const companyId = getCompanyId(req)
 
@@ -233,7 +233,6 @@ router.get('/', auth(), requireModule('conversas'), async (req, res) => {
   const scope = await conversationScope(req.user!)
   const where: any = { ...scope.where }
   const andFilters: any[] = []
-  if (conversationId) where.id = Number(conversationId)
   if (agentId) where.agentId = Number(agentId)
   if (clientId) where.clientId = Number(clientId)
   if (leadId) where.leadId = Number(leadId)

@@ -437,7 +437,6 @@ const Conversations = () => {
     if (silent) setRefreshing(true); else setLoading(true);
     try {
       const response = await conversationsApi.list({
-        conversationId: requestedConversationId,
         status: statusFilter === 'all' ? undefined : statusFilter,
         labelId: labelFilter === 'all' ? undefined : Number(labelFilter),
         conversion: filter === 'all' ? undefined : filter as 'in_progress' | 'converted',
@@ -447,10 +446,21 @@ const Conversations = () => {
       });
       if (!response.success) throw new Error(response.error?.message || 'Nao foi possivel carregar as conversas.');
       if (requestVersion !== conversationsRequestVersion.current) return;
-      const items = (response.data || []).map((conversation: Conversation) => ({
+      let items = (response.data || []).map((conversation: Conversation) => ({
         ...conversation,
         mensagens: [...(conversation.mensagens || [])].sort((a, b) => messageDate(a).getTime() - messageDate(b).getTime()),
       }));
+      if (requestedConversationId && !items.some((item) => item.id === requestedConversationId)) {
+        const requestedResponse = await conversationsApi.getById(requestedConversationId);
+        if (requestVersion !== conversationsRequestVersion.current) return;
+        if (requestedResponse.success && requestedResponse.data) {
+          const requested = requestedResponse.data as Conversation;
+          items = [{
+            ...requested,
+            mensagens: [...(requested.mensagens || [])].sort((a, b) => messageDate(a).getTime() - messageDate(b).getTime()),
+          }, ...items];
+        }
+      }
       items.sort((a, b) => {
         const aLast = a.mensagens.at(-1)?.createdAt || a.updatedAt || a.startedAt;
         const bLast = b.mensagens.at(-1)?.createdAt || b.updatedAt || b.startedAt;
