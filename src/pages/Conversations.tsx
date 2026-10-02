@@ -985,45 +985,54 @@ const Conversations = () => {
 
         {selected ? (
           <section className="flex min-w-0 flex-1 flex-col bg-slate-50">
-            <div className="flex flex-shrink-0 flex-col gap-3 border-b border-slate-200 bg-white px-5 py-3.5 lg:flex-row lg:items-center lg:justify-between lg:gap-5">
-              <div className="flex min-w-0 items-center gap-3.5">
-                <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-950 text-xs font-black text-white shadow-sm ring-1 ring-slate-200 ring-offset-2">
+            <div className="flex flex-shrink-0 flex-col gap-4 border-b border-slate-200 bg-white px-6 py-4 xl:flex-row xl:items-center xl:justify-between xl:gap-6">
+              <div className="flex min-w-0 items-center gap-4">
+                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-950 text-sm font-black text-white shadow-sm ring-2 ring-slate-100 ring-offset-2">
                   {contactAvatar(selected) ? <img src={contactAvatar(selected)!} alt="" className="h-full w-full object-cover" /> : initials(contactName(selected))}
                 </div>
-                <div className="min-w-0 space-y-1">
-                  <p className="truncate text-[15px] font-extrabold leading-tight text-slate-950">{contactName(selected)}</p>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <p className="mr-0.5 flex items-center gap-1.5 text-xs font-medium text-slate-500"><Phone className="h-3 w-3 text-slate-400" />{contactPhone(selected)}</p>
+                <div className="min-w-0">
+                  <p className="truncate text-base font-extrabold leading-tight text-slate-950">{contactName(selected)}</p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                    <p className="mr-0.5 flex items-center gap-1.5 text-xs font-semibold text-slate-500"><Phone className="h-3.5 w-3.5 text-slate-400" />{contactPhone(selected)}</p>
                     {selected.labels?.map((label) => (
                       <button key={label.id} type="button" onClick={() => setDetailsOpen(true)} className="rounded-full border px-2 py-0.5 text-[10px] font-bold text-slate-700 transition-opacity hover:opacity-75" style={{ borderColor: label.color, backgroundColor: `${label.color}18` }} title="Gerenciar etiquetas">{label.name}</button>
                     ))}
-                    <button type="button" onClick={() => setDetailsOpen(true)} className="flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold text-slate-400 transition-colors hover:bg-orange-50 hover:text-orange-600"><Plus className="h-3 w-3" />Etiqueta</button>
+                    <button type="button" onClick={() => setDetailsOpen(true)} className="flex items-center gap-1 rounded-full border border-dashed border-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-400 transition-colors hover:border-orange-200 hover:bg-orange-50 hover:text-orange-600"><Plus className="h-3 w-3" />Etiqueta</button>
                   </div>
                 </div>
               </div>
-              <div className="flex min-w-0 flex-wrap items-center gap-2 lg:flex-nowrap lg:justify-end">
-                {selected.serviceWindow?.isOfficial && <span className={`flex h-10 flex-shrink-0 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold ${!officialWindowClosed ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}><Clock3 className="h-3.5 w-3.5" />{formatWindowRemaining(windowRemaining || 0)}</span>}
-                <div className="hidden h-6 w-px bg-slate-200 xl:block" />
-                <Select value={selected.status || 'OPEN'} onValueChange={(value) => void updateConversationStatus(value as ConversationStatus)}>
-                  <SelectTrigger disabled={savingDetails} className="h-10 w-[120px] rounded-xl border-slate-200 bg-slate-50 text-xs font-bold shadow-none hover:bg-slate-100">
-                    <SelectValue>
-                      {selected.status === 'PENDING' ? 'Pendente' : selected.status === 'RESOLVED' ? 'Resolvida' : 'Aberta'}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent><SelectItem value="OPEN">Aberta</SelectItem><SelectItem value="PENDING">Pendente</SelectItem><SelectItem value="RESOLVED">Resolvida</SelectItem></SelectContent>
-                </Select>
-                <Select value={selected.agentId ? String(selected.agentId) : 'manual'} onValueChange={assignAgent}>
-                  <SelectTrigger disabled={assigningAgent} className="h-10 w-[190px] rounded-xl border-slate-200 bg-slate-50 text-xs font-bold shadow-none hover:bg-slate-100">
-                    <div className="flex items-center gap-1.5">
-                      {selected.agentId ? <Bot className="h-3.5 w-3.5 text-slate-500" /> : <User className="h-3.5 w-3.5 text-slate-500" />}
-                      <SelectValue>
-                        {selected.agentId ? agents.find(a => String(a.id) === String(selected.agentId))?.name : 'Atendimento manual'}
-                      </SelectValue>
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent><SelectItem value="manual">Atendimento manual</SelectItem>{agents.map((agent) => <SelectItem key={agent.id} value={String(agent.id)}>{agent.name}</SelectItem>)}<SelectItem value="new"><span className="flex items-center gap-2"><Plus className="h-3.5 w-3.5" />Novo agente</span></SelectItem></SelectContent></Select>
-                <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl border-slate-200 bg-white text-slate-500 shadow-none hover:bg-slate-100 hover:text-slate-900" onClick={() => setDetailsOpen(true)} aria-label="Abrir organizacao da conversa" title="Responsavel e etiquetas"><Tag className="h-4 w-4" /></Button>
-                <Button variant={notesOpen ? 'secondary' : 'outline'} size="icon" className="h-10 w-10 rounded-xl border-slate-200 text-slate-500 shadow-none hover:text-slate-900" onClick={() => setNotesOpen((open) => !open)} aria-label={notesOpen ? 'Fechar notas internas' : 'Abrir notas internas'} title={notesOpen ? 'Fechar notas' : 'Notas internas'}><StickyNote className="h-4 w-4" /></Button>
+              <div className="flex min-w-0 flex-wrap items-end gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2 xl:flex-nowrap xl:justify-end">
+                {selected.serviceWindow?.isOfficial && (
+                  <div className="min-w-[158px] px-2 py-0.5">
+                    <p className="mb-1 text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Janela do WhatsApp</p>
+                    <span className={`flex h-8 items-center gap-1.5 text-xs font-extrabold ${!officialWindowClosed ? 'text-emerald-700' : 'text-amber-700'}`}><span className={`flex h-7 w-7 items-center justify-center rounded-lg ${!officialWindowClosed ? 'bg-emerald-100' : 'bg-amber-100'}`}><Clock3 className="h-3.5 w-3.5" /></span>{formatWindowRemaining(windowRemaining || 0)}</span>
+                  </div>
+                )}
+                <div className="min-w-[122px]">
+                  <p className="mb-1 pl-1 text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Status</p>
+                  <Select value={selected.status || 'OPEN'} onValueChange={(value) => void updateConversationStatus(value as ConversationStatus)}>
+                    <SelectTrigger disabled={savingDetails} className="h-9 w-full rounded-xl border-slate-200 bg-white text-xs font-bold shadow-none hover:bg-slate-50">
+                      <SelectValue>{selected.status === 'PENDING' ? 'Pendente' : selected.status === 'RESOLVED' ? 'Resolvida' : 'Aberta'}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent><SelectItem value="OPEN">Aberta</SelectItem><SelectItem value="PENDING">Pendente</SelectItem><SelectItem value="RESOLVED">Resolvida</SelectItem></SelectContent>
+                  </Select>
+                </div>
+                <div className="min-w-[190px]">
+                  <p className="mb-1 pl-1 text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Responsável</p>
+                  <Select value={selected.agentId ? String(selected.agentId) : 'manual'} onValueChange={assignAgent}>
+                    <SelectTrigger disabled={assigningAgent} className="h-9 w-full rounded-xl border-slate-200 bg-white text-xs font-bold shadow-none hover:bg-slate-50">
+                      <div className="flex items-center gap-1.5">
+                        {selected.agentId ? <Bot className="h-3.5 w-3.5 text-slate-500" /> : <User className="h-3.5 w-3.5 text-slate-500" />}
+                        <SelectValue>{selected.agentId ? agents.find(a => String(a.id) === String(selected.agentId))?.name : 'Atendimento manual'}</SelectValue>
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent><SelectItem value="manual">Atendimento manual</SelectItem>{agents.map((agent) => <SelectItem key={agent.id} value={String(agent.id)}>{agent.name}</SelectItem>)}<SelectItem value="new"><span className="flex items-center gap-2"><Plus className="h-3.5 w-3.5" />Novo agente</span></SelectItem></SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-1 self-end">
+                  <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-slate-500 hover:bg-white hover:text-slate-900 hover:shadow-sm" onClick={() => setDetailsOpen(true)} aria-label="Abrir organizacao da conversa" title="Responsavel e etiquetas"><Tag className="h-4 w-4" /></Button>
+                  <Button variant={notesOpen ? 'secondary' : 'ghost'} size="icon" className="h-9 w-9 rounded-xl text-slate-500 hover:bg-white hover:text-slate-900 hover:shadow-sm" onClick={() => setNotesOpen((open) => !open)} aria-label={notesOpen ? 'Fechar notas internas' : 'Abrir notas internas'} title={notesOpen ? 'Fechar notas' : 'Notas internas'}><StickyNote className="h-4 w-4" /></Button>
+                </div>
               </div>
             </div>
 
