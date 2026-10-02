@@ -5,7 +5,7 @@ import https from 'node:https'
 
 type Address = { address: string; family: number }
 type DownloadResult = { status: number; headers: http.IncomingHttpHeaders; buffer: Buffer }
-type DownloadOptions = { maxBytes: number; timeoutMs?: number; headers?: Record<string, string>; allowedHosts?: readonly string[]; httpsOnly?: boolean }
+type DownloadOptions = { maxBytes: number; timeoutMs?: number; headers?: Record<string, string>; allowedHosts?: readonly string[]; httpsOnly?: boolean; method?: string; body?: Buffer; signal?: AbortSignal }
 type Dependencies = { lookup: (hostname: string) => Promise<Address[]>; request: typeof requestPinned }
 
 const blocked = new BlockList()
@@ -35,7 +35,7 @@ export function requestPinned(url: URL, address: Address, options: DownloadOptio
   return new Promise((resolve, reject) => {
     const transport = url.protocol === 'https:' ? https : http
     const request = transport.request(url, {
-      method: 'GET', headers: options.headers,
+      method: options.method || 'GET', headers: options.headers,
       // Pin the validated address so the transport cannot resolve a different IP.
       lookup: (_hostname, _options, callback) => callback(null, address.address, address.family),
       family: address.family,
@@ -77,8 +77,11 @@ export function requestPinned(url: URL, address: Address, options: DownloadOptio
     }, options.timeoutMs || 30_000)
     request.on('upgrade', (_response, socket) => { socket.destroy(); reject(new Error('Protocolo de download inválido')) })
     request.on('error', reject)
-    request.on('close', () => clearTimeout(timer))
-    request.end()
+    const abort = () => request.destroy(options.signal?.reason instanceof Error ? options.signal.reason : new Error('Requisição cancelada'))
+    request.on('close', () => { clearTimeout(timer); options.signal?.removeEventListener('abort', abort) })
+    if (options.signal?.aborted) abort()
+    else options.signal?.addEventListener('abort', abort, { once: true })
+    request.end(options.body)
   })
 }
 

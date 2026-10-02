@@ -1,3 +1,4 @@
+import { isValidNewPassword, PASSWORD_POLICY_MESSAGE } from '../services/password-policy.js'
 import { Router } from 'express'
 import { auth, requireCompany, requireCompanyOwner } from '../middleware/auth.js'
 import { prisma } from '../prisma.js'
@@ -28,8 +29,8 @@ router.post('/signup-checkout', async (req, res) => {
       return res.status(400).json(createErrorResponse('Nome, email, telefone, especialidade e senha sao obrigatorios', 400))
     }
 
-    if (String(password).length < 6) {
-      return res.status(400).json(createErrorResponse('A senha deve ter pelo menos 6 caracteres', 400))
+    if (!isValidNewPassword(password)) {
+      return res.status(400).json(createErrorResponse(PASSWORD_POLICY_MESSAGE, 400))
     }
 
     if (!isPlanCode(requestedPlanCode)) {

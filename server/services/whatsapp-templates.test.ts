@@ -1,3 +1,4 @@
+import { integrationHttpClient } from './integration-http.js'
 import assert from 'node:assert/strict'
 import { describe, it, type TestContext } from 'node:test'
 // Inject the database boundary before loading the service; tests never connect to a database.
@@ -115,15 +116,15 @@ function mockTemplateStore(t: TestContext, initial: any[] = []) {
     companyId: 4, name: 'lembrete', language: 'pt_BR', category: 'UTILITY',
     components: [], updatedAt: new Date(0), lastSyncedAt: new Date(0), ...record,
   }))
-  t.mock.method(prisma.empresa, 'findUnique', async () => ({ whatsappProvider: 'meta' }))
-  t.mock.method(prisma.whatsAppConnection, 'findUnique', async () => ({
+  mockPrismaMethod(t, prisma.empresa, 'findUnique', async () => ({ whatsappProvider: 'meta' }))
+  mockPrismaMethod(t, prisma.whatsAppConnection, 'findUnique', async () => ({
     id: 8, companyId: 4, provider: 'meta', accessToken: 'test-token', wabaId: '1234',
   }))
-  t.mock.method(prisma.whatsAppConnection, 'update', async () => ({}))
-  const transaction = t.mock.method(prisma, '$transaction', async (callback: any) => callback(prisma))
-  t.mock.method(prisma.whatsAppTemplate, 'findMany', async ({ where }: any) => records.filter((r) => r.companyId === where.companyId))
-  t.mock.method(prisma.whatsAppTemplate, 'findFirst', async ({ where }: any) => records.find((r) => r.companyId === where.companyId && r.id === where.id) || null)
-  const upsert = t.mock.method(prisma.whatsAppTemplate, 'upsert', async (args: any) => {
+  mockPrismaMethod(t, prisma.whatsAppConnection, 'update', async () => ({}))
+  const transaction = mockPrismaMethod(t, prisma, '$transaction', async (callback: any) => callback(prisma))
+  mockPrismaMethod(t, prisma.whatsAppTemplate, 'findMany', async ({ where }: any) => records.filter((r) => r.companyId === where.companyId))
+  mockPrismaMethod(t, prisma.whatsAppTemplate, 'findFirst', async ({ where }: any) => records.find((r) => r.companyId === where.companyId && r.id === where.id) || null)
+  const upsert = mockPrismaMethod(t, prisma.whatsAppTemplate, 'upsert', async (args: any) => {
     const key = args.where.companyId_name_language
     const record = records.find((r) => r.companyId === key.companyId && r.name === key.name && r.language === key.language)
     if (record) { Object.assign(record, args.update, { updatedAt: new Date() }); return record }
@@ -131,7 +132,7 @@ function mockTemplateStore(t: TestContext, initial: any[] = []) {
     records.push(created)
     return created
   })
-  const reconcile = t.mock.method(prisma.whatsAppTemplate, 'updateMany', async ({ where, data }: any) => {
+  const reconcile = mockPrismaMethod(t, prisma.whatsAppTemplate, 'updateMany', async ({ where, data }: any) => {
     const missing = records.filter((r) => r.companyId === where.companyId && r.updatedAt < where.updatedAt.lt
       && !(where.NOT?.OR || []).some((key: any) => key.name === r.name && key.language === r.language))
     missing.forEach((r) => Object.assign(r, data))
@@ -145,7 +146,7 @@ const templateInput = { name: 'lembrete', language: 'pt_BR', category: 'UTILITY'
 describe('Meta template synchronization and submission', () => {
   it('does not confirm submission when Meta returns success without an ID', async (t) => {
     const store = mockTemplateStore(t)
-    t.mock.method(globalThis, 'fetch', async (_url: any, options: any) => Response.json(options.method === 'POST' ? { success: true } : { data: [] }))
+    t.mock.method(integrationHttpClient, 'fetch', async (_url: any, options: any) => Response.json(options.method === 'POST' ? { success: true } : { data: [] }))
     await assert.rejects(createMetaTemplate(4, templateInput), /nao confirmou o ID/)
     assert.equal(store.upsert.mock.callCount(), 0)
   })
@@ -158,7 +159,7 @@ describe('Meta template synchronization and submission', () => {
       { id: 4, name: 'segunda_pagina', externalId: '40', status: 'PENDING' },
       { id: 5, name: 'criado_durante_consulta', status: 'PENDING', updatedAt: new Date(Date.now() + 60_000) },
     ])
-    const fetchMock = t.mock.method(globalThis, 'fetch', async (url: any) => {
+    const fetchMock = t.mock.method(integrationHttpClient, 'fetch', async (url: any) => {
       if (String(url).includes('after=next')) return Response.json({ data: [{ id: '40', name: 'segunda_pagina', language: 'pt_BR', status: 'APPROVED' }] })
       return Response.json({ data: [{ id: '10', name: 'lembrete', language: 'pt_BR', status: 'APPROVED' }], paging: { next: 'https://graph.facebook.com/v19.0/1234/message_templates?after=next' } })
     })
@@ -170,7 +171,7 @@ describe('Meta template synchronization and submission', () => {
 
   it('does not modify saved statuses on malformed or incomplete Meta responses', async (t) => {
     const store = mockTemplateStore(t, [{ id: 1, status: 'APPROVED' }])
-    t.mock.method(globalThis, 'fetch', async () => Response.json({ success: true }))
+    t.mock.method(integrationHttpClient, 'fetch', async () => Response.json({ success: true }))
     await assert.rejects(syncMetaTemplates(4), /lista de templates incompleta/)
     assert.equal(store.transaction.mock.callCount(), 0)
     assert.equal(store.records[0].status, 'APPROVED')
@@ -178,7 +179,7 @@ describe('Meta template synchronization and submission', () => {
 
   it('does not reconcile if a later page is denied', async (t) => {
     const store = mockTemplateStore(t, [{ id: 1, status: 'PENDING' }])
-    t.mock.method(globalThis, 'fetch', async (url: any) => String(url).includes('after=next')
+    t.mock.method(integrationHttpClient, 'fetch', async (url: any) => String(url).includes('after=next')
       ? Response.json({ error: { message: 'Permission denied', code: 200 } }, { status: 403 })
       : Response.json({ data: [], paging: { next: 'https://graph.facebook.com/v19.0/1234/message_templates?after=next' } }))
     await assert.rejects(syncMetaTemplates(4), /Permission denied.*1234.*200/)
@@ -187,7 +188,7 @@ describe('Meta template synchronization and submission', () => {
 
   it('recreates a stale local template instead of returning its old pending status', async (t) => {
     const store = mockTemplateStore(t, [{ id: 1, status: 'PENDING', externalId: '10' }])
-    const fetchMock = t.mock.method(globalThis, 'fetch', async (_url: any, options: any) => Response.json(
+    const fetchMock = t.mock.method(integrationHttpClient, 'fetch', async (_url: any, options: any) => Response.json(
       options.method === 'POST' ? { id: '99', status: 'PENDING', category: 'UTILITY' } : { data: [] },
     ))
     const result = await createMetaTemplate(4, templateInput)
@@ -199,7 +200,7 @@ describe('Meta template synchronization and submission', () => {
 
   it('returns the current Meta status for an existing template without duplicating submission', async (t) => {
     mockTemplateStore(t, [{ id: 1, status: 'PENDING', externalId: '10' }])
-    const fetchMock = t.mock.method(globalThis, 'fetch', async () => Response.json({ data: [{
+    const fetchMock = t.mock.method(integrationHttpClient, 'fetch', async () => Response.json({ data: [{
       id: '10', name: 'lembrete', language: 'pt_BR', status: 'APPROVED', category: 'UTILITY',
     }] }))
     const result = await createMetaTemplate(4, templateInput)
@@ -209,7 +210,7 @@ describe('Meta template synchronization and submission', () => {
 
   it('does not recover a timed-out creation from an unconfirmed local record', async (t) => {
     mockTemplateStore(t, [{ id: 1, status: 'PENDING', externalId: '10' }])
-    t.mock.method(globalThis, 'fetch', async (_url: any, options: any) => {
+    t.mock.method(integrationHttpClient, 'fetch', async (_url: any, options: any) => {
       if (options.method === 'POST') throw new DOMException('Timeout', 'TimeoutError')
       return Response.json({ data: [] })
     })
@@ -218,7 +219,7 @@ describe('Meta template synchronization and submission', () => {
 
   it('blocks sending a previously approved template that is now paused at Meta', async (t) => {
     mockTemplateStore(t, [{ id: 1, status: 'APPROVED', externalId: '10' }])
-    t.mock.method(globalThis, 'fetch', async () => Response.json({ data: [{
+    t.mock.method(integrationHttpClient, 'fetch', async () => Response.json({ data: [{
       id: '10', name: 'lembrete', language: 'pt_BR', status: 'PAUSED',
     }] }))
     await assert.rejects(getApprovedWhatsAppTemplate(4, 1), /nao esta aprovado/)
@@ -226,10 +227,18 @@ describe('Meta template synchronization and submission', () => {
 
   it('rechecks even a recently cached approval before starting a campaign', async (t) => {
     mockTemplateStore(t, [{ id: 1, status: 'APPROVED', externalId: '10', lastSyncedAt: new Date() }])
-    const request = t.mock.method(globalThis, 'fetch', async () => Response.json({ data: [{
+    const request = t.mock.method(integrationHttpClient, 'fetch', async () => Response.json({ data: [{
       id: '10', name: 'lembrete', language: 'pt_BR', status: 'DISABLED',
     }] }))
     await assert.rejects(getApprovedWhatsAppTemplate(4, 1, true), /nao esta aprovado/)
     assert.equal(request.mock.callCount(), 1)
   })
 })
+
+function mockPrismaMethod(t: any, target: any, name: string, implementation: any) {
+  const original = target[name]
+  const mocked = t.mock.fn(implementation)
+  target[name] = mocked
+  t.after(() => { target[name] = original })
+  return mocked
+}

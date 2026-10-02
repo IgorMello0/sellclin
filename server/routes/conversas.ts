@@ -1,3 +1,4 @@
+import { integrationHttpClient } from '../services/integration-http.js'
 import { publicMediaClient } from '../services/public-download.js'
 import { Router } from 'express'
 import { localMediaPath, signMediaUrl } from '../services/media-access.js'
@@ -124,7 +125,7 @@ async function readMediaForProvider(mediaUrl: string, mediaType: string) {
 }
 
 async function fetchMetaMediaInfo(mediaId: string, token: string) {
-  const response = await fetch(`https://graph.facebook.com/v19.0/${mediaId}`, {
+  const response = await integrationHttpClient.fetch(`https://graph.facebook.com/v19.0/${mediaId}`, {
     headers: { Authorization: `Bearer ${token}` },
   })
   const payload = await response.json().catch(() => ({}))
@@ -159,7 +160,7 @@ async function uploadMetaMediaFromUrl(input: {
     source: media.source,
   })
 
-  const response = await fetch(`https://graph.facebook.com/v19.0/${input.phoneNumberId}/media`, {
+  const response = await integrationHttpClient.fetch(`https://graph.facebook.com/v19.0/${input.phoneNumberId}/media`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${input.token}` },
     body: form,
@@ -659,7 +660,7 @@ router.post('/:id/messages', auth(), requireModule('conversas'), async (req, res
           }
         : null
 
-      const response = await fetch(`https://graph.facebook.com/v19.0/${conversation.company.metaPhoneNumberId}/messages`, {
+      const response = await integrationHttpClient.fetch(`https://graph.facebook.com/v19.0/${conversation.company.metaPhoneNumberId}/messages`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${conversation.company.metaToken}`,

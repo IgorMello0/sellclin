@@ -1,3 +1,4 @@
+import { integrationHttpClient } from '../services/integration-http.js'
 import { Router } from 'express'
 import { prisma } from '../prisma.js'
 import { auth, requireCompanyAccess, requireCompanyOwner } from '../middleware/auth.js'
@@ -174,7 +175,7 @@ router.post('/my-company/whatsapp/restart', auth(), requireCompanyOwner(), async
 })
 
 // Obter status do WhatsApp e QR Code da Evolution API (legado)
-router.get('/my-company/whatsapp/legacy-status', auth(), async (req, res) => {
+router.get('/my-company/whatsapp/legacy-status', auth(), requireCompanyOwner(), async (req, res) => {
   try {
     const companyId = await getRequestCompanyId(req)
 
@@ -202,7 +203,7 @@ router.get('/my-company/whatsapp/legacy-status', auth(), async (req, res) => {
     // 1. Checar o estado da conexão da instância
     let connectionState: any
     try {
-      const stateRes = await fetch(`${baseUrl}/instance/connectionState/${instance}`, {
+      const stateRes = await integrationHttpClient.fetch(`${baseUrl}/instance/connectionState/${instance}`, {
         method: 'GET',
         headers: { 'apikey': apiKey }
       })
@@ -220,7 +221,7 @@ router.get('/my-company/whatsapp/legacy-status', auth(), async (req, res) => {
 
     // 2. Se não estiver conectado, solicitar QR Code / Conexão
     try {
-      const connectRes = await fetch(`${baseUrl}/instance/connect/${instance}`, {
+      const connectRes = await integrationHttpClient.fetch(`${baseUrl}/instance/connect/${instance}`, {
         method: 'GET',
         headers: { 'apikey': apiKey }
       })
@@ -287,7 +288,7 @@ router.post('/my-company/whatsapp/legacy-disconnect', auth(), requireCompanyOwne
     const instance = empresa.evolutionInstance
     const apiKey = empresa.apiKey
 
-    const logoutRes = await fetch(`${baseUrl}/instance/logout/${instance}`, {
+    const logoutRes = await integrationHttpClient.fetch(`${baseUrl}/instance/logout/${instance}`, {
       method: 'DELETE',
       headers: { 'apikey': apiKey }
     })
@@ -333,7 +334,7 @@ router.post('/my-company/whatsapp/legacy-restart', auth(), requireCompanyOwner()
     const instance = empresa.evolutionInstance
     const apiKey = empresa.apiKey
 
-    const restartRes = await fetch(`${baseUrl}/instance/restart/${instance}`, {
+    const restartRes = await integrationHttpClient.fetch(`${baseUrl}/instance/restart/${instance}`, {
       method: 'POST',
       headers: { 'apikey': apiKey }
     })

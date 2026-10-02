@@ -1,3 +1,4 @@
+import { integrationHttpClient } from '../services/integration-http.js'
 import { signMediaPayload, signMediaUrl } from '../services/media-access.js'
 import { Router } from 'express'
 import { prisma } from '../prisma.js'
@@ -1237,7 +1238,7 @@ async function postEvolution(
   for (const baseUrl of getEvolutionBaseUrls(config.evolutionUrl)) {
     const url = `${baseUrl}${path}`
     for (const headers of getEvolutionAuthHeaders(config.evolutionKey)) {
-      const response = await fetch(url, {
+      const response = await integrationHttpClient.fetch(url, {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),
@@ -1531,7 +1532,7 @@ async function sendMetaMessage(config: WhatsAppConfig, formattedPhone: string, m
   const url = `https://graph.facebook.com/${graphVersion}/${config.metaPhoneId}/messages`
   const templatePayload = buildMetaTemplatePayload(config, formattedPhone, recipient)
   
-  const response = await fetch(url, {
+  const response = await integrationHttpClient.fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

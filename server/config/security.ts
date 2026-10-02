@@ -1,4 +1,5 @@
 import { encryptionKey } from '../services/integration-encryption.js'
+import { trustedIntegrationOrigins } from '../services/integration-http.js'
 const DEVELOPMENT_JWT_SECRET = 'dev-secret'
 
 export function getJwtSecret() {
@@ -20,6 +21,7 @@ export function getJwtSecret() {
 export function assertProductionSecurityConfig() {
   getJwtSecret()
   encryptionKey()
+  trustedIntegrationOrigins()
 
   if (process.env.NODE_ENV === 'production') {
     const webhookSecret = process.env.ABACATEPAY_WEBHOOK_SECRET?.trim()

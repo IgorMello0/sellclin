@@ -1,3 +1,4 @@
+import { integrationHttpClient } from '../services/integration-http.js'
 import { Router } from 'express'
 import { prisma } from '../prisma.js'
 import { auth, requireModule } from '../middleware/auth.js'
@@ -73,7 +74,7 @@ async function fnAlertUrgentTask(task: any, assignee: any, creatorName: string, 
       try {
         console.log(`[Alerts - WhatsApp] Disparando via Evolution API para: ${cleanPhone}`)
         const baseUrl = company.evolution_api_url.replace(/\/+$/, '')
-        const response = await fetch(`${baseUrl}/message/sendText/${company.evolution_instance}`, {
+        const response = await integrationHttpClient.fetch(`${baseUrl}/message/sendText/${company.evolution_instance}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

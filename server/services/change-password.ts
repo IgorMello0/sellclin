@@ -1,3 +1,4 @@
+import { isValidNewPassword } from './password-policy.js'
 import bcrypt from 'bcryptjs'
 import { prisma } from '../prisma.js'
 import { createErrorResponse, createSuccessResponse } from '../utils/response.js'
@@ -5,7 +6,7 @@ import type { Request, Response } from 'express'
 
 export async function changePassword(req: Request, res: Response) {
   const { currentPassword, newPassword } = req.body || {}
-  if (typeof currentPassword !== 'string' || typeof newPassword !== 'string' || !currentPassword || newPassword.length < 6 || Buffer.byteLength(newPassword, 'utf8') > 72) {
+  if (typeof currentPassword !== 'string' || typeof newPassword !== 'string' || !currentPassword || !isValidNewPassword(newPassword)) {
     return res.status(400).json(createErrorResponse('Informe a senha atual e uma nova senha com no mínimo 6 caracteres e no máximo 72 bytes.', 400))
   }
   const user = req.user

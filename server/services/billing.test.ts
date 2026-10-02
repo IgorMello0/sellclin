@@ -15,6 +15,7 @@ const originalPublicKey = process.env.ABACATEPAY_WEBHOOK_PUBLIC_KEY
 const originalNodeEnv = process.env.NODE_ENV
 const originalJwtSecret = process.env.JWT_SECRET
 const originalWebhookSecret = process.env.ABACATEPAY_WEBHOOK_SECRET
+const originalEncryptionKey = process.env.INTEGRATION_ENCRYPTION_KEY
 
 function restoreEnv(name: string, value: string | undefined) {
   if (value === undefined) delete process.env[name]
@@ -26,11 +27,13 @@ afterEach(() => {
   restoreEnv('NODE_ENV', originalNodeEnv)
   restoreEnv('JWT_SECRET', originalJwtSecret)
   restoreEnv('ABACATEPAY_WEBHOOK_SECRET', originalWebhookSecret)
+  restoreEnv('INTEGRATION_ENCRYPTION_KEY', originalEncryptionKey)
 })
 
 describe('production security configuration', () => {
   it('rejects weak JWT and webhook secrets in production', () => {
     process.env.NODE_ENV = 'production'
+    process.env.INTEGRATION_ENCRYPTION_KEY = 'e'.repeat(64)
     process.env.JWT_SECRET = 'dev-secret'
     process.env.ABACATEPAY_WEBHOOK_SECRET = 'short'
     assert.throws(() => assertProductionSecurityConfig(), /JWT_SECRET inseguro/)

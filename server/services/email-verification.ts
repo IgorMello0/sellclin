@@ -1,6 +1,8 @@
+import { integrationHttpClient } from './integration-http.js'
 import crypto from 'node:crypto'
 import { claimEmailToken } from './session-security.js'
 import { prisma } from '../prisma.js'
+import type { Prisma } from '@prisma/client'
 
 export const EMAIL_TOKEN_HOURS = 24
 export const EMAIL_TOKEN_TYPES = {
@@ -35,11 +37,12 @@ async function sendResendEmail(to: string, subject: string, html: string) {
   const from = process.env.EMAIL_FROM || 'SellClin <noreply@sellclin.com>'
 
   if (!apiKey) {
+    if (process.env.NODE_ENV === 'production') throw new Error('Envio de e-mail não configurado')
     console.warn('RESEND_API_KEY nao configurada. O e-mail nao foi enviado.');
     return { success: true, mocked: true } // Bypass para não quebrar em desenvolvimento local
   }
 
-  const response = await fetch('https://api.resend.com/emails', {
+  const response = await integrationHttpClient.fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -186,9 +189,9 @@ export async function sendPasswordResetEmail(params: {
   return { link }
 }
 
-export async function consumeEmailToken(token: string, type: EmailTokenType) {
+export async function consumeEmailToken(token: string, type: EmailTokenType, db: Pick<Prisma.TransactionClient, 'emailVerificationToken'> = prisma) {
   const tokenHash = hashToken(token)
-  const record = await prisma.emailVerificationToken.findUnique({
+  const record = await db.emailVerificationToken.findUnique({
     where: { tokenHash },
   })
 
@@ -201,7 +204,7 @@ export async function consumeEmailToken(token: string, type: EmailTokenType) {
   }
 
   await claimEmailToken(record.id, type, (where, usedAt) =>
-    prisma.emailVerificationToken.updateMany({ where, data: { usedAt } }),
+    db.emailVerificationToken.updateMany({ where, data: { usedAt } }),
   )
 
   return record

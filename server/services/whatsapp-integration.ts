@@ -1,3 +1,4 @@
+import { integrationHttpClient } from './integration-http.js'
 import { publicMediaClient } from './public-download.js'
 import { randomBytes, randomUUID } from 'node:crypto'
 import fs from 'node:fs/promises'
@@ -144,7 +145,7 @@ async function fetchEvolutionJson(
   body?: any,
   extraHeaders?: Record<string, string>
 ) {
-  const response = await fetch(url, {
+  const response = await integrationHttpClient.fetch(url, {
     method,
     headers: evolutionHeaders(apiKey, extraHeaders),
     body: body ? JSON.stringify(body) : undefined,
@@ -276,7 +277,7 @@ async function getMetaMediaAccessToken(companyId: number) {
 
 async function resolveMetaMedia(input: Parameters<MetaMediaResolver>[0]): Promise<MetaMediaAttachment> {
   const accessToken = await getMetaMediaAccessToken(input.companyId)
-  const metadataResponse = await fetch(`${META_GRAPH_BASE_URL}/${encodeURIComponent(input.mediaId)}`, {
+  const metadataResponse = await integrationHttpClient.fetch(`${META_GRAPH_BASE_URL}/${encodeURIComponent(input.mediaId)}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
     signal: AbortSignal.timeout(15_000),
   })
@@ -629,7 +630,7 @@ async function tryConfigureEvolutionWebhook(
 
   for (const attempt of candidates) {
     try {
-      const response = await fetch(attempt.url, {
+      const response = await integrationHttpClient.fetch(attempt.url, {
         method: 'POST',
         headers: evolutionHeaders(config.apiKey, attempt.headers),
         body: JSON.stringify(attempt.body),
@@ -669,7 +670,7 @@ function formatWebhookFailure(attempts: EvolutionAttemptResult[]) {
     ? 'A Evolution respondeu 404 para todos os endpoints de webhook. Verifique se a URL da Evolution aponta para a raiz da API, sem /manager, ou se a versao da Evolution usa outro endpoint.'
     : 'Verifique URL, API key e permissao de webhook da Evolution.'
   const detail = last
-    ? `${last.url} HTTP ${last.status || 'sem resposta'}: ${last.response || last.error || 'sem detalhes'}`
+    ? `HTTP ${last.status || 'sem resposta'}`
     : 'nenhum endpoint testado'
   return `Webhook nao configurado. ${hint} Ultima tentativa: ${detail}`
 }
@@ -688,7 +689,7 @@ async function probeEvolutionApi(config: { baseUrl: string; apiKey: string }, in
       const url = typeof candidate === 'string' ? candidate : candidate.url
       const extraHeaders = typeof candidate === 'string' ? undefined : candidate.headers
       try {
-        const response = await fetch(url, { method: 'GET', headers: evolutionHeaders(config.apiKey, extraHeaders) })
+        const response = await integrationHttpClient.fetch(url, { method: 'GET', headers: evolutionHeaders(config.apiKey, extraHeaders) })
         const body = await responseSnippet(response)
         const result = {
           label: 'api probe',

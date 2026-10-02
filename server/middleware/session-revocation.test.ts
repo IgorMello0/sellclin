@@ -40,6 +40,8 @@ test('auth middleware revokes both owner and employee sessions after a password 
     assert.equal((await call(legacy)).status, 401)
     const state = jwt.sign({ companyId: 5, userId: 7, userType: 'profissional' }, getJwtSecret(), { expiresIn: '15m' })
     assert.equal((await call(state)).status, 401)
+    const client = jwt.sign({ id: 7, type: 'cliente', companyId: 5, role: 'admin' }, getJwtSecret(), { expiresIn: '12h' })
+    assert.equal((await call(client)).status, 401)
   } finally {
     db.professional.findUnique = originalProfessional
     db.usuario.findUnique = originalUser

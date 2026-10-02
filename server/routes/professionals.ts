@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { prisma } from '../prisma.js'
 import { auth, requireCompanyOwner } from '../middleware/auth.js'
 import { createErrorResponse, createSuccessResponse, parsePagination } from '../utils/response.js'
-import bcrypt from 'bcryptjs'
+import { matchesLoginPassword } from '../services/password-policy.js'
 import jwt from 'jsonwebtoken'
 import { getJwtSecret } from '../config/security.js'
 import { passwordSessionStamp } from '../services/session-security.js'
@@ -12,14 +12,12 @@ export const router = Router()
 // Login de profissional
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body as { email: string; password: string }
-    const emailAddress = String(email || '').trim().toLowerCase()
+    const { email, password } = req.body || {}
+    const emailAddress = typeof email === 'string' ? email.trim().toLowerCase() : ''
     
-    if (!emailAddress || !password) {
+    if (!emailAddress || typeof password !== 'string' || !password) {
       return res.status(400).json(createErrorResponse('Email e senha são obrigatórios', 400))
     }
-    
-    console.log('[Login] Tentativa de login:', email)
     
     const professional = await prisma.professional.findUnique({
       where: { email: emailAddress },
@@ -28,8 +26,7 @@ router.post('/login', async (req, res) => {
         ownedCompanies: { select: { id: true, name: true } },
       }
     })
-    if (!professional) {
-      console.log('[Login] Profissional não encontrado:', email)
+    if (!await matchesLoginPassword(password, professional?.passwordHash)) {
       return res.status(401).json(createErrorResponse('Credenciais inválidas', 401))
     }
     
@@ -37,12 +34,6 @@ router.post('/login', async (req, res) => {
       return res.status(403).json(createErrorResponse('Verifique seu e-mail antes de acessar. Enviamos um link de confirmação para sua caixa de entrada.', 403))
     }
 
-    const ok = await bcrypt.compare(password, professional.passwordHash)
-    if (!ok) {
-      console.log('[Login] Senha incorreta para:', email)
-      return res.status(401).json(createErrorResponse('Credenciais inválidas', 401))
-    }
-    
     const companiesMap = new Map<number, string>()
     if (professional.company) {
       companiesMap.set(professional.company.id, professional.company.name)
@@ -62,8 +53,6 @@ router.post('/login', async (req, res) => {
       allowedCompanies 
     }, getJwtSecret(), { expiresIn: '12h' })
     
-    console.log('[Login] Login bem-sucedido:', email)
-
     res.json(createSuccessResponse({ 
       token, 
       professional: { 

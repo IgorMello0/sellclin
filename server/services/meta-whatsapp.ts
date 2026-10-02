@@ -1,6 +1,8 @@
+import { integrationHttpClient } from './integration-http.js'
 import { randomBytes } from 'node:crypto'
 import jwt from 'jsonwebtoken'
 import { prisma } from '../prisma.js'
+import { verifyIntegrationState, assertIntegrationOwner } from './integration-state.js'
 import {
   clearMetaConnection,
   getWhatsAppConnection,
@@ -93,11 +95,12 @@ function cleanRequired(value: unknown, label: string) {
 
 async function graphGet<T = any>(path: string, accessToken: string, params: Record<string, string> = {}): Promise<T> {
   const url = new URL(path.startsWith('http') ? path : `${GRAPH_BASE_URL}${path}`)
+  if (url.origin !== 'https://graph.facebook.com') throw new Error('Origem da Meta não permitida')
   for (const [key, value] of Object.entries(params)) {
     if (value) url.searchParams.set(key, value)
   }
 
-  const response = await fetch(url.toString(), { headers: { Authorization: `Bearer ${accessToken}` } })
+  const response = await integrationHttpClient.fetch(url.toString(), { headers: { Authorization: `Bearer ${accessToken}` } })
   const body = await response.json().catch(() => ({}))
   if (!response.ok) {
     throw new Error(body?.error?.message || `Meta Graph API HTTP ${response.status}`)
@@ -108,7 +111,7 @@ async function graphGet<T = any>(path: string, accessToken: string, params: Reco
 async function graphPost<T = any>(path: string, accessToken: string, body?: Record<string, unknown>): Promise<T> {
   const url = new URL(path.startsWith('http') ? path : `${GRAPH_BASE_URL}${path}`)
 
-  const response = await fetch(url.toString(), {
+  const response = await integrationHttpClient.fetch(url.toString(), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
     body: body ? JSON.stringify(body) : undefined,
@@ -309,7 +312,7 @@ async function exchangeCodeForToken(code: string) {
   url.searchParams.set('redirect_uri', redirectUri)
   url.searchParams.set('code', code)
 
-  const response = await fetch(url.toString())
+  const response = await integrationHttpClient.fetch(url.toString())
   const body = await response.json().catch(() => ({}))
   if (!response.ok || !body.access_token) {
     throw new Error(body?.error?.message || 'Nao foi possivel trocar o codigo da Meta por token.')
@@ -327,7 +330,7 @@ async function tryExchangeLongLivedToken(accessToken: string) {
   url.searchParams.set('fb_exchange_token', accessToken)
 
   try {
-    const response = await fetch(url.toString())
+    const response = await integrationHttpClient.fetch(url.toString())
     const body = await response.json().catch(() => ({}))
     if (response.ok && body.access_token) {
       return String(body.access_token)
@@ -431,7 +434,7 @@ export function buildMetaConnectUrl(
 ) {
   const { appId, configId, redirectUri } = requireMetaEnv(officialMode)
   const state = jwt.sign(
-    { companyId, userId, officialMode } satisfies MetaStatePayload,
+    { companyId, userId, officialMode, purpose: 'meta-whatsapp', userType: 'profissional' },
     getJwtSecret(),
     { expiresIn: '20m' },
   )
@@ -462,7 +465,8 @@ export function buildMetaConnectUrl(
 }
 
 export function verifyMetaState(state: string): MetaStatePayload {
-  const payload = jwt.verify(state, getJwtSecret()) as Partial<MetaStatePayload> & Pick<MetaStatePayload, 'companyId'>
+  const payload = verifyIntegrationState(state, 'meta-whatsapp', getJwtSecret())
+  if (!['cloud_api', 'coexistence'].includes(payload.officialMode)) throw new Error('Modo da integração inválido')
   return {
     companyId: payload.companyId,
     userId: payload.userId,
@@ -472,6 +476,7 @@ export function verifyMetaState(state: string): MetaStatePayload {
 
 export async function connectMetaWhatsappFromCode(code: string, state: string) {
   const payload = verifyMetaState(state)
+  await assertIntegrationOwner(payload.companyId, payload.userId!)
   const accessToken = await exchangeCodeForToken(code)
   const account = await resolveMetaWhatsappAccount(accessToken, payload.officialMode)
   const company = await prisma.empresa.findUnique({

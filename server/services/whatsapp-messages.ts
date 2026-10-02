@@ -1,3 +1,4 @@
+import { integrationHttpClient } from './integration-http.js'
 import { prisma } from '../prisma.js'
 import { getWhatsAppConnection } from './whatsapp-connections.js'
 import { getApprovedWhatsAppTemplate } from './whatsapp-templates.js'
@@ -111,7 +112,7 @@ export async function sendMetaTemplateMessage(input: {
     },
   }
 
-  const response = await fetch(`${GRAPH_BASE_URL}/${credentials.phoneNumberId}/messages`, {
+  const response = await integrationHttpClient.fetch(`${GRAPH_BASE_URL}/${credentials.phoneNumberId}/messages`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${credentials.accessToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),

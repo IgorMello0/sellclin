@@ -1,8 +1,10 @@
+import { isValidNewPassword, PASSWORD_POLICY_MESSAGE } from '../services/password-policy.js'
 import { Router } from 'express'
 import { prisma } from '../prisma.js'
 import { auth, requireCompanyOwner } from '../middleware/auth.js'
 import { createErrorResponse, createSuccessResponse, parsePagination } from '../utils/response.js'
 import bcrypt from 'bcryptjs'
+import { matchesLoginPassword } from '../services/password-policy.js'
 import jwt from 'jsonwebtoken'
 import { ensureCompanyDefaults } from '../bootstrap/defaults.js'
 import { assertCanAddUserToCompany, BillingLimitError } from '../services/billing.js'
@@ -46,9 +48,9 @@ async function getOwnedCompanyIds(professionalId: number) {
 }
 
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body as { email: string; password: string }
-  const emailAddress = String(email || '').trim().toLowerCase()
-  if (!emailAddress || !password) {
+  const { email, password } = req.body || {}
+  const emailAddress = typeof email === 'string' ? email.trim().toLowerCase() : ''
+  if (!emailAddress || typeof password !== 'string' || !password) {
     return res.status(400).json(createErrorResponse('Email e senha sao obrigatorios', 400))
   }
   const user = await prisma.usuario.findUnique({ 
@@ -65,13 +67,11 @@ router.post('/login', async (req, res) => {
       },
     }
   })
-  if (!user) return res.status(401).json(createErrorResponse('Credenciais inválidas', 401))
+  if (!await matchesLoginPassword(password, user?.passwordHash)) return res.status(401).json(createErrorResponse('Credenciais inválidas', 401))
   if (!user.isActive || !user.emailVerified) {
     return res.status(403).json(createErrorResponse('Aceite o convite enviado para seu e-mail antes de acessar.', 403))
   }
 
-  const ok = await bcrypt.compare(password, user.passwordHash)
-  if (!ok) return res.status(401).json(createErrorResponse('Credenciais inválidas', 401))
   
   const availableCompanies = user.companyAccess.length > 0
     ? user.companyAccess.map(ca => ({ id: ca.company.id, name: ca.company.name, role: ca.role?.name }))
@@ -451,8 +451,8 @@ router.put('/:id', auth(), requireCompanyOwner(), async (req, res) => {
       return res.status(400).json(createErrorResponse('Nome e email são obrigatórios', 400))
     }
 
-    if (password && password.length < 6) {
-      return res.status(400).json(createErrorResponse('A senha deve ter pelo menos 6 caracteres', 400))
+    if (password !== undefined && password !== '' && !isValidNewPassword(password)) {
+      return res.status(400).json(createErrorResponse(PASSWORD_POLICY_MESSAGE, 400))
     }
 
     // Verificar se email já existe (exceto para o próprio usuário)

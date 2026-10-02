@@ -1,17 +1,13 @@
+import { integrationHttpClient } from './integration-http.js'
 import jwt from 'jsonwebtoken'
 import { OAuth2Client } from 'google-auth-library'
 import { prisma } from '../prisma.js'
 import { getJwtSecret } from '../config/security.js'
+import { verifyIntegrationState, assertIntegrationOwner } from './integration-state.js'
 
 const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events'
 const EMAIL_SCOPE = 'https://www.googleapis.com/auth/userinfo.email'
 const DEFAULT_TIME_ZONE = 'America/Sao_Paulo'
-
-type CalendarState = {
-  companyId: number
-  userId: number
-  userType: string
-}
 
 function getPublicAppUrl() {
   return (process.env.PUBLIC_APP_URL || process.env.APP_URL || process.env.FRONTEND_URL || 'https://sellclin.com').replace(/\/+$/, '')
@@ -34,7 +30,8 @@ function getOAuthClient() {
 
 export function createGoogleCalendarAuthUrl(companyId: number, userId: number, userType: string) {
   const client = getOAuthClient()
-  const state = jwt.sign({ companyId, userId, userType }, getJwtSecret(), { expiresIn: '15m' })
+  if (userType !== 'profissional') throw new Error('Somente o proprietário pode conectar Google Calendar')
+  const state = jwt.sign({ companyId, userId, userType, purpose: 'google-calendar' }, getJwtSecret(), { expiresIn: '15m' })
 
   return client.generateAuthUrl({
     access_type: 'offline',
@@ -46,10 +43,8 @@ export function createGoogleCalendarAuthUrl(companyId: number, userId: number, u
 }
 
 export async function handleGoogleCalendarCallback(code: string, stateToken: string) {
-  const state = jwt.verify(stateToken, getJwtSecret()) as CalendarState
-  if (!state.companyId) {
-    throw new Error('Estado invalido para conectar Google Calendar')
-  }
+  const state = verifyIntegrationState(stateToken, 'google-calendar')
+  await assertIntegrationOwner(state.companyId, state.userId)
 
   const client = getOAuthClient()
   const { tokens } = await client.getToken(code)
@@ -59,7 +54,7 @@ export async function handleGoogleCalendarCallback(code: string, stateToken: str
   try {
     const accessToken = tokens.access_token
     if (accessToken) {
-      const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      const userInfoRes = await integrationHttpClient.fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
         headers: { Authorization: `Bearer ${accessToken}` },
       })
       if (userInfoRes.ok) {
@@ -158,7 +153,7 @@ async function googleCalendarRequest(
   init: RequestInit = {}
 ) {
   const token = await getAuthorizedAccessToken(connection)
-  const response = await fetch(`https://www.googleapis.com/calendar/v3${path}`, {
+  const response = await integrationHttpClient.fetch(`https://www.googleapis.com/calendar/v3${path}`, {
     ...init,
     headers: {
       Authorization: `Bearer ${token}`,

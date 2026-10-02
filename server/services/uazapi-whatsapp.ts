@@ -1,3 +1,4 @@
+import { integrationHttpClient } from './integration-http.js'
 import { prisma } from '../prisma.js'
 
 type UazapiCompany = {
@@ -92,7 +93,7 @@ async function requestUazapi(params: {
     headers.token = params.token
   }
 
-  const response = await fetch(`${baseUrl}${params.path}`, {
+  const response = await integrationHttpClient.fetch(`${baseUrl}${params.path}`, {
     method: params.method || 'GET',
     headers,
     body: params.body === undefined ? undefined : JSON.stringify(params.body),
@@ -433,7 +434,7 @@ export async function sendUazapiRequest(params: {
   body: any
 }) {
   const baseUrl = trimTrailingSlash(/^https?:\/\//i.test(params.baseUrl) ? params.baseUrl : `https://${params.baseUrl}`)
-  const response = await fetch(`${baseUrl}${params.path}`, {
+  const response = await integrationHttpClient.fetch(`${baseUrl}${params.path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', token: params.token },
     body: JSON.stringify(params.body),

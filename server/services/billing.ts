@@ -1,3 +1,5 @@
+import { isValidNewPassword, PASSWORD_POLICY_MESSAGE } from './password-policy.js'
+import { integrationHttpClient } from './integration-http.js'
 import crypto from 'node:crypto'
 import type { Prisma, PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
@@ -286,7 +288,7 @@ function getAbacateApiBaseUrl() {
 }
 
 async function postAbacate(path: string, payload: Record<string, unknown>, apiKey: string) {
-  const response = await fetch(`${getAbacateApiBaseUrl()}${path}`, {
+  const response = await integrationHttpClient.fetch(`${getAbacateApiBaseUrl()}${path}`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -1014,6 +1016,7 @@ export async function createPendingSignupCheckout(input: {
     throw new Error('Email ja cadastrado.')
   }
 
+  if (!isValidNewPassword(input.password)) throw new Error(PASSWORD_POLICY_MESSAGE)
   const passwordHash = await bcrypt.hash(input.password, 10)
   const pending = await prisma.pendingSignup.upsert({
     where: { email },

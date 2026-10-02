@@ -1,3 +1,4 @@
+import { isValidNewPassword, PASSWORD_POLICY_MESSAGE } from '../services/password-policy.js'
 import { Router } from 'express'
 import { OAuth2Client } from 'google-auth-library'
 import jwt from 'jsonwebtoken'
@@ -31,6 +32,11 @@ router.post('/change-password', auth(), rateLimit({
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || ''
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID)
+
+async function sendWithoutAccountDisclosure(send: () => Promise<unknown>) {
+  try { await send() }
+  catch (error) { console.error('[Auth] Falha ao enviar e-mail solicitado:', error) }
+}
 
 function resolveGooglePhoto(currentPhotoUrl?: string | null, googlePicture?: string | null) {
   if (currentPhotoUrl?.startsWith('/uploads/')) {
@@ -83,23 +89,23 @@ router.post('/resend-verification', async (req, res) => {
 
     const professional = await prisma.professional.findUnique({ where: { email } })
     if (professional) {
-      if (professional.emailVerified) return res.json(createSuccessResponse({ alreadyVerified: true }))
-      await sendVerificationEmail({
+      if (professional.emailVerified) return res.json(createSuccessResponse({ sent: true }))
+      await sendWithoutAccountDisclosure(() => sendVerificationEmail({
         email: professional.email,
         name: professional.name,
         professionalId: professional.id,
-      })
+      }))
       return res.json(createSuccessResponse({ sent: true }))
     }
 
     const user = await prisma.usuario.findUnique({ where: { email } })
     if (user) {
-      if (user.emailVerified) return res.json(createSuccessResponse({ alreadyVerified: true }))
-      await sendVerificationEmail({
+      if (user.emailVerified) return res.json(createSuccessResponse({ sent: true }))
+      await sendWithoutAccountDisclosure(() => sendVerificationEmail({
         email: user.email,
         name: user.name,
         userId: user.id,
-      })
+      }))
       return res.json(createSuccessResponse({ sent: true }))
     }
 
@@ -117,21 +123,21 @@ router.post('/forgot-password', async (req, res) => {
 
     const professional = await prisma.professional.findUnique({ where: { email } })
     if (professional) {
-      await sendPasswordResetEmail({
+      await sendWithoutAccountDisclosure(() => sendPasswordResetEmail({
         email: professional.email,
         name: professional.name,
         professionalId: professional.id,
-      })
+      }))
       return res.json(createSuccessResponse({ sent: true }))
     }
 
     const user = await prisma.usuario.findUnique({ where: { email } })
     if (user) {
-      await sendPasswordResetEmail({
+      await sendWithoutAccountDisclosure(() => sendPasswordResetEmail({
         email: user.email,
         name: user.name,
         userId: user.id,
-      })
+      }))
       return res.json(createSuccessResponse({ sent: true }))
     }
 
@@ -145,36 +151,37 @@ router.post('/forgot-password', async (req, res) => {
 router.post('/reset-password', async (req, res) => {
   try {
     const token = String(req.body?.token || '')
-    const password = String(req.body?.password || '')
+    const password = req.body?.password
 
     if (!token) return res.status(400).json(createErrorResponse('Token ausente', 400))
-    if (password.length < 6) return res.status(400).json(createErrorResponse('A senha deve ter pelo menos 6 caracteres', 400))
+    if (!isValidNewPassword(password)) return res.status(400).json(createErrorResponse(PASSWORD_POLICY_MESSAGE, 400))
 
-    const record = await consumeEmailToken(token, EMAIL_TOKEN_TYPES.passwordReset)
     const passwordHash = await bcrypt.hash(password, 10)
-
-    if (record.professionalId) {
-      await prisma.professional.update({
-        where: { id: record.professionalId },
-        data: {
-          passwordHash,
-          emailVerified: true,
-          emailVerifiedAt: new Date(),
-          authProvider: 'local',
-        },
-      })
-    } else if (record.userId) {
-      await prisma.usuario.update({
-        where: { id: record.userId },
-        data: {
-          passwordHash,
-          emailVerified: true,
-          emailVerifiedAt: new Date(),
-        },
-      })
-    } else {
-      return res.status(400).json(createErrorResponse('Token sem conta vinculada', 400))
-    }
+    await prisma.$transaction(async tx => {
+      const record = await consumeEmailToken(token, EMAIL_TOKEN_TYPES.passwordReset, tx)
+      if (record.professionalId) {
+        await tx.professional.update({
+          where: { id: record.professionalId },
+          data: {
+            passwordHash,
+            emailVerified: true,
+            emailVerifiedAt: new Date(),
+            authProvider: 'local',
+          },
+        })
+      } else if (record.userId) {
+        await tx.usuario.update({
+          where: { id: record.userId },
+          data: {
+            passwordHash,
+            emailVerified: true,
+            emailVerifiedAt: new Date(),
+          },
+        })
+      } else {
+        throw new Error('Token sem conta vinculada')
+      }
+    })
 
     return res.json(createSuccessResponse({ reset: true }))
   } catch (error: any) {
@@ -187,23 +194,24 @@ router.post('/reset-password', async (req, res) => {
 router.post('/team-invite/accept', async (req, res) => {
   try {
     const token = String(req.body?.token || '')
-    const password = String(req.body?.password || '')
+    const password = req.body?.password
 
     if (!token) return res.status(400).json(createErrorResponse('Token ausente', 400))
-    if (password.length < 6) return res.status(400).json(createErrorResponse('A senha deve ter pelo menos 6 caracteres', 400))
-
-    const record = await consumeEmailToken(token, EMAIL_TOKEN_TYPES.teamInvite)
-    if (!record.userId) return res.status(400).json(createErrorResponse('Convite sem usuario vinculado', 400))
+    if (!isValidNewPassword(password)) return res.status(400).json(createErrorResponse(PASSWORD_POLICY_MESSAGE, 400))
 
     const passwordHash = await bcrypt.hash(password, 10)
-    await prisma.usuario.update({
-      where: { id: record.userId },
-      data: {
-        passwordHash,
-        isActive: true,
-        emailVerified: true,
-        emailVerifiedAt: new Date(),
-      },
+    await prisma.$transaction(async tx => {
+      const record = await consumeEmailToken(token, EMAIL_TOKEN_TYPES.teamInvite, tx)
+      if (!record.userId) throw new Error('Convite sem usuario vinculado')
+      await tx.usuario.update({
+        where: { id: record.userId },
+        data: {
+          passwordHash,
+          isActive: true,
+          emailVerified: true,
+          emailVerifiedAt: new Date(),
+        },
+      })
     })
 
     return res.json(createSuccessResponse({ accepted: true }))
@@ -238,12 +246,11 @@ router.post('/google', async (req, res) => {
       return res.status(401).json(createErrorResponse('Token do Google invalido ou expirado', 401))
     }
 
-    if (!payload?.email) {
+    if (!payload?.email || payload.email_verified !== true) {
       return res.status(401).json(createErrorResponse('Nao foi possivel obter o e-mail da conta Google', 401))
     }
 
     const { email, name, sub: googleId, picture } = payload
-    console.log('[Auth Google] Login attempt:', email)
 
     let professional = await prisma.professional.findFirst({
       where: { googleId },
@@ -335,8 +342,6 @@ router.post('/google', async (req, res) => {
       passwordStamp: passwordSessionStamp(professional.passwordHash, getJwtSecret()),
       allowedCompanies,
     }, getJwtSecret(), { expiresIn: '12h' })
-
-    console.log('[Auth Google] Login bem-sucedido:', email)
 
     res.json(createSuccessResponse({
       token,

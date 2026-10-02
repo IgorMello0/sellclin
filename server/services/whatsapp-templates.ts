@@ -1,3 +1,4 @@
+import { integrationHttpClient } from './integration-http.js'
 import { prisma } from '../prisma.js'
 import { getWhatsAppConnection } from './whatsapp-connections.js'
 
@@ -14,7 +15,7 @@ class MetaRequestTimeoutError extends Error {
 
 async function fetchMeta(url: string | URL, options: RequestInit = {}) {
   try {
-    return await fetch(url, {
+    return await integrationHttpClient.fetch(url, {
       ...options,
       signal: AbortSignal.timeout(META_REQUEST_TIMEOUT_MS),
     })

@@ -32,6 +32,9 @@ export function auth(required = true) {
 
     try {
       const payload = verifySessionToken(token, getJwtSecret()) as AuthUser & { allowedCompanies?: number[]; passwordStamp?: string }
+      // There is no client portal session issuer. Do not let legacy client claims
+      // bypass the database checks used by clinic accounts.
+      if (payload.type === 'cliente') return res.status(401).json(createErrorResponse('Token inválido', 401))
 
       let ownedCompanyIds: number[] = []
       // Always rebuild tenant access from the database. JWT claims are only identity hints.
@@ -83,7 +86,7 @@ export function auth(required = true) {
         ]))
       }
 
-      if (payload.type !== 'cliente' && !payload.allowedCompanies?.length) {
+      if (!payload.allowedCompanies?.length) {
         return res.status(403).json(createErrorResponse('Nenhuma clinica ativa disponivel para esta conta', 403))
       }
 
