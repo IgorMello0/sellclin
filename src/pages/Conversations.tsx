@@ -911,7 +911,7 @@ const Conversations = () => {
     <div className="flex h-screen flex-col bg-white">
       <header className="flex flex-shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
         <div>
-          <div className="flex items-center gap-3"><h1 className="text-lg font-extrabold text-slate-950">Conversas</h1><span className="hidden text-xs font-medium text-slate-500 sm:block">WhatsApp da clinica</span></div>
+          <h1 className="text-lg font-extrabold text-slate-950">Conversas</h1>
           {loadError && <p className="mt-1 text-xs font-semibold text-red-600">{loadError}</p>}
         </div>
         <div className="hidden items-center gap-8 md:flex">
