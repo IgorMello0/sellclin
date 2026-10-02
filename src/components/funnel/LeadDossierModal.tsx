@@ -6,6 +6,16 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { leadsApi, tasksApi, clientsApi, usuariosApi } from '@/lib/api';
 import { Edit2, Phone, Mail, FileText, CheckSquare, History, Plus, Loader2, ArrowRight, X, Trash2, Calendar, MapPin, CheckCircle2, Circle, Check, Eye } from 'lucide-react';
@@ -63,6 +73,7 @@ export const LeadDossierModal = ({ lead: initialLead, open, onOpenChange, onUpda
   const [editingProposal, setEditingProposal] = useState<any>(null);
   const [closingProposal, setClosingProposal] = useState<any>(null);
   const [cancellingProposalId, setCancellingProposalId] = useState<number | null>(null);
+  const [proposalToDelete, setProposalToDelete] = useState<any>(null);
   const [deletingProposalId, setDeletingProposalId] = useState<number | null>(null);
   const editStages = funnelList.find(f => String(f.code || f.id) === String(selectedFunnelForEdit))?.stages || [];
   const stageValue = editStages.some((stage: any) => stage.code === selectedLead?.status) ? selectedLead.status : '';
@@ -98,14 +109,16 @@ export const LeadDossierModal = ({ lead: initialLead, open, onOpenChange, onUpda
     }
   };
 
-  const handleDeleteProposal = async (proposal: any) => {
-    if (!selectedLead || !window.confirm(`Apagar a proposta "${proposal.title}"? Esta ação não poderá ser desfeita.`)) return;
+  const handleDeleteProposal = async () => {
+    const proposal = proposalToDelete;
+    if (!selectedLead || !proposal) return;
     setDeletingProposalId(Number(proposal.id));
     try {
       const result = await leadsApi.deleteProposal(Number(selectedLead.id), Number(proposal.id));
       if (!result.success) throw new Error(result.error?.message || 'Não foi possível apagar a proposta.');
       setLeadProposals((current) => current.filter((item) => item.id !== proposal.id));
       onUpdate?.();
+      setProposalToDelete(null);
       toast({ title: 'Proposta apagada', description: 'A proposta foi removida com sucesso.' });
     } catch (error: any) {
       toast({ title: 'Erro ao apagar proposta', description: error.message, variant: 'destructive' });
@@ -904,7 +917,7 @@ export const LeadDossierModal = ({ lead: initialLead, open, onOpenChange, onUpda
                                 className="group bg-white rounded-2xl border border-slate-100 p-6 shadow-sm hover:shadow-md hover:border-secondary/20 transition-all cursor-pointer relative overflow-hidden"
                                 onClick={() => handleViewProposal(proposal)}
                               >
-                                <div className="absolute top-0 right-0 p-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="absolute top-3 right-3 z-10 flex items-center gap-1 rounded-xl border border-slate-100 bg-white/95 p-1 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
                                   {isAdminOrGestor && !hasActiveSale && (
                                     <button
                                       onClick={(e) => {
@@ -922,7 +935,7 @@ export const LeadDossierModal = ({ lead: initialLead, open, onOpenChange, onUpda
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        handleDeleteProposal(proposal);
+                                        setProposalToDelete(proposal);
                                       }}
                                       disabled={deletingProposalId === proposal.id}
                                       className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors disabled:opacity-50"
@@ -936,7 +949,7 @@ export const LeadDossierModal = ({ lead: initialLead, open, onOpenChange, onUpda
                                   <Eye className="w-5 h-5 text-secondary" />
                                 </div>
                                 
-                                <div className="flex items-start gap-4">
+                                <div className="flex items-start gap-4 pr-24">
                                   <div className="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center text-orange-600">
                                     <FileText className="w-6 h-6" />
                                   </div>
@@ -1129,6 +1142,38 @@ export const LeadDossierModal = ({ lead: initialLead, open, onOpenChange, onUpda
         proposal={selectedProposal}
         lead={selectedLead}
       />
+      <AlertDialog open={!!proposalToDelete} onOpenChange={(open) => !open && !deletingProposalId && setProposalToDelete(null)}>
+        <AlertDialogContent className="max-w-md overflow-hidden rounded-3xl border-0 p-0 shadow-2xl">
+          <div className="h-1.5 bg-red-500" />
+          <div className="p-6 sm:p-7">
+            <AlertDialogHeader className="text-left">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-600">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <AlertDialogTitle className="text-xl font-bold text-primary">Apagar proposta?</AlertDialogTitle>
+              <AlertDialogDescription className="pt-1 text-sm leading-6 text-slate-500">
+                A proposta <span className="font-semibold text-slate-700">“{proposalToDelete?.title}”</span> será excluída permanentemente. Esta ação não poderá ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="mt-6 gap-2 sm:gap-2">
+              <AlertDialogCancel disabled={!!deletingProposalId} className="h-11 rounded-xl border-slate-200 px-5 font-semibold">
+                Manter proposta
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(event) => {
+                  event.preventDefault();
+                  handleDeleteProposal();
+                }}
+                disabled={!!deletingProposalId}
+                className="h-11 rounded-xl bg-red-600 px-5 font-semibold text-white hover:bg-red-700"
+              >
+                {deletingProposalId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                {deletingProposalId ? 'Apagando...' : 'Sim, apagar'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
       <ConfirmPaymentModal
         open={Boolean(closingProposal)}
         onOpenChange={(value) => { if (!value) setClosingProposal(null); }}

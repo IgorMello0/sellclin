@@ -138,14 +138,16 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onUpdate, funnels, all
   const [isCreatingProposal, setIsCreatingProposal] = useState(false);
   const [viewingProposal, setViewingProposal] = useState<any>(null);
   const [editingProposal, setEditingProposal] = useState<any>(null);
+  const [proposalToDelete, setProposalToDelete] = useState<any>(null);
   const [deletingProposalId, setDeletingProposalId] = useState<number | null>(null);
 
   const isAdminOrGestor = professional?.role === 'profissional' || ['admin', 'manager', 'gestor', 'administrador'].some(r => 
     professional?.role?.toLowerCase().includes(r) || professional?.specialization?.toLowerCase().includes(r)
   );
 
-  const handleDeleteProposal = async (proposal: any) => {
-    if (!selectedLead?.id || !window.confirm(`Apagar a proposta "${proposal.title}"? Esta ação não poderá ser desfeita.`)) return;
+  const handleDeleteProposal = async () => {
+    const proposal = proposalToDelete;
+    if (!selectedLead?.id || !proposal) return;
     setDeletingProposalId(Number(proposal.id));
     try {
       const result = await leadsApi.deleteProposal(Number(selectedLead.id), Number(proposal.id));
@@ -154,6 +156,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onUpdate, funnels, all
       setLeadProposals(remaining);
       setSelectedLead((current: any) => current ? { ...current, proposals: remaining } : current);
       onUpdate?.({ ...selectedLead, proposals: remaining });
+      setProposalToDelete(null);
       toast({ title: 'Proposta apagada', description: 'A proposta foi removida com sucesso.' });
     } catch (error: any) {
       toast({ title: 'Erro ao apagar proposta', description: error.message, variant: 'destructive' });
@@ -1132,7 +1135,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onUpdate, funnels, all
                                 className="group bg-white rounded-2xl border border-slate-100 p-6 shadow-sm hover:shadow-md hover:border-secondary/20 transition-all cursor-pointer relative overflow-hidden"
                                 onClick={() => handleViewProposal(proposal)}
                               >
-                                <div className="absolute top-0 right-0 p-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="absolute top-3 right-3 z-10 flex items-center gap-1 rounded-xl border border-slate-100 bg-white/95 p-1 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
                                   {isAdminOrGestor && (
                                     <button
                                       onClick={(e) => {
@@ -1150,7 +1153,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onUpdate, funnels, all
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        handleDeleteProposal(proposal);
+                                        setProposalToDelete(proposal);
                                       }}
                                       disabled={deletingProposalId === proposal.id}
                                       className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors disabled:opacity-50"
@@ -1164,7 +1167,7 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onUpdate, funnels, all
                                   <Eye className="w-5 h-5 text-secondary" />
                                 </div>
                                 
-                                <div className="flex items-start gap-4">
+                                <div className="flex items-start gap-4 pr-24">
                                   <div className="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center text-orange-600">
                                     <FileText className="w-6 h-6" />
                                   </div>
@@ -1397,6 +1400,39 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onUpdate, funnels, all
               Sim, excluir tarefa
             </AlertDialogAction>
           </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!proposalToDelete} onOpenChange={(open) => !open && !deletingProposalId && setProposalToDelete(null)}>
+        <AlertDialogContent className="max-w-md overflow-hidden rounded-3xl border-0 p-0 shadow-2xl">
+          <div className="h-1.5 bg-red-500" />
+          <div className="p-6 sm:p-7">
+            <AlertDialogHeader className="text-left">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-600">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <AlertDialogTitle className="text-xl font-bold text-primary">Apagar proposta?</AlertDialogTitle>
+              <AlertDialogDescription className="pt-1 text-sm leading-6 text-slate-500">
+                A proposta <span className="font-semibold text-slate-700">“{proposalToDelete?.title}”</span> será excluída permanentemente. Esta ação não poderá ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="mt-6 gap-2 sm:gap-2">
+              <AlertDialogCancel disabled={!!deletingProposalId} className="h-11 rounded-xl border-slate-200 px-5 font-semibold">
+                Manter proposta
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(event) => {
+                  event.preventDefault();
+                  handleDeleteProposal();
+                }}
+                disabled={!!deletingProposalId}
+                className="h-11 rounded-xl bg-red-600 px-5 font-semibold text-white hover:bg-red-700"
+              >
+                {deletingProposalId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                {deletingProposalId ? 'Apagando...' : 'Sim, apagar'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </div>
         </AlertDialogContent>
       </AlertDialog>
 
