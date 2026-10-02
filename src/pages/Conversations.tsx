@@ -377,6 +377,7 @@ const Conversations = () => {
   const [newLabelColor, setNewLabelColor] = useState('#f97316');
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [recordingLevels, setRecordingLevels] = useState<number[]>(() => Array(40).fill(0.06));
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const conversationsRequestVersion = useRef(0);
@@ -385,6 +386,8 @@ const Conversations = () => {
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingStreamRef = useRef<MediaStream | null>(null);
   const recordingTimerRef = useRef<number | null>(null);
+  const recordingWaveFrameRef = useRef<number | null>(null);
+  const recordingAudioContextRef = useRef<AudioContext | null>(null);
   const cancelRecordingRef = useRef(false);
 
   const loadConversations = useCallback(async (silent = false) => {
@@ -447,6 +450,8 @@ const Conversations = () => {
     return () => {
       window.clearInterval(clockTimer);
       if (recordingTimerRef.current) window.clearInterval(recordingTimerRef.current);
+      if (recordingWaveFrameRef.current) window.cancelAnimationFrame(recordingWaveFrameRef.current);
+      if (recordingAudioContextRef.current?.state !== 'closed') void recordingAudioContextRef.current?.close();
       recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
     };
   }, []);
@@ -557,6 +562,53 @@ const Conversations = () => {
     if (recorder && recorder.state !== 'inactive') recorder.stop();
   };
 
+  const stopLiveWaveform = () => {
+    if (recordingWaveFrameRef.current) window.cancelAnimationFrame(recordingWaveFrameRef.current);
+    recordingWaveFrameRef.current = null;
+    const audioContext = recordingAudioContextRef.current;
+    recordingAudioContextRef.current = null;
+    if (audioContext?.state !== 'closed') void audioContext?.close();
+    setRecordingLevels(Array(40).fill(0.06));
+  };
+
+  const startLiveWaveform = (stream: MediaStream) => {
+    const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    try {
+      const audioContext = new AudioContextClass();
+      const analyser = audioContext.createAnalyser();
+      const source = audioContext.createMediaStreamSource(stream);
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.72;
+      const samples = new Uint8Array(analyser.fftSize);
+      source.connect(analyser);
+      recordingAudioContextRef.current = audioContext;
+      setRecordingLevels(Array(40).fill(0.06));
+      let lastSampleAt = 0;
+
+      const readLevel = (timestamp: number) => {
+        if (timestamp - lastSampleAt >= 65) {
+          analyser.getByteTimeDomainData(samples);
+          let sum = 0;
+          for (const sample of samples) {
+            const normalized = (sample - 128) / 128;
+            sum += normalized * normalized;
+          }
+          const rms = Math.sqrt(sum / samples.length);
+          const level = Math.min(1, Math.max(0.06, rms * 7));
+          setRecordingLevels((current) => [...current.slice(1), level]);
+          lastSampleAt = timestamp;
+        }
+        recordingWaveFrameRef.current = window.requestAnimationFrame(readLevel);
+      };
+
+      recordingWaveFrameRef.current = window.requestAnimationFrame(readLevel);
+    } catch {
+      setRecordingLevels(Array(40).fill(0.06));
+    }
+  };
+
   const startRecording = async () => {
     if (isRecording || sending) return;
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
@@ -569,6 +621,7 @@ const Conversations = () => {
       const recorder = new MediaRecorder(stream, { mimeType: preferredType, audioBitsPerSecond: 32000 });
       recordingStreamRef.current = stream;
       mediaRecorderRef.current = recorder;
+      startLiveWaveform(stream);
       audioChunksRef.current = [];
       cancelRecordingRef.current = false;
       recorder.ondataavailable = (event) => { if (event.data.size) audioChunksRef.current.push(event.data); };
@@ -579,6 +632,7 @@ const Conversations = () => {
         }
         stream.getTracks().forEach((track) => track.stop());
         if (recordingTimerRef.current) window.clearInterval(recordingTimerRef.current);
+        stopLiveWaveform();
         recordingTimerRef.current = null;
         recordingStreamRef.current = null;
         mediaRecorderRef.current = null;
@@ -1024,12 +1078,15 @@ const Conversations = () => {
                     <Button variant="ghost" size="icon" className="h-10 w-10 flex-shrink-0 rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600" onClick={() => finishRecording(true)} aria-label="Cancelar gravação" title="Cancelar gravação"><Trash2 className="h-[18px] w-[18px]" /></Button>
                     <span className="h-2 w-2 flex-shrink-0 animate-pulse rounded-full bg-red-500" />
                     <span className="w-12 flex-shrink-0 font-mono text-xs font-bold tabular-nums text-slate-700">{formatRecordingTime(recordingSeconds)}</span>
-                    <div className="flex h-7 min-w-0 flex-1 items-center gap-0.5 overflow-hidden" aria-hidden="true">
-                      {VOICE_WAVEFORM.slice(0, 30).map((height, index) => (
-                        <span key={`${height}-${index}`} className="w-0.5 flex-1 animate-pulse rounded-full bg-red-300" style={{ height: `${Math.max(18, height)}%`, animationDelay: `${index * 35}ms` }} />
+                    <div className="flex h-8 min-w-0 flex-1 items-center justify-end gap-[3px] overflow-hidden px-1" aria-label="Nível do microfone ao vivo">
+                      {recordingLevels.map((level, index) => (
+                        <span
+                          key={index}
+                          className={`w-[3px] flex-shrink-0 rounded-full transition-[height,background-color] duration-75 ${level > 0.55 ? 'bg-orange-500' : level > 0.18 ? 'bg-orange-300' : 'bg-slate-200'}`}
+                          style={{ height: `${Math.max(3, Math.round(level * 28))}px` }}
+                        />
                       ))}
                     </div>
-                    <span className="hidden flex-shrink-0 text-xs font-medium text-slate-500 sm:block">Gravando áudio</span>
                     <Button size="icon" className="h-10 w-10 flex-shrink-0 rounded-full bg-slate-900 text-white shadow-sm hover:bg-slate-800" onClick={() => finishRecording(false)} aria-label="Finalizar gravação" title="Finalizar gravação"><Check className="h-[18px] w-[18px]" /></Button>
                   </div>
                 ) : (
