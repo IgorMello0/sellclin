@@ -20,6 +20,7 @@ import { validateMediaUpload } from '@/lib/media-upload';
 import type { WhatsAppTemplate } from '@/components/whatsapp/TemplateCatalog';
 import { ChatTemplatePreview } from '@/components/whatsapp/ChatTemplatePreview';
 import { getChatTemplatePreview, getChatTemplateTokens } from '@/lib/chat-template-preview';
+import { useSearchParams } from 'react-router-dom';
 
 type Message = {
   id: number;
@@ -373,6 +374,8 @@ function AudioDraftPlayer({ url }: { url: string }) {
 const Conversations = () => {
   const { toast } = useToast();
   const { professional } = useAuth();
+  const [searchParams] = useSearchParams();
+  const requestedConversationId = Number(searchParams.get('conversationId')) || undefined;
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [filter, setFilter] = useState('all');
@@ -434,6 +437,7 @@ const Conversations = () => {
     if (silent) setRefreshing(true); else setLoading(true);
     try {
       const response = await conversationsApi.list({
+        conversationId: requestedConversationId,
         status: statusFilter === 'all' ? undefined : statusFilter,
         labelId: labelFilter === 'all' ? undefined : Number(labelFilter),
         conversion: filter === 'all' ? undefined : filter as 'in_progress' | 'converted',
@@ -454,7 +458,11 @@ const Conversations = () => {
       });
       setConversations(items);
       setConversationTotal(response.pagination?.total ?? items.length);
-      setSelectedId((current) => current && items.some((item) => item.id === current) ? current : items[0]?.id ?? null);
+      setSelectedId((current) => current && items.some((item) => item.id === current)
+        ? current
+        : requestedConversationId && items.some((item) => item.id === requestedConversationId)
+          ? requestedConversationId
+          : items[0]?.id ?? null);
       setLoadError(null);
     } catch (error: any) {
       if (requestVersion !== conversationsRequestVersion.current) return;
@@ -466,7 +474,7 @@ const Conversations = () => {
         setRefreshing(false);
       }
     }
-  }, [conversationPage, debouncedSearchTerm, filter, labelFilter, statusFilter, toast]);
+  }, [conversationPage, debouncedSearchTerm, filter, labelFilter, requestedConversationId, statusFilter, toast]);
 
   useEffect(() => {
     setConversationPage(1);

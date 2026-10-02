@@ -45,7 +45,7 @@ interface FunnelCardProps {
   isDragged: boolean;
   activeFunnel: string;
   stageId: string;
-  onOpenWhatsApp: (phone: string) => void;
+  onOpenWhatsApp: (lead: Lead) => void;
   onSubStatusChange: (id: string, subStatus: string | null) => void;
   onScheduleAppointment: (lead: Lead) => void;
   onOpenProposal: (leadId: string, leadValue: number, tags: string[]) => void;
@@ -165,7 +165,7 @@ export function FunnelCard({
           <button 
             onClick={(e) => {
               e.stopPropagation();
-              onOpenWhatsApp(lead.phone || '');
+              onOpenWhatsApp(lead);
             }}
             className="w-7 h-7 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all shadow-sm border border-emerald-100"
             title="Abrir no WhatsApp"

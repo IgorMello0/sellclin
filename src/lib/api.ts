@@ -964,8 +964,9 @@ export const whatsappUazapiApi = {
 }
 
 export const conversationsApi = {
-  list: async (filters?: { status?: string; assignment?: string; labelId?: number; conversion?: 'in_progress' | 'converted'; search?: string; page?: number; pageSize?: number }) => {
+  list: async (filters?: { conversationId?: number; status?: string; assignment?: string; labelId?: number; conversion?: 'in_progress' | 'converted'; search?: string; page?: number; pageSize?: number }) => {
     const query = new URLSearchParams({ page: String(filters?.page || 1), pageSize: String(filters?.pageSize || 100) })
+    if (filters?.conversationId) query.set('conversationId', String(filters.conversationId))
     if (filters?.status) query.set('status', filters.status)
     if (filters?.assignment) query.set('assignment', filters.assignment)
     if (filters?.labelId) query.set('labelId', String(filters.labelId))
@@ -973,6 +974,10 @@ export const conversationsApi = {
     if (filters?.search?.trim()) query.set('search', filters.search.trim())
     return apiRequest<any[]>(`/conversas?${query.toString()}`)
   },
+  openLead: async (leadId: number) => apiRequest<any>('/conversas/open-lead', {
+    method: 'POST',
+    body: JSON.stringify({ leadId }),
+  }),
   workspace: async () => apiRequest<any>('/conversas/workspace'),
   getById: async (id: number) => apiRequest<any>(`/conversas/${id}`),
   sendMessage: async (id: number, content: string, media?: { url: string; type: 'image' | 'video' | 'audio' }) => apiRequest<any>(`/conversas/${id}/messages`, {

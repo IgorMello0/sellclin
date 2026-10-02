@@ -10,6 +10,7 @@ import { createErrorResponse, createSuccessResponse, parsePagination } from '../
 import { sendUazapiRequest } from '../services/uazapi-whatsapp.js'
 import { sendMetaTemplateMessage } from '../services/whatsapp-messages.js'
 import { conversationScope } from '../services/conversation-access.js'
+import { leadVisibility } from '../services/funnel-access.js'
 
 export const router = Router()
 router.use(auth())
@@ -221,7 +222,7 @@ function withConversationState(item: any) {
 
 router.get('/', auth(), requireModule('conversas'), async (req, res) => {
   const { skip, take, page, pageSize } = parsePagination(req.query)
-  const { agentId, clientId, leadId, status, assignment, labelId, conversion, search } = req.query as any
+  const { conversationId, agentId, clientId, leadId, status, assignment, labelId, conversion, search } = req.query as any
   
   const companyId = getCompanyId(req)
 
@@ -232,6 +233,7 @@ router.get('/', auth(), requireModule('conversas'), async (req, res) => {
   const scope = await conversationScope(req.user!)
   const where: any = { ...scope.where }
   const andFilters: any[] = []
+  if (conversationId) where.id = Number(conversationId)
   if (agentId) where.agentId = Number(agentId)
   if (clientId) where.clientId = Number(clientId)
   if (leadId) where.leadId = Number(leadId)
@@ -298,6 +300,88 @@ router.get('/', auth(), requireModule('conversas'), async (req, res) => {
     prisma.conversa.count({ where })
   ])
   res.json(createSuccessResponse(items.map(withConversationState), { page, pageSize, total }))
+})
+
+router.post('/open-lead', auth(), requireModule('conversas'), async (req, res) => {
+  try {
+    const companyId = getCompanyId(req)
+    const leadId = Number(req.body?.leadId)
+    if (!companyId) return res.status(404).json(createErrorResponse('Clinica nao encontrada', 404))
+    if (!Number.isInteger(leadId) || leadId <= 0) {
+      return res.status(400).json(createErrorResponse('Lead invalido', 400))
+    }
+
+    const [lead, company] = await Promise.all([
+      prisma.lead.findFirst({
+        where: { AND: [{ id: leadId }, await leadVisibility(prisma, req.user, companyId)] },
+        select: { id: true, phone: true, sdrId: true },
+      }),
+      prisma.empresa.findUnique({
+        where: { id: companyId },
+        select: {
+          ownerId: true,
+          whatsappProvider: true,
+          metaToken: true,
+          metaPhoneNumberId: true,
+          uazapiToken: true,
+          uazapiConnectionStatus: true,
+        },
+      }),
+    ])
+    if (!lead) return res.status(404).json(createErrorResponse('Lead nao encontrado ou acesso negado', 404))
+    if (!company) return res.status(404).json(createErrorResponse('Clinica nao encontrada', 404))
+
+    const connected = company.whatsappProvider === 'meta'
+      ? Boolean(company.metaToken && company.metaPhoneNumberId)
+      : company.whatsappProvider === 'uazapi'
+        ? Boolean(company.uazapiToken && String(company.uazapiConnectionStatus || '').toLowerCase() === 'connected')
+        : false
+    if (!connected) {
+      return res.status(409).json(createErrorResponse('WhatsApp nao conectado nesta clinica', 409))
+    }
+
+    const phone = normalizePhone(lead.phone)
+    if (!phone) return res.status(400).json(createErrorResponse('Este lead nao possui um telefone valido', 400))
+
+    const existing = await prisma.conversa.findFirst({
+      where: {
+        companyId,
+        OR: [
+          { leadId },
+          { phone },
+          ...(phone.length >= 10 ? [{ phone: { endsWith: phone.slice(-10) } }] : []),
+        ],
+      },
+      orderBy: [{ lastMessageAt: 'desc' }, { updatedAt: 'desc' }],
+    })
+
+    const conversation = existing
+      ? await prisma.conversa.update({
+          where: { id: existing.id },
+          data: {
+            leadId,
+            phone,
+            assignedUserId: existing.assignedUserId || lead.sdrId || null,
+          },
+        })
+      : await prisma.conversa.create({
+          data: {
+            companyId,
+            leadId,
+            phone,
+            professionalId: company.ownerId,
+            assignedUserId: lead.sdrId || null,
+            app: 'whatsapp',
+            channel: 'whatsapp',
+            startedAt: new Date(),
+          },
+        })
+
+    return res.status(existing ? 200 : 201).json(createSuccessResponse(conversation))
+  } catch (error: any) {
+    console.error('[Conversas] Erro ao abrir conversa do lead:', error)
+    return res.status(500).json(createErrorResponse(error.message || 'Erro ao abrir conversa', 500))
+  }
 })
 
 router.get('/workspace', auth(), requireModule('conversas'), async (req, res) => {

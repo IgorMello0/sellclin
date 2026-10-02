@@ -25,7 +25,7 @@ interface FunnelColumnProps {
   onDragEnd?: (e: React.DragEvent) => void;
   draggedCardId: string | null;
   activeFunnel: string;
-  onOpenWhatsApp: (phone: string) => void;
+  onOpenWhatsApp: (lead: any) => void;
   onSubStatusChange: (id: string, subStatus: string | null) => void;
   onScheduleAppointment: (lead: any) => void;
   onOpenProposal: (leadId: string, leadValue: number, tags: string[]) => void;

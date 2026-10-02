@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/select";
 import { NewAppointmentModal } from '@/components/NewAppointmentModal';
 import { ConfirmPaymentModal } from '@/components/ConfirmPaymentModal';
-import { clientsApi, leadsApi, tasksApi, usuariosApi } from '@/lib/api';
+import { clientsApi, conversationsApi, leadsApi, tasksApi, usuariosApi } from '@/lib/api';
 import { loadAllPages, requireApiSuccess } from '@/lib/funnel';
 import { loadDashboardTeam } from '@/lib/dashboard';
 import { useToast } from '@/hooks/use-toast';
@@ -60,6 +60,7 @@ import { ProposalDialog } from '@/components/funnel/ProposalDialog';
 import { FunnelSettingsDialog } from '@/components/funnel/FunnelSettingsDialog';
 import { LeadDetailsModal } from "@/components/LeadDetailsModal";
 import { FUNNELS, STAGES, QUICK_STATUSES, ORIGIN_OPTIONS } from '@/config/funnelConfig';
+import { useNavigate } from 'react-router-dom';
 
 const safeFormatDate = (dateStr: any, formatStr: string = "dd/MM/yyyy") => {
   try {
@@ -119,6 +120,7 @@ const initialLeads: Lead[] = [];
 
 const SalesFunnel = () => {
   const { professional } = useAuth();
+  const navigate = useNavigate();
   const allowAction = useActionPermission();
   const [activeFunnel, setActiveFunnel] = useState('prospecting');
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
@@ -333,10 +335,22 @@ const SalesFunnel = () => {
     return "";
   };
 
-  const openWhatsApp = (phone: string) => {
-    const cleanPhone = phone.replace(/\D/g, '');
-    const finalPhone = cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone;
-    window.location.href = `whatsapp://send?phone=${finalPhone}`;
+  const openWhatsApp = async (lead: Lead) => {
+    try {
+      const response = await conversationsApi.openLead(Number(lead.id));
+      if (!response.success || !response.data?.id) {
+        throw new Error(response.error?.message || 'Nao foi possivel abrir a conversa.');
+      }
+      navigate(`/conversas?conversationId=${response.data.id}`);
+    } catch (error: any) {
+      if (String(error?.message || '').toLowerCase().includes('nao conectado')) {
+        const cleanPhone = String(lead.phone || '').replace(/\D/g, '');
+        const finalPhone = cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone;
+        if (finalPhone) window.location.href = `whatsapp://send?phone=${finalPhone}`;
+        return;
+      }
+      toast({ title: 'Nao foi possivel abrir o WhatsApp', description: error.message, variant: 'destructive' });
+    }
   };
 
   const funnelList = useMemo(() => {
