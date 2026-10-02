@@ -48,6 +48,11 @@ beforeEach(() => {
         Object.assign(found, data); return { ...found };
       }),
       create: vi.fn(async ({ data }) => { if (data.title === 'Fail') throw new Error('write failed'); const p = { id: 102 + proposals.length, ...data }; proposals.push(p); return p; }),
+      delete: vi.fn(async ({ where }) => {
+        const index = proposals.findIndex(p => p.id === where.id);
+        if (index < 0) throw Object.assign(new Error('Not found'), { code: 'P2025' });
+        return proposals.splice(index, 1)[0];
+      }),
       updateMany: vi.fn(async ({ where, data }) => { const matching = proposals.filter(p => p.leadId === where.leadId && p.status === where.status); matching.forEach(p => Object.assign(p, data)); return { count: matching.length }; }),
     },
     client: { create: vi.fn(async ({ data }) => { const c = { id: 20 + clients.length, ...data }; clients.push(c); return c; }) },
@@ -63,6 +68,7 @@ beforeEach(() => {
       create: vi.fn(async ({ data }: any) => { const item = { id: 1 + sales.length, voidedAt: null, ...data }; sales.push(item); return item; }),
       update: vi.fn(async ({ where, data }: any) => { const item = sales.find(s => s.id === where.id); Object.assign(item, data); return item; }),
     },
+    empresa: { findFirst: vi.fn().mockResolvedValue({ id: 2 }) },
     leadActivity: { create: vi.fn(async ({ data }) => { activities.push(data); return data; }) },
     appointment: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
   });
@@ -123,6 +129,27 @@ describe('funnel transactions and access', () => {
     failure = 'payment'; const before = snapshot();
     const res = await call('post', '/:id/confirm-payment', { proposalId: 101, payments: [1, 2].map(() => ({ amount: 175, date: '2026-09-14', method: 'pix' })) });
     expect(res.result.success).toBe(false); expect(snapshot()).toEqual(before);
+  });
+  it('allows the active clinic manager to delete an unsold proposal', async () => {
+    state.db.userCompanyAccess.findUnique.mockResolvedValue({ isActive: true, role: { isManager: true } });
+    const res = await call('delete', '/:id/proposals/:proposalId', {}, '101');
+    expect(res.result.success).toBe(true);
+    expect(proposals.some(p => p.id === 101)).toBe(false);
+  });
+  it('blocks proposal deletion for an operational role', async () => {
+    state.db.userCompanyAccess.findUnique.mockResolvedValue({ isActive: true, role: { isSDR: true } });
+    const before = snapshot();
+    const res = await call('delete', '/:id/proposals/:proposalId', {}, '101');
+    expect(res.code).toBe(403);
+    expect(snapshot()).toEqual(before);
+  });
+  it('does not delete a proposal linked to an active sale', async () => {
+    state.db.userCompanyAccess.findUnique.mockResolvedValue({ isActive: true, role: { isManager: true } });
+    sales.push({ id: 77, leadId: 1, proposalId: 101, voidedAt: null });
+    const before = snapshot();
+    const res = await call('delete', '/:id/proposals/:proposalId', {}, '101');
+    expect(res.code).toBe(409);
+    expect(snapshot()).toEqual(before);
   });
   it('rejects an amount different from the selected proposal and creates no payments', async () => {
     const res = await call('post', '/:id/confirm-payment', { proposalId: 101, payments: [{ amount: 300, date: '2026-09-14', method: 'pix' }] });

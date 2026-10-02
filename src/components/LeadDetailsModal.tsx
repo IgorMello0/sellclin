@@ -138,10 +138,29 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onUpdate, funnels, all
   const [isCreatingProposal, setIsCreatingProposal] = useState(false);
   const [viewingProposal, setViewingProposal] = useState<any>(null);
   const [editingProposal, setEditingProposal] = useState<any>(null);
+  const [deletingProposalId, setDeletingProposalId] = useState<number | null>(null);
 
   const isAdminOrGestor = professional?.role === 'profissional' || ['admin', 'manager', 'gestor', 'administrador'].some(r => 
     professional?.role?.toLowerCase().includes(r) || professional?.specialization?.toLowerCase().includes(r)
   );
+
+  const handleDeleteProposal = async (proposal: any) => {
+    if (!selectedLead?.id || !window.confirm(`Apagar a proposta "${proposal.title}"? Esta ação não poderá ser desfeita.`)) return;
+    setDeletingProposalId(Number(proposal.id));
+    try {
+      const result = await leadsApi.deleteProposal(Number(selectedLead.id), Number(proposal.id));
+      if (!result.success) throw new Error(result.error?.message || 'Não foi possível apagar a proposta.');
+      const remaining = leadProposals.filter((item: any) => item.id !== proposal.id);
+      setLeadProposals(remaining);
+      setSelectedLead((current: any) => current ? { ...current, proposals: remaining } : current);
+      onUpdate?.({ ...selectedLead, proposals: remaining });
+      toast({ title: 'Proposta apagada', description: 'A proposta foi removida com sucesso.' });
+    } catch (error: any) {
+      toast({ title: 'Erro ao apagar proposta', description: error.message, variant: 'destructive' });
+    } finally {
+      setDeletingProposalId(null);
+    }
+  };
 
   const [services, setServices] = useState<any[]>([]);
 
@@ -1125,6 +1144,21 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onUpdate, funnels, all
                                       title="Editar Proposta"
                                     >
                                       <Edit2 className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  {isAdminOrGestor && proposal.status !== 'accepted' && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteProposal(proposal);
+                                      }}
+                                      disabled={deletingProposalId === proposal.id}
+                                      className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors disabled:opacity-50"
+                                      title="Apagar proposta"
+                                    >
+                                      {deletingProposalId === proposal.id
+                                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                                        : <Trash2 className="w-4 h-4" />}
                                     </button>
                                   )}
                                   <Eye className="w-5 h-5 text-secondary" />

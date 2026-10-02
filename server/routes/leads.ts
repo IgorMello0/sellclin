@@ -45,6 +45,30 @@ async function assertLeadAccess(leadId: number, reqUser: any) {
   return { error: false, lead };
 }
 
+async function canManageProposals(reqUser: any, companyId: number) {
+  if (reqUser?.type === 'profissional') {
+    return Boolean(await prisma.empresa.findFirst({
+      where: { id: companyId, ownerId: reqUser.id },
+      select: { id: true },
+    }))
+  }
+  if (reqUser?.type !== 'usuario') return false
+
+  const [account, access] = await Promise.all([
+    prisma.usuario.findUnique({
+      where: { id: reqUser.id },
+      select: { companyId: true, isActive: true, role: { select: { isAdmin: true, isManager: true } } },
+    }),
+    prisma.userCompanyAccess.findUnique({
+      where: { userId_companyId: { userId: reqUser.id, companyId } },
+      select: { isActive: true, role: { select: { isAdmin: true, isManager: true } } },
+    }),
+  ])
+  if (!account?.isActive || access?.isActive === false || (!access && account.companyId !== companyId)) return false
+  const role = access?.role || account.role
+  return Boolean(role?.isAdmin || role?.isManager)
+}
+
 // Listar todos os leads
 router.get('/', auth(), async (req, res) => {
   try {
@@ -563,6 +587,44 @@ router.put('/:id/proposals/:proposalId', auth(), async (req, res) => {
   } catch (error: any) {
     console.error('[Leads] Erro ao atualizar proposta:', error)
     res.status(500).json(createErrorResponse(error.message || 'Erro ao atualizar proposta', 500))
+  }
+})
+
+// Excluir uma proposta ainda não vinculada a uma venda ativa.
+router.delete('/:id/proposals/:proposalId', auth(), async (req, res) => {
+  try {
+    const id = Number(req.params.id)
+    const proposalId = Number(req.params.proposalId)
+    if (!Number.isInteger(id) || !Number.isInteger(proposalId)) {
+      return res.status(400).json(createErrorResponse('Proposta inválida', 400))
+    }
+
+    const access = await assertLeadAccess(id, req.user)
+    if (access.error) return res.status(access.status).json(createErrorResponse(access.message, access.status))
+    if (!await canManageProposals(req.user, access.lead!.companyId!)) {
+      return res.status(403).json(createErrorResponse('Apenas administradores e gestores podem excluir propostas', 403))
+    }
+
+    const proposal = await prisma.proposal.findFirst({
+      where: { id: proposalId, leadId: id },
+      select: { id: true },
+    })
+    if (!proposal) return res.status(404).json(createErrorResponse('Proposta não encontrada', 404))
+
+    const activeSale = await prisma.sale.findFirst({
+      where: { proposalId, leadId: id, voidedAt: null },
+      select: { id: true },
+    })
+    if (activeSale) {
+      return res.status(409).json(createErrorResponse('Cancele a venda antes de excluir esta proposta', 409))
+    }
+
+    await prisma.proposal.delete({ where: { id: proposalId } })
+    logAudit(req.user!, 'EXCLUIR_PROPOSTA', 'Proposal', proposalId)
+    return res.json(createSuccessResponse({ id: proposalId }))
+  } catch (error: any) {
+    console.error('[Leads] Erro ao excluir proposta:', error)
+    return res.status(500).json(createErrorResponse(error.message || 'Erro ao excluir proposta', 500))
   }
 })
 

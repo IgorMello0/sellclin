@@ -63,6 +63,7 @@ export const LeadDossierModal = ({ lead: initialLead, open, onOpenChange, onUpda
   const [editingProposal, setEditingProposal] = useState<any>(null);
   const [closingProposal, setClosingProposal] = useState<any>(null);
   const [cancellingProposalId, setCancellingProposalId] = useState<number | null>(null);
+  const [deletingProposalId, setDeletingProposalId] = useState<number | null>(null);
   const editStages = funnelList.find(f => String(f.code || f.id) === String(selectedFunnelForEdit))?.stages || [];
   const stageValue = editStages.some((stage: any) => stage.code === selectedLead?.status) ? selectedLead.status : '';
 
@@ -94,6 +95,22 @@ export const LeadDossierModal = ({ lead: initialLead, open, onOpenChange, onUpda
       toast({ title: 'Erro ao cancelar venda', description: error.message, variant: 'destructive' });
     } finally {
       setCancellingProposalId(null);
+    }
+  };
+
+  const handleDeleteProposal = async (proposal: any) => {
+    if (!selectedLead || !window.confirm(`Apagar a proposta "${proposal.title}"? Esta ação não poderá ser desfeita.`)) return;
+    setDeletingProposalId(Number(proposal.id));
+    try {
+      const result = await leadsApi.deleteProposal(Number(selectedLead.id), Number(proposal.id));
+      if (!result.success) throw new Error(result.error?.message || 'Não foi possível apagar a proposta.');
+      setLeadProposals((current) => current.filter((item) => item.id !== proposal.id));
+      onUpdate?.();
+      toast({ title: 'Proposta apagada', description: 'A proposta foi removida com sucesso.' });
+    } catch (error: any) {
+      toast({ title: 'Erro ao apagar proposta', description: error.message, variant: 'destructive' });
+    } finally {
+      setDeletingProposalId(null);
     }
   };
   
@@ -899,6 +916,21 @@ export const LeadDossierModal = ({ lead: initialLead, open, onOpenChange, onUpda
                                       title="Editar Proposta"
                                     >
                                       <Edit2 className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  {isAdminOrGestor && !hasActiveSale && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteProposal(proposal);
+                                      }}
+                                      disabled={deletingProposalId === proposal.id}
+                                      className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors disabled:opacity-50"
+                                      title="Apagar proposta"
+                                    >
+                                      {deletingProposalId === proposal.id
+                                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                                        : <Trash2 className="w-4 h-4" />}
                                     </button>
                                   )}
                                   <Eye className="w-5 h-5 text-secondary" />
