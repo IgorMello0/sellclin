@@ -261,7 +261,7 @@ function AudioDraftPlayer({ url }: { url: string }) {
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [waveform, setWaveform] = useState<number[]>(() => Array.from({ length: 52 }, (_, index) => Math.max(0.08, VOICE_WAVEFORM[index % VOICE_WAVEFORM.length] / 100)));
+  const [waveform, setWaveform] = useState<number[]>(() => Array.from({ length: 44 }, (_, index) => Math.max(0.12, VOICE_WAVEFORM[index % VOICE_WAVEFORM.length] / 75)));
   const progress = duration > 0 ? Math.min(currentTime / duration, 1) : 0;
   const completedBars = Math.round(progress * waveform.length);
 
@@ -279,7 +279,7 @@ function AudioDraftPlayer({ url }: { url: string }) {
         const decoded = await audioContext.decodeAudioData(buffer.slice(0));
         if (cancelled) return;
         const channel = decoded.getChannelData(0);
-        const barCount = 52;
+        const barCount = 44;
         const bucketSize = Math.max(1, Math.floor(channel.length / barCount));
         const peaks = Array.from({ length: barCount }, (_, index) => {
           const start = index * bucketSize;
@@ -295,7 +295,7 @@ function AudioDraftPlayer({ url }: { url: string }) {
           return count ? Math.sqrt(sum / count) : 0;
         });
         const strongest = Math.max(...peaks, 0.01);
-        setWaveform(peaks.map((peak) => Math.max(0.08, Math.min(1, peak / strongest))));
+        setWaveform(peaks.map((peak) => Math.max(0.12, Math.min(1, Math.pow(peak / strongest, 0.55)))));
         setDuration(decoded.duration || 0);
       })
       .catch(() => undefined);
@@ -331,18 +331,18 @@ function AudioDraftPlayer({ url }: { url: string }) {
       <button
         type="button"
         onClick={() => void togglePlayback()}
-        className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-white transition-colors hover:bg-slate-800"
+        className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-95"
         aria-label={isPlaying ? 'Pausar prévia do áudio' : 'Reproduzir prévia do áudio'}
       >
         {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="ml-0.5 h-4 w-4 fill-current" />}
       </button>
       <div className="min-w-0 flex-1">
-        <div className="relative flex h-8 items-center justify-between gap-[3px]">
+        <div className="relative flex h-8 items-center gap-[3px] overflow-hidden">
           {waveform.map((height, index) => (
             <span
               key={index}
-              className={`w-[3px] flex-shrink-0 rounded-full transition-colors ${index < completedBars ? 'bg-orange-500' : 'bg-slate-300'}`}
-              style={{ height: `${Math.max(3, Math.round(height * 27))}px` }}
+              className={`w-[3px] flex-shrink-0 rounded-full transition-colors ${index < completedBars ? 'bg-emerald-600' : 'bg-emerald-900/20'}`}
+              style={{ height: `${Math.max(4, Math.round(height * 26))}px` }}
             />
           ))}
           <input
@@ -361,9 +361,9 @@ function AudioDraftPlayer({ url }: { url: string }) {
             aria-label="Avançar prévia do áudio"
           />
         </div>
-        <div className="mt-0.5 flex items-center justify-between text-[10px] font-semibold text-slate-400">
+        <div className="mt-0.5 flex items-center gap-1.5 text-[10px] font-semibold tabular-nums text-slate-500">
+          <Mic className="h-2.5 w-2.5 text-emerald-600" />
           <span>{isPlaying ? formatVoiceTime(currentTime) : formatVoiceTime(duration)}</span>
-          <span>{isPlaying ? 'Reproduzindo' : 'Áudio pronto'}</span>
         </div>
       </div>
     </div>
@@ -1108,7 +1108,38 @@ const Conversations = () => {
             </div>
 
             <div className="flex-shrink-0 border-t border-slate-200 bg-slate-100/90 px-3 py-3 sm:px-5">
-              {pendingMedia && <div className="mx-auto mb-3 flex max-w-5xl items-center gap-3 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-sm">{pendingMedia.type === 'image' ? <img src={pendingMedia.previewUrl} alt="Previa" className="h-14 w-14 rounded-xl object-cover" /> : pendingMedia.type === 'audio' ? <AudioDraftPlayer url={pendingMedia.previewUrl} /> : <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-slate-100"><ImageIcon className="h-6 w-6 text-slate-500" /></div>}{pendingMedia.type !== 'audio' && <div className="min-w-0 flex-1"><p className="truncate text-xs font-bold text-slate-800">{pendingMedia.file.name}</p><p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">{pendingMedia.type}</p></div>}<Button variant="ghost" size="icon" className="h-9 w-9 flex-shrink-0 rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600" onClick={clearPendingMedia} aria-label="Remover anexo"><X className="h-4 w-4" /></Button></div>}
+              {pendingMedia?.type === 'audio' ? (
+                <div className="mx-auto mb-3 flex w-full max-w-[460px] items-center gap-2 rounded-[24px] border border-emerald-200/70 bg-emerald-50/80 py-2 pl-2.5 pr-1.5 shadow-sm">
+                  <AudioDraftPlayer url={pendingMedia.previewUrl} />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 flex-shrink-0 rounded-full text-emerald-800/45 hover:bg-white/80 hover:text-red-600"
+                    onClick={clearPendingMedia}
+                    aria-label="Descartar áudio"
+                    title="Descartar áudio"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : pendingMedia ? (
+                <div className="mx-auto mb-3 flex max-w-5xl items-center gap-3 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-sm">
+                  {pendingMedia.type === 'image' ? (
+                    <img src={pendingMedia.previewUrl} alt="Prévia" className="h-14 w-14 rounded-xl object-cover" />
+                  ) : (
+                    <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-slate-100">
+                      <ImageIcon className="h-6 w-6 text-slate-500" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-bold text-slate-800">{pendingMedia.file.name}</p>
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">{pendingMedia.type}</p>
+                  </div>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 flex-shrink-0 rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600" onClick={clearPendingMedia} aria-label="Remover anexo">
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : null}
               {officialWindowClosed && <div className="mx-auto mb-2 flex max-w-5xl items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800"><span>A janela de atendimento da Meta terminou. Para retomar, envie um template aprovado.</span><Button size="sm" onClick={() => setShowTemplateDialog(true)} disabled={templates.length === 0}>Usar template</Button></div>}
               <div className="relative mx-auto flex max-w-5xl items-end gap-2.5">
                 <input ref={fileInputRef} type="file" accept="image/*,video/*,audio/*" className="hidden" onChange={(event) => { selectMedia(event.target.files?.[0]); event.currentTarget.value = ''; }} />
