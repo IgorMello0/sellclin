@@ -222,7 +222,7 @@ function withConversationState(item: any) {
 
 router.get('/', auth(), requireModule('conversas'), async (req, res) => {
   const { skip, take, page, pageSize } = parsePagination(req.query)
-  const { agentId, clientId, leadId, status, assignment, labelId, conversion, search } = req.query as any
+  const { agentId, clientId, leadId, status, assignment, labelId, conversion, unreadOnly, search } = req.query as any
   
   const companyId = getCompanyId(req)
 
@@ -239,6 +239,7 @@ router.get('/', auth(), requireModule('conversas'), async (req, res) => {
   if (status && ['OPEN', 'PENDING', 'RESOLVED'].includes(String(status).toUpperCase())) {
     where.status = String(status).toUpperCase()
   }
+  if (String(unreadOnly).toLowerCase() === 'true') where.unreadCount = { gt: 0 }
   const parsedLabelId = Number(labelId)
   if (Number.isInteger(parsedLabelId) && parsedLabelId > 0) where.labels = { some: { labelId: parsedLabelId } }
   if (assignment === 'unassigned') {

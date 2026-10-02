@@ -85,6 +85,7 @@ const VOICE_WAVEFORM = [10, 16, 25, 37, 22, 48, 34, 57, 42, 29, 51, 64, 38, 24, 
 
 const CONVERSATION_FILTER_LABELS: Record<string, string> = {
   all: 'Todas as conversas',
+  unread: 'Não lidas',
   in_progress: 'Em andamento',
   converted: 'Convertidas',
 };
@@ -439,7 +440,8 @@ const Conversations = () => {
       const response = await conversationsApi.list({
         status: statusFilter === 'all' ? undefined : statusFilter,
         labelId: labelFilter === 'all' ? undefined : Number(labelFilter),
-        conversion: filter === 'all' ? undefined : filter as 'in_progress' | 'converted',
+        conversion: filter === 'in_progress' || filter === 'converted' ? filter : undefined,
+        unreadOnly: filter === 'unread' ? true : undefined,
         search: debouncedSearchTerm,
         page: conversationPage,
         pageSize: conversationPageSize,
@@ -562,7 +564,8 @@ const Conversations = () => {
     const phoneQuery = query.replace(/\D/g, '');
     return conversations.filter((conversation) => {
       const converted = isConverted(conversation);
-      const matchesFilter = filter === 'all' || (filter === 'converted' ? converted : !converted);
+      const matchesFilter = filter === 'all'
+        || (filter === 'unread' ? Boolean(conversation.unreadCount) : filter === 'converted' ? converted : !converted);
       const matchesSearch = !query
         || contactName(conversation).toLowerCase().includes(query)
         || contactPhone(conversation).includes(query)
@@ -927,7 +930,7 @@ const Conversations = () => {
               <SelectTrigger className="h-9 bg-white text-xs font-semibold">
                 <span className="truncate">{CONVERSATION_FILTER_LABELS[filter] || 'Todas as conversas'}</span>
               </SelectTrigger>
-              <SelectContent><SelectItem value="all">Todas as conversas</SelectItem><SelectItem value="in_progress">Em andamento</SelectItem><SelectItem value="converted">Convertidas</SelectItem></SelectContent></Select>
+              <SelectContent><SelectItem value="all">Todas as conversas</SelectItem><SelectItem value="unread">Não lidas</SelectItem><SelectItem value="in_progress">Em andamento</SelectItem><SelectItem value="converted">Convertidas</SelectItem></SelectContent></Select>
             <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.25rem] gap-2">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="h-9 min-w-0 bg-white text-xs">
