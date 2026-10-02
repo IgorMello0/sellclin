@@ -261,10 +261,49 @@ function AudioDraftPlayer({ url }: { url: string }) {
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [waveform, setWaveform] = useState<number[]>(() => Array.from({ length: 52 }, (_, index) => Math.max(0.08, VOICE_WAVEFORM[index % VOICE_WAVEFORM.length] / 100)));
   const progress = duration > 0 ? Math.min(currentTime / duration, 1) : 0;
-  const completedBars = Math.round(progress * 24);
+  const completedBars = Math.round(progress * waveform.length);
 
   useEffect(() => () => { audioRef.current?.pause(); }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    let audioContext: AudioContext | null = null;
+    void fetch(url)
+      .then((response) => response.arrayBuffer())
+      .then(async (buffer) => {
+        const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (!AudioContextClass || cancelled) return;
+        audioContext = new AudioContextClass();
+        const decoded = await audioContext.decodeAudioData(buffer.slice(0));
+        if (cancelled) return;
+        const channel = decoded.getChannelData(0);
+        const barCount = 52;
+        const bucketSize = Math.max(1, Math.floor(channel.length / barCount));
+        const peaks = Array.from({ length: barCount }, (_, index) => {
+          const start = index * bucketSize;
+          const end = Math.min(channel.length, start + bucketSize);
+          const step = Math.max(1, Math.floor((end - start) / 180));
+          let sum = 0;
+          let count = 0;
+          for (let sampleIndex = start; sampleIndex < end; sampleIndex += step) {
+            const sample = channel[sampleIndex] || 0;
+            sum += sample * sample;
+            count += 1;
+          }
+          return count ? Math.sqrt(sum / count) : 0;
+        });
+        const strongest = Math.max(...peaks, 0.01);
+        setWaveform(peaks.map((peak) => Math.max(0.08, Math.min(1, peak / strongest))));
+        setDuration(decoded.duration || 0);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+      if (audioContext?.state !== 'closed') void audioContext?.close();
+    };
+  }, [url]);
 
   const togglePlayback = async () => {
     const audio = audioRef.current;
@@ -298,12 +337,12 @@ function AudioDraftPlayer({ url }: { url: string }) {
         {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="ml-0.5 h-4 w-4 fill-current" />}
       </button>
       <div className="min-w-0 flex-1">
-        <div className="relative flex h-7 items-center gap-0.5">
-          {VOICE_WAVEFORM.slice(0, 24).map((height, index) => (
+        <div className="relative flex h-8 items-center justify-between gap-[3px]">
+          {waveform.map((height, index) => (
             <span
-              key={`${height}-${index}`}
-              className={`w-0.5 flex-1 rounded-full ${index < completedBars ? 'bg-orange-500' : 'bg-slate-300'}`}
-              style={{ height: `${Math.max(18, height)}%` }}
+              key={index}
+              className={`w-[3px] flex-shrink-0 rounded-full transition-colors ${index < completedBars ? 'bg-orange-500' : 'bg-slate-300'}`}
+              style={{ height: `${Math.max(3, Math.round(height * 27))}px` }}
             />
           ))}
           <input
@@ -323,8 +362,8 @@ function AudioDraftPlayer({ url }: { url: string }) {
           />
         </div>
         <div className="mt-0.5 flex items-center justify-between text-[10px] font-semibold text-slate-400">
-          <span>{formatVoiceTime(currentTime)}</span>
-          <span>{formatVoiceTime(duration)}</span>
+          <span>{isPlaying ? formatVoiceTime(currentTime) : formatVoiceTime(duration)}</span>
+          <span>{isPlaying ? 'Reproduzindo' : 'Áudio pronto'}</span>
         </div>
       </div>
     </div>
@@ -377,7 +416,7 @@ const Conversations = () => {
   const [newLabelColor, setNewLabelColor] = useState('#f97316');
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
-  const [recordingLevels, setRecordingLevels] = useState<number[]>(() => Array(40).fill(0.06));
+  const [recordingLevels, setRecordingLevels] = useState<number[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const conversationsRequestVersion = useRef(0);
@@ -568,7 +607,7 @@ const Conversations = () => {
     const audioContext = recordingAudioContextRef.current;
     recordingAudioContextRef.current = null;
     if (audioContext?.state !== 'closed') void audioContext?.close();
-    setRecordingLevels(Array(40).fill(0.06));
+    setRecordingLevels([]);
   };
 
   const startLiveWaveform = (stream: MediaStream) => {
@@ -584,7 +623,7 @@ const Conversations = () => {
       const samples = new Uint8Array(analyser.fftSize);
       source.connect(analyser);
       recordingAudioContextRef.current = audioContext;
-      setRecordingLevels(Array(40).fill(0.06));
+      setRecordingLevels([]);
       let lastSampleAt = 0;
 
       const readLevel = (timestamp: number) => {
@@ -597,7 +636,7 @@ const Conversations = () => {
           }
           const rms = Math.sqrt(sum / samples.length);
           const level = Math.min(1, Math.max(0.06, rms * 7));
-          setRecordingLevels((current) => [...current.slice(1), level]);
+          setRecordingLevels((current) => current.length < 120 ? [...current, level] : [...current.slice(1), level]);
           lastSampleAt = timestamp;
         }
         recordingWaveFrameRef.current = window.requestAnimationFrame(readLevel);
@@ -605,7 +644,7 @@ const Conversations = () => {
 
       recordingWaveFrameRef.current = window.requestAnimationFrame(readLevel);
     } catch {
-      setRecordingLevels(Array(40).fill(0.06));
+      setRecordingLevels([]);
     }
   };
 
@@ -649,7 +688,7 @@ const Conversations = () => {
     }
   };
 
-  const formatRecordingTime = (seconds: number) => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+  const formatRecordingTime = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
   const updateConversationStatus = async (status: ConversationStatus) => {
     if (!selected || savingDetails) return;
@@ -1076,13 +1115,16 @@ const Conversations = () => {
                 {isRecording ? (
                   <div className="flex h-[52px] flex-1 items-center gap-2 rounded-[26px] border border-slate-200 bg-white px-1.5 shadow-sm">
                     <Button variant="ghost" size="icon" className="h-10 w-10 flex-shrink-0 rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600" onClick={() => finishRecording(true)} aria-label="Cancelar gravação" title="Cancelar gravação"><Trash2 className="h-[18px] w-[18px]" /></Button>
-                    <span className="h-2 w-2 flex-shrink-0 animate-pulse rounded-full bg-red-500" />
-                    <span className="w-12 flex-shrink-0 font-mono text-xs font-bold tabular-nums text-slate-700">{formatRecordingTime(recordingSeconds)}</span>
-                    <div className="flex h-8 min-w-0 flex-1 items-center justify-end gap-[3px] overflow-hidden px-1" aria-label="Nível do microfone ao vivo">
-                      {recordingLevels.map((level, index) => (
+                    <div className="flex flex-shrink-0 items-center gap-2 rounded-full bg-red-50 px-3 py-1.5">
+                      <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+                      <span className="min-w-8 text-sm font-semibold tabular-nums text-slate-700">{formatRecordingTime(recordingSeconds)}</span>
+                    </div>
+                    <div className="relative flex h-8 min-w-0 flex-1 items-center justify-start gap-[3px] overflow-hidden px-1" aria-label="Nível do microfone ao vivo">
+                      <span className="absolute inset-x-1 top-1/2 h-px -translate-y-1/2 bg-slate-100" />
+                      {(recordingLevels.length ? recordingLevels : [0.06]).map((level, index) => (
                         <span
                           key={index}
-                          className={`w-[3px] flex-shrink-0 rounded-full transition-[height,background-color] duration-75 ${level > 0.55 ? 'bg-orange-500' : level > 0.18 ? 'bg-orange-300' : 'bg-slate-200'}`}
+                          className={`relative w-[3px] flex-shrink-0 rounded-full transition-[height,background-color] duration-75 ${level > 0.55 ? 'bg-orange-500' : level > 0.18 ? 'bg-orange-300' : 'bg-slate-300'}`}
                           style={{ height: `${Math.max(3, Math.round(level * 28))}px` }}
                         />
                       ))}
