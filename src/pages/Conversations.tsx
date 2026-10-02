@@ -261,7 +261,7 @@ function AudioDraftPlayer({ url }: { url: string }) {
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [waveform, setWaveform] = useState<number[]>(() => Array.from({ length: 44 }, (_, index) => Math.max(0.12, VOICE_WAVEFORM[index % VOICE_WAVEFORM.length] / 75)));
+  const [waveform, setWaveform] = useState<number[]>(() => Array.from({ length: 64 }, (_, index) => Math.max(0.12, VOICE_WAVEFORM[index % VOICE_WAVEFORM.length] / 75)));
   const progress = duration > 0 ? Math.min(currentTime / duration, 1) : 0;
   const completedBars = Math.round(progress * waveform.length);
 
@@ -279,7 +279,7 @@ function AudioDraftPlayer({ url }: { url: string }) {
         const decoded = await audioContext.decodeAudioData(buffer.slice(0));
         if (cancelled) return;
         const channel = decoded.getChannelData(0);
-        const barCount = 44;
+        const barCount = 64;
         const bucketSize = Math.max(1, Math.floor(channel.length / barCount));
         const peaks = Array.from({ length: barCount }, (_, index) => {
           const start = index * bucketSize;
@@ -316,7 +316,7 @@ function AudioDraftPlayer({ url }: { url: string }) {
   };
 
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-3">
+    <div className="flex min-w-0 flex-1 items-center gap-4">
       <audio
         ref={audioRef}
         src={url}
@@ -331,18 +331,18 @@ function AudioDraftPlayer({ url }: { url: string }) {
       <button
         type="button"
         onClick={() => void togglePlayback()}
-        className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-95"
+        className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-95"
         aria-label={isPlaying ? 'Pausar prévia do áudio' : 'Reproduzir prévia do áudio'}
       >
-        {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="ml-0.5 h-4 w-4 fill-current" />}
+        {isPlaying ? <Pause className="h-[18px] w-[18px] fill-current" /> : <Play className="ml-0.5 h-[18px] w-[18px] fill-current" />}
       </button>
       <div className="min-w-0 flex-1">
-        <div className="relative flex h-8 items-center gap-[3px] overflow-hidden">
+        <div className="relative flex h-9 items-center gap-0.5 overflow-hidden">
           {waveform.map((height, index) => (
             <span
               key={index}
-              className={`w-[3px] flex-shrink-0 rounded-full transition-colors ${index < completedBars ? 'bg-emerald-600' : 'bg-emerald-900/20'}`}
-              style={{ height: `${Math.max(4, Math.round(height * 26))}px` }}
+              className={`min-w-[2px] max-w-[4px] flex-1 basis-0 rounded-full transition-colors ${index < completedBars ? 'bg-emerald-600' : 'bg-emerald-900/20'}`}
+              style={{ height: `${Math.max(4, Math.round(height * 30))}px` }}
             />
           ))}
           <input
@@ -1081,7 +1081,7 @@ const Conversations = () => {
                           avatarName={incoming ? contactName(selected) : professional?.name || 'Equipe'}
                         />
                       )}
-                      {message.content && !/^\[(image|video|audio|sticker)\]$/.test(message.content) && <p className={`px-4 py-2.5 ${message.rawJson?.isSticker ? (incoming ? 'rounded-2xl bg-white text-slate-800' : 'rounded-2xl bg-slate-950 text-white') : ''}`}>{message.content}</p>}
+                      {message.content && !/^(?:\[(?:image|video|audio|sticker)\]|\(m[ií]dia\))$/i.test(message.content.trim()) && <p className={`px-4 py-2.5 ${message.rawJson?.isSticker ? (incoming ? 'rounded-2xl bg-white text-slate-800' : 'rounded-2xl bg-slate-950 text-white') : ''}`}>{message.content}</p>}
                       <p className={`flex items-center justify-end gap-1 px-3 pb-1 text-[10px] ${incoming ? 'text-slate-400' : 'text-slate-300'}`}>
                         {!incoming && (
                           <span
@@ -1109,12 +1109,12 @@ const Conversations = () => {
 
             <div className="flex-shrink-0 border-t border-slate-200 bg-slate-100/90 px-3 py-3 sm:px-5">
               {pendingMedia?.type === 'audio' ? (
-                <div className="mx-auto mb-3 flex w-full max-w-[460px] items-center gap-2 rounded-[24px] border border-emerald-200/70 bg-emerald-50/80 py-2 pl-2.5 pr-1.5 shadow-sm">
+                <div className="mx-auto mb-3 flex w-full max-w-2xl items-center gap-2 rounded-[28px] border border-emerald-200/80 bg-emerald-50/80 py-2.5 pl-3 pr-2 shadow-sm">
                   <AudioDraftPlayer url={pendingMedia.previewUrl} />
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-9 w-9 flex-shrink-0 rounded-full text-emerald-800/45 hover:bg-white/80 hover:text-red-600"
+                    className="h-10 w-10 flex-shrink-0 rounded-full text-emerald-800/45 hover:bg-white/80 hover:text-red-600"
                     onClick={clearPendingMedia}
                     aria-label="Descartar áudio"
                     title="Descartar áudio"
