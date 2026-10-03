@@ -33,21 +33,6 @@ const CampanhasPage = () => {
     { q: "Quais métricas ficam disponíveis?", a: "O painel acompanha os eventos retornados pela API Oficial, como envio, entrega, leitura e resposta. A confirmação de leitura depende das configurações de privacidade do destinatário." },
   ];
 
-  const comparisonRows = [
-    {
-      before: "Copiar e colar mensagens, contato por contato, durante horas.",
-      after: "Campanhas com templates aprovados e processamento pela API Oficial.",
-    },
-    {
-      before: "QR Code, celular conectado e sessões que podem cair.",
-      after: "WhatsApp Business e SellClin no mesmo número com coexistência.",
-    },
-    {
-      before: "Respostas dispersas, sem responsável ou visão comercial.",
-      after: "Conversas, responsáveis e leads organizados direto no funil.",
-    },
-  ];
-
   return (
     <div className="min-h-screen bg-white text-[#0F172A] font-body overflow-x-hidden">
       {/* SHARED SITE NAVBAR */}
@@ -263,7 +248,7 @@ const CampanhasPage = () => {
         </div>
       </section>
 
-      {/* ANTES VS DEPOIS (IMPACTO REAL) */}
+      {/* COEXISTÊNCIA NA PRÁTICA */}
       <section className="py-24 bg-[#0F172A] border-t border-slate-800 relative overflow-hidden">
         {/* Background grid mesh */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_0.6px,transparent_0.6px),linear-gradient(to_bottom,#1e293b_0.6px,transparent_0.6px)] bg-[size:3rem_3rem] pointer-events-none opacity-40" />
@@ -277,8 +262,9 @@ const CampanhasPage = () => {
             transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
             className="text-center mb-16"
           >
-            <span className="text-[#F97316] font-black text-[10px] uppercase tracking-[0.4em] mb-4 inline-block bg-orange-500/10 border border-orange-500/20 px-4 py-1.5 rounded-full">API Oficial + Coexistência</span>
-            <h2 className="text-3xl md:text-5xl font-headline font-black tracking-tighter text-white">Do improviso para uma operação oficial</h2>
+            <span className="text-[#F97316] font-black text-[10px] uppercase tracking-[0.4em] mb-4 inline-block">Coexistência na prática</span>
+            <h2 className="text-3xl md:text-5xl font-headline font-black tracking-tighter text-white">O mesmo número. Uma operação completa.</h2>
+            <p className="mx-auto mt-5 max-w-2xl text-sm font-medium leading-relaxed text-slate-400 sm:text-base">Sua equipe continua atendendo pelo WhatsApp Business enquanto campanhas, métricas e respostas também passam pelo SellClin.</p>
           </motion.div>
 
           <motion.div
@@ -286,45 +272,61 @@ const CampanhasPage = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.2 }}
             transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
-            className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.025] p-3 shadow-2xl shadow-black/20 backdrop-blur-sm sm:p-5"
+            className="relative mx-auto max-w-5xl"
           >
-            <div className="hidden grid-cols-[1fr_48px_1fr] items-center gap-4 px-5 pb-4 md:grid">
-              <span className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Antes</span>
-              <span />
-              <span className="text-[10px] font-black uppercase tracking-[0.22em] text-orange-400">Com o SellClin</span>
+            <div className="absolute left-1/2 top-1/2 h-48 w-2/3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-400/[0.07] blur-[80px]" />
+
+            <div className="relative grid grid-cols-1 items-center gap-5 md:grid-cols-[1fr_88px_1.15fr_88px_1fr] md:gap-0">
+              <div className="group rounded-[1.75rem] border border-white/[0.08] bg-slate-950/45 p-7 text-center transition-colors hover:border-emerald-400/20">
+                <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-400/10 text-emerald-400">
+                  <MessageSquare className="h-6 w-6" />
+                </span>
+                <p className="mt-5 text-base font-black text-white">WhatsApp Business</p>
+                <p className="mt-2 text-xs font-medium leading-relaxed text-slate-400">A equipe mantém o atendimento pelo aplicativo no celular.</p>
+              </div>
+
+              <div className="relative flex h-20 items-center justify-center md:h-full">
+                <div className="absolute inset-y-0 left-1/2 w-px bg-gradient-to-b from-transparent via-slate-600 to-transparent md:inset-x-0 md:inset-y-auto md:top-1/2 md:h-px md:w-auto md:bg-gradient-to-r" />
+                <span className="absolute top-1 whitespace-nowrap rounded-full bg-[#0F172A] px-2 text-[8px] font-black uppercase tracking-[0.14em] text-slate-500 md:-top-6">Mesmo número</span>
+                <span className="relative flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-[#0F172A]">
+                  <ArrowRight className="h-3.5 w-3.5 rotate-90 text-slate-500 md:rotate-0" />
+                </span>
+              </div>
+
+              <div className="relative overflow-hidden rounded-[2rem] border border-orange-400/25 bg-gradient-to-b from-orange-400/[0.12] to-emerald-400/[0.06] p-8 text-center shadow-[0_24px_80px_-36px_rgba(249,115,22,0.55)]">
+                <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-orange-400 to-transparent" />
+                <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-950/30">
+                  <ShieldCheck className="h-7 w-7" />
+                </span>
+                <p className="mt-5 text-lg font-black text-white">API Oficial da Meta</p>
+                <p className="mt-2 text-xs font-medium leading-relaxed text-slate-300">A conexão oficial que permite a coexistência e processa as campanhas.</p>
+                <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-emerald-400/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.14em] text-emerald-400">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Conexão oficial
+                </div>
+              </div>
+
+              <div className="relative flex h-20 items-center justify-center md:h-full">
+                <div className="absolute inset-y-0 left-1/2 w-px bg-gradient-to-b from-transparent via-slate-600 to-transparent md:inset-x-0 md:inset-y-auto md:top-1/2 md:h-px md:w-auto md:bg-gradient-to-r" />
+                <span className="absolute top-1 whitespace-nowrap rounded-full bg-[#0F172A] px-2 text-[8px] font-black uppercase tracking-[0.14em] text-slate-500 md:-top-6">Sincronizado</span>
+                <span className="relative flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-[#0F172A]">
+                  <ArrowRight className="h-3.5 w-3.5 rotate-90 text-slate-500 md:rotate-0" />
+                </span>
+              </div>
+
+              <div className="group rounded-[1.75rem] border border-white/[0.08] bg-slate-950/45 p-7 text-center transition-colors hover:border-orange-400/20">
+                <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-400/10 text-orange-400">
+                  <KanbanSquare className="h-6 w-6" />
+                </span>
+                <p className="mt-5 text-base font-black text-white">SellClin</p>
+                <p className="mt-2 text-xs font-medium leading-relaxed text-slate-400">Campanhas, conversas, métricas e funil em um só lugar.</p>
+              </div>
             </div>
 
-            <div className="space-y-2.5">
-              {comparisonRows.map((row, index) => (
-                <motion.div
-                  key={row.before}
-                  initial={{ opacity: 0, y: 24 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, amount: 0.4 }}
-                  transition={{ duration: 0.8, delay: index * 0.1, ease: [0.16, 1, 0.3, 1] }}
-                  className="grid grid-cols-1 items-stretch gap-2.5 md:grid-cols-[1fr_48px_1fr] md:gap-4"
-                >
-                  <div className="flex items-center gap-3 rounded-2xl bg-slate-950/45 px-5 py-5 text-slate-400">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-400/10 text-red-400">
-                      <span className="text-lg font-light leading-none">×</span>
-                    </span>
-                    <p className="text-sm font-medium leading-relaxed">{row.before}</p>
-                  </div>
-
-                  <div className="flex items-center justify-center">
-                    <span className="flex h-9 w-9 rotate-90 items-center justify-center rounded-full border border-white/10 bg-slate-900 text-slate-500 md:rotate-0">
-                      <ArrowRight className="h-4 w-4" />
-                    </span>
-                  </div>
-
-                  <div className="relative flex items-center gap-3 overflow-hidden rounded-2xl border border-orange-400/15 bg-gradient-to-r from-orange-500/[0.09] to-emerald-400/[0.05] px-5 py-5 text-slate-100">
-                    <div className="absolute inset-y-0 left-0 w-0.5 bg-gradient-to-b from-orange-400 to-emerald-400" />
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-400/10 text-emerald-400">
-                      <CheckCircle2 className="h-4 w-4" />
-                    </span>
-                    <p className="text-sm font-semibold leading-relaxed">{row.after}</p>
-                  </div>
-                </motion.div>
+            <div className="relative mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-xs font-semibold text-slate-400">
+              {['Sem QR Code', 'Templates aprovados', 'Métricas oficiais', 'Respostas centralizadas'].map((item) => (
+                <span key={item} className="flex items-center gap-2">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> {item}
+                </span>
               ))}
             </div>
           </motion.div>
