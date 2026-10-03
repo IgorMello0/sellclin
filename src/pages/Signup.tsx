@@ -52,9 +52,9 @@ const PLAN_OPTIONS: Array<{
 ];
 
 const TESTIMONIALS = [
-  { text: "O SellClin mudou o jogo da nossa clínica. Centralizamos todos os leads e finalmente temos controle total do que entra e do que converte.", author: "Dr. Ricardo Santos", clinic: "Clínica OrthoDesign", img: "https://i.pravatar.cc/150?u=dr1" },
-  { text: "Finalmente tenho controle total dos meus leads de WhatsApp. Não perdemos mais nenhuma oportunidade de agendamento.", author: "Mariana Costa", clinic: "Aesthetic Center", img: "https://i.pravatar.cc/150?u=dr2" },
-  { text: "A agenda inteligente é fantástica. Reduzimos o no-show em 30% usando as automações e integrações de calendário.", author: "Dr. Paulo Vieira", clinic: "Vision Institute", img: "https://i.pravatar.cc/150?u=dr3" },
+  { text: "O SellClin mudou o jogo da nossa clínica. Centralizamos todos os leads e finalmente temos controle total do que entra e do que converte.", author: "Dr. Ricardo Santos", clinic: "Clínica OrthoDesign", img: "/testimonials/ricardo-santos.jpg" },
+  { text: "Finalmente tenho controle total dos meus leads de WhatsApp. Não perdemos mais nenhuma oportunidade de agendamento.", author: "Mariana Costa", clinic: "Aesthetic Center", img: "/testimonials/mariana-costa.jpg" },
+  { text: "A agenda inteligente é fantástica. Reduzimos o no-show em 30% usando as automações e integrações de calendário.", author: "Dr. Paulo Vieira", clinic: "Vision Institute", img: "/testimonials/paulo-vieira.jpg" },
 ];
 
 const Signup = () => {

@@ -181,14 +181,14 @@ const Index = () => {
             {[...Array(2)].map((_, idx) => (
               <React.Fragment key={idx}>
                 {[
-                  { name: "Dr. Ricardo Santos", clinic: "Clínica OrthoDesign", text: "O SellClin mudou o jogo aqui. Aumentamos nossa conversão de implantes em 45% no primeiro trimestre.", img: "https://i.pravatar.cc/150?u=dr1" },
-                  { name: "Mariana Costa", clinic: "Aesthetic Center", text: "Finalmente tenho controle total dos meus leads de WhatsApp. Não perdemos mais nenhuma oportunidade.", img: "https://i.pravatar.cc/150?u=dr2" },
-                  { name: "Dr. Paulo Vieira", clinic: "Vision Institute", text: "A agenda inteligente é fantástica. Reduzimos o no-show em 30% usando as automações do CRM.", img: "https://i.pravatar.cc/150?u=dr3" },
-                  { name: "Dra. Eliana Melo", clinic: "DermaGlow", text: "O melhor investimento que fiz este ano. O suporte é incrível e a plataforma é muito intuitiva.", img: "https://i.pravatar.cc/150?u=dr4" },
+                  { name: "Dr. Ricardo Santos", clinic: "Clínica OrthoDesign", text: "O SellClin mudou o jogo aqui. Aumentamos nossa conversão de implantes em 45% no primeiro trimestre.", img: "/testimonials/ricardo-santos.jpg" },
+                  { name: "Mariana Costa", clinic: "Aesthetic Center", text: "Finalmente tenho controle total dos meus leads de WhatsApp. Não perdemos mais nenhuma oportunidade.", img: "/testimonials/mariana-costa.jpg" },
+                  { name: "Dr. Paulo Vieira", clinic: "Vision Institute", text: "A agenda inteligente é fantástica. Reduzimos o no-show em 30% usando as automações do CRM.", img: "/testimonials/paulo-vieira.jpg" },
+                  { name: "Dra. Eliana Melo", clinic: "DermaGlow", text: "O melhor investimento que fiz este ano. O suporte é incrível e a plataforma é muito intuitiva.", img: "/testimonials/eliana-melo.jpg" },
                 ].map((t, i) => (
                   <div key={i} className="w-[85vw] sm:w-[380px] flex-shrink-0 bg-white p-6 sm:p-8 rounded-[2rem] sm:rounded-[3rem] border border-[#F97316]/30 shadow-[0_0_20px_rgba(249,115,22,0.05)] hover:border-[#F97316] hover:shadow-[0_0_30px_rgba(249,115,22,0.15)] hover:-translate-y-2 transition-all duration-500">
                     <div className="flex items-center gap-4 mb-6">
-                      <img src={t.img} className="w-12 h-12 rounded-full border-2 border-orange-50" alt={t.name} />
+                      <img src={t.img} className="h-12 w-12 rounded-full border-2 border-orange-50 object-cover" alt={t.name} />
                       <div><div className="text-sm font-black text-[#0F172A]">{t.name}</div><div className="text-[10px] font-bold text-[#F97316] uppercase tracking-wider">{t.clinic}</div></div>
                     </div>
                     <p className="text-sm text-[#64748B] font-medium leading-relaxed italic">"{t.text}"</p>
@@ -211,14 +211,14 @@ const Index = () => {
             {[...Array(2)].map((_, idx) => (
               <React.Fragment key={idx}>
                 {[
-                  { name: "Dr. Felipe Neves", clinic: "Neves Odontologia", text: "O sistema de funis é o que faltava para organizar meu comercial. Hoje sei exatamente onde focar.", img: "https://i.pravatar.cc/150?u=dr5" },
-                  { name: "Dra. Sarah Lima", clinic: "Lima Cardiovascular", text: "Interface limpa e resultados expressivos. A SellClin entende o dia a dia de uma clínica.", img: "https://i.pravatar.cc/150?u=dr6" },
-                  { name: "Bruno Rocha", clinic: "Rocha & Associados", text: "Gerenciar leads nunca foi tão simples. O dashboard me dá clareza total para tomar decisões.", img: "https://i.pravatar.cc/150?u=dr7" },
-                  { name: "Dra. Beatriz Ferraz", clinic: "Ferraz Pediatria", text: "Minha equipe amou a plataforma. Facilitou demais a comunicação com os pais via WhatsApp.", img: "https://i.pravatar.cc/150?u=dr8" },
+                  { name: "Dr. Felipe Neves", clinic: "Neves Odontologia", text: "O sistema de funis é o que faltava para organizar meu comercial. Hoje sei exatamente onde focar.", img: "/testimonials/felipe-neves.jpg" },
+                  { name: "Dra. Sarah Lima", clinic: "Lima Cardiovascular", text: "Interface limpa e resultados expressivos. A SellClin entende o dia a dia de uma clínica.", img: "/testimonials/sarah-lima.jpg" },
+                  { name: "Bruno Rocha", clinic: "Rocha & Associados", text: "Gerenciar leads nunca foi tão simples. O dashboard me dá clareza total para tomar decisões.", img: "/testimonials/bruno-rocha.jpg" },
+                  { name: "Dra. Beatriz Ferraz", clinic: "Ferraz Pediatria", text: "Minha equipe amou a plataforma. Facilitou demais a comunicação com os pais via WhatsApp.", img: "/testimonials/beatriz-ferraz.jpg" },
                 ].map((t, i) => (
                   <div key={i} className="w-[85vw] sm:w-[380px] flex-shrink-0 bg-white p-6 sm:p-8 rounded-[2rem] sm:rounded-[3rem] border border-[#F97316]/30 shadow-[0_0_20px_rgba(249,115,22,0.05)] hover:border-[#F97316] hover:shadow-[0_0_30px_rgba(249,115,22,0.15)] hover:-translate-y-2 transition-all duration-500">
                     <div className="flex items-center gap-4 mb-6">
-                      <img src={t.img} className="w-12 h-12 rounded-full border-2 border-orange-50" alt={t.name} />
+                      <img src={t.img} className="h-12 w-12 rounded-full border-2 border-orange-50 object-cover" alt={t.name} />
                       <div><div className="text-sm font-black text-[#0F172A]">{t.name}</div><div className="text-[10px] font-bold text-[#F97316] uppercase tracking-wider">{t.clinic}</div></div>
                     </div>
                     <p className="text-sm text-[#64748B] font-medium leading-relaxed italic">"{t.text}"</p>
