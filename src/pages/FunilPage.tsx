@@ -165,112 +165,63 @@ const FunilPage = () => {
         </div>
       </section>
 
-      {/* ANTES VS DEPOIS (IMPACTO REAL) */}
-      <section className="py-24 bg-[#0F172A] border-t border-slate-800 relative overflow-hidden">
-        {/* Background grid mesh */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_0.6px,transparent_0.6px),linear-gradient(to_bottom,#1e293b_0.6px,transparent_0.6px)] bg-[size:3rem_3rem] pointer-events-none opacity-40" />
-        {/* Ambient glowing circles */}
-        <div className="absolute left-1/4 top-1/4 w-[400px] h-[400px] bg-red-500/10 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute right-1/4 bottom-1/4 w-[450px] h-[450px] bg-emerald-500/10 rounded-full blur-[100px] pointer-events-none" />
+      {/* PIPELINE EM MOVIMENTO */}
+      <section className="relative overflow-hidden border-t border-slate-800 bg-[#0F172A] py-24">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_0.6px,transparent_0.6px),linear-gradient(to_bottom,#1e293b_0.6px,transparent_0.6px)] bg-[size:3rem_3rem] opacity-35" />
+        <div className="absolute left-1/2 top-1/2 h-[440px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-500/[0.08] blur-[120px]" />
 
-        <div className="max-w-5xl mx-auto px-8 relative z-10">
-          <motion.div 
-            initial={{ opacity: 0, y: 50 }}
+        <div className="relative z-10 mx-auto max-w-6xl px-6 sm:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.3 }}
-            transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
-            className="text-center mb-16"
+            transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+            className="mb-14 text-center"
           >
-            <span className="text-[#F97316] font-black text-[10px] uppercase tracking-[0.4em] mb-4 inline-block bg-orange-500/10 border border-orange-500/20 px-4 py-1.5 rounded-full">Processo Comercial</span>
-            <h2 className="text-3xl md:text-5xl font-headline font-black tracking-tighter text-white">A evolução do seu controle de leads</h2>
+            <span className="mb-4 block text-[10px] font-black uppercase tracking-[0.4em] text-orange-400">Pipeline em movimento</span>
+            <h2 className="text-3xl font-headline font-black tracking-tighter text-white md:text-5xl">Cada lead no lugar certo. Cada próxima ação visível.</h2>
+            <p className="mx-auto mt-5 max-w-2xl text-sm font-medium leading-relaxed text-slate-400 sm:text-base">O quadro mostra onde a oportunidade está, quem atende e quanto ela pode representar para a clínica.</p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
-            {/* ANTES */}
-            <motion.div 
-              initial={{ opacity: 0, x: -50 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, amount: 0.3 }}
-              transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-slate-900/40 backdrop-blur-sm border border-slate-800/80 rounded-[2.5rem] p-8 sm:p-10 relative overflow-hidden shadow-2xl"
-            >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 rounded-full blur-3xl pointer-events-none" />
-              <div className="flex items-center gap-3 mb-8">
-                <span className="text-[10px] font-black uppercase tracking-widest text-red-400 bg-red-500/10 border border-red-500/20 px-3 py-1 rounded-full shadow-sm">Como era antes</span>
-              </div>
-              <div className="space-y-4">
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-950/60 border border-slate-800/60 shadow-inner transition-all hover:bg-slate-950 hover:border-slate-700 duration-300">
-                  <div className="w-9 h-9 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0 border border-red-500/20 text-red-400 shadow-sm">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </div>
-                  <p className="text-slate-400 text-[13px] font-medium leading-relaxed mt-1">Leads vindos do Instagram e tráfego pago perdidos em conversas soltas ou planilhas difíceis de atualizar.</p>
-                </div>
+          <motion.div
+            initial={{ opacity: 0, y: 45 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 1.2, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+            className="overflow-hidden rounded-[2rem] border border-white/[0.08] bg-slate-950/45 p-4 shadow-2xl shadow-black/20 sm:p-6"
+          >
+            <div className="mb-5 flex flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between">
+              <div><p className="text-sm font-black text-white">Funil de novos pacientes</p><p className="mt-1 text-[11px] font-medium text-slate-500">32 oportunidades • R$ 184.500 em potencial</p></div>
+              <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400"><span className="h-2 w-2 rounded-full bg-emerald-400" />Atualizado em tempo real</div>
+            </div>
 
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-950/60 border border-slate-800/60 shadow-inner transition-all hover:bg-slate-950 hover:border-slate-700 duration-300">
-                  <div className="w-9 h-9 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0 border border-red-500/20 text-red-400 shadow-sm">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+            <div className="grid gap-3 md:grid-cols-3">
+              {[
+                { title: 'Novos leads', count: 12, color: 'bg-blue-400', cards: [{ name: 'Ana Júlia', origin: 'Instagram', value: 'R$ 4.800' }, { name: 'Rafael Costa', origin: 'Meta Ads', value: 'R$ 7.200' }] },
+                { title: 'Em atendimento', count: 8, color: 'bg-amber-400', cards: [{ name: 'Carla Mendes', origin: 'WhatsApp', value: 'R$ 9.500' }, { name: 'Bruno Martins', origin: 'Indicação', value: 'R$ 3.600' }] },
+                { title: 'Proposta enviada', count: 5, color: 'bg-orange-400', cards: [{ name: 'Larissa Rocha', origin: 'Google Ads', value: 'R$ 12.000' }, { name: 'Marcos Silva', origin: 'Instagram', value: 'R$ 6.400' }] },
+              ].map((column) => (
+                <div key={column.title} className="rounded-2xl bg-white/[0.035] p-3.5">
+                  <div className="mb-3 flex items-center justify-between px-1">
+                    <span className="flex items-center gap-2 text-[11px] font-black text-slate-200"><span className={`h-2 w-2 rounded-full ${column.color}`} />{column.title}</span>
+                    <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[9px] font-black text-slate-400">{column.count}</span>
                   </div>
-                  <p className="text-slate-400 text-[13px] font-medium leading-relaxed mt-1">Falta de histórico sobre o que já foi conversado com o paciente, precisando reler conversas antigas inteiras.</p>
+                  <div className="space-y-2.5">
+                    {column.cards.map((lead) => (
+                      <div key={lead.name} className="rounded-xl border border-white/[0.06] bg-[#111827] p-4 transition-transform hover:-translate-y-0.5">
+                        <div className="flex items-start justify-between gap-3"><p className="text-sm font-bold text-white">{lead.name}</p><span className="text-[10px] font-black text-orange-400">{lead.value}</span></div>
+                        <div className="mt-3 flex items-center justify-between"><span className="rounded-full bg-white/[0.05] px-2 py-1 text-[9px] font-bold text-slate-500">{lead.origin}</span><span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-700 text-[8px] font-black text-slate-300">SR</span></div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
+              ))}
+            </div>
 
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-950/60 border border-slate-800/60 shadow-inner transition-all hover:bg-slate-950 hover:border-slate-700 duration-300">
-                  <div className="w-9 h-9 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0 border border-red-500/20 text-red-400 shadow-sm">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </div>
-                  <p className="text-slate-400 text-[13px] font-medium leading-relaxed mt-1">Sem controle sobre o valor potencial de vendas de cada tratamento em negociação na clínica.</p>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* DEPOIS */}
-            <motion.div 
-              initial={{ opacity: 0, x: 50 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, amount: 0.3 }}
-              transition={{ duration: 1.4, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-gradient-to-br from-[#1e293b]/50 to-[#0f172a]/30 backdrop-blur-sm border border-orange-500/20 rounded-[2.5rem] p-8 sm:p-10 relative overflow-hidden shadow-[0_15px_40px_-20px_rgba(249,115,22,0.15)]"
-            >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-              <div className="absolute -left-10 -bottom-10 w-32 h-32 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
-              <div className="flex items-center gap-3 mb-8">
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#F97316] bg-orange-500/10 border border-orange-500/20 px-3 py-1 rounded-full shadow-sm">Com o SellClin</span>
-              </div>
-              <div className="space-y-4">
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-950/80 border border-orange-500/20 shadow-[0_4px_20px_rgba(249,115,22,0.08)] transition-all hover:border-orange-500/40 hover:-translate-y-0.5 duration-300">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0 border border-emerald-500/20 text-emerald-400 shadow-sm">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <p className="text-slate-100 text-[13px] font-semibold leading-relaxed mt-1">Quadro Kanban organizado por etapas do funil com identificação clara de origem (Instagram, Meta Ads, Google Ads).</p>
-                </div>
-
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-950/80 border border-orange-500/20 shadow-[0_4px_20px_rgba(249,115,22,0.08)] transition-all hover:border-orange-500/40 hover:-translate-y-0.5 duration-300">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0 border border-emerald-500/20 text-emerald-400 shadow-sm">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <p className="text-slate-100 text-[13px] font-semibold leading-relaxed mt-1">Linha do tempo de atividades contendo anotações, ligações e propostas geradas para cada paciente.</p>
-                </div>
-
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-950/80 border border-orange-500/20 shadow-[0_4px_20px_rgba(249,115,22,0.08)] transition-all hover:border-orange-500/40 hover:-translate-y-0.5 duration-300">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0 border border-emerald-500/20 text-emerald-400 shadow-sm">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <p className="text-slate-100 text-[13px] font-semibold leading-relaxed mt-1">Controle do valor potencial do tratamento no próprio card para priorizar as negociações mais valiosas.</p>
-                </div>
-              </div>
-            </motion.div>
-          </div>
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-xs font-semibold text-slate-400">
+              {['Responsável definido', 'Histórico completo', 'Valor da oportunidade', 'Origem identificada'].map((item) => <span key={item} className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-emerald-400" />{item}</span>)}
+            </div>
+          </motion.div>
         </div>
       </section>
 
@@ -359,7 +310,7 @@ const FunilPage = () => {
                     <Calendar className="w-6 h-6" />
                   </div>
                   <h3 className="text-xl font-black text-[#0F172A] mb-3">Agenda Inteligente</h3>
-                  <p className="text-slate-500 font-medium text-sm leading-relaxed mb-6">Confirmações automáticas por WhatsApp Web e painel de status visual colorido para a recepção.</p>
+                  <p className="text-slate-500 font-medium text-sm leading-relaxed mb-6">Confirmações pelo WhatsApp oficial e painel de status visual para toda a recepção.</p>
                 </div>
                 <div className="text-xs font-black text-[#F97316] uppercase tracking-widest flex items-center gap-2 group-hover:gap-3 transition-all">
                   Conhecer a Agenda <ArrowRight size={14} />

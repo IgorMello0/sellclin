@@ -145,112 +145,71 @@ const MetasPage = () => {
         </div>
       </section>
 
-      {/* ANTES VS DEPOIS (IMPACTO REAL) */}
-      <section className="py-24 bg-[#0F172A] border-t border-slate-800 relative overflow-hidden">
-        {/* Background grid mesh */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_0.6px,transparent_0.6px),linear-gradient(to_bottom,#1e293b_0.6px,transparent_0.6px)] bg-[size:3rem_3rem] pointer-events-none opacity-40" />
-        {/* Ambient glowing circles */}
-        <div className="absolute left-1/4 top-1/4 w-[400px] h-[400px] bg-red-500/10 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute right-1/4 bottom-1/4 w-[450px] h-[450px] bg-emerald-500/10 rounded-full blur-[100px] pointer-events-none" />
+      {/* META TRADUZIDA EM OPERAÇÃO */}
+      <section className="relative overflow-hidden border-t border-slate-800 bg-[#0F172A] py-24">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_0.6px,transparent_0.6px),linear-gradient(to_bottom,#1e293b_0.6px,transparent_0.6px)] bg-[size:3rem_3rem] opacity-35" />
+        <div className="absolute left-1/2 top-1/2 h-[430px] w-[650px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-500/[0.09] blur-[120px]" />
 
-        <div className="max-w-5xl mx-auto px-8 relative z-10">
-          <motion.div 
-            initial={{ opacity: 0, y: 50 }}
+        <div className="relative z-10 mx-auto max-w-6xl px-6 sm:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.3 }}
-            transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
-            className="text-center mb-16"
+            transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+            className="mb-14 text-center"
           >
-            <span className="text-[#F97316] font-black text-[10px] uppercase tracking-[0.4em] mb-4 inline-block bg-orange-500/10 border border-orange-500/20 px-4 py-1.5 rounded-full">Planejamento Estratégico</span>
-            <h2 className="text-3xl md:text-5xl font-headline font-black tracking-tighter text-white">A evolução do seu planejamento financeiro</h2>
+            <span className="mb-4 block text-[10px] font-black uppercase tracking-[0.4em] text-orange-400">Meta traduzida em operação</span>
+            <h2 className="text-3xl font-headline font-black tracking-tighter text-white md:text-5xl">Do faturamento desejado ao número de leads.</h2>
+            <p className="mx-auto mt-5 max-w-2xl text-sm font-medium leading-relaxed text-slate-400 sm:text-base">O SellClin transforma o objetivo financeiro em metas comerciais que sua equipe consegue acompanhar todos os dias.</p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
-            {/* ANTES */}
-            <motion.div 
-              initial={{ opacity: 0, x: -50 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, amount: 0.3 }}
-              transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-slate-900/40 backdrop-blur-sm border border-slate-800/80 rounded-[2.5rem] p-8 sm:p-10 relative overflow-hidden shadow-2xl"
-            >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 rounded-full blur-3xl pointer-events-none" />
-              <div className="flex items-center gap-3 mb-8">
-                <span className="text-[10px] font-black uppercase tracking-widest text-red-400 bg-red-500/10 border border-red-500/20 px-3 py-1 rounded-full shadow-sm">Como era antes</span>
-              </div>
-              <div className="space-y-4">
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-950/60 border border-slate-800/60 shadow-inner transition-all hover:bg-slate-950 hover:border-slate-700 duration-300">
-                  <div className="w-9 h-9 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0 border border-red-500/20 text-red-400 shadow-sm">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </div>
-                  <p className="text-slate-400 text-[13px] font-medium leading-relaxed mt-1">Definir metas de faturamento sem saber a quantidade exata de atendimentos necessários para bater o objetivo.</p>
-                </div>
-
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-950/60 border border-slate-800/60 shadow-inner transition-all hover:bg-slate-950 hover:border-slate-700 duration-300">
-                  <div className="w-9 h-9 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0 border border-red-500/20 text-red-400 shadow-sm">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </div>
-                  <p className="text-slate-400 text-[13px] font-medium leading-relaxed mt-1">Nenhum controle sobre as taxas reais de conversão de agendamentos, comparecimentos e fechamentos.</p>
-                </div>
-
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-950/60 border border-slate-800/60 shadow-inner transition-all hover:bg-slate-950 hover:border-slate-700 duration-300">
-                  <div className="w-9 h-9 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0 border border-red-500/20 text-red-400 shadow-sm">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </div>
-                  <p className="text-slate-400 text-[13px] font-medium leading-relaxed mt-1">Sem ferramentas para simular e guardar diferentes cenários de faturamento e ticket médio da clínica.</p>
+          <motion.div
+            initial={{ opacity: 0, y: 45 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 1.2, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+            className="grid items-center gap-8 lg:grid-cols-[0.8fr_1.2fr]"
+          >
+            <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
+              <div className="relative flex h-52 w-52 items-center justify-center rounded-full bg-[conic-gradient(#F97316_0deg,#F97316_276deg,rgba(255,255,255,0.07)_276deg)] shadow-[0_25px_90px_-35px_rgba(249,115,22,0.7)]">
+                <div className="flex h-[174px] w-[174px] flex-col items-center justify-center rounded-full border border-white/[0.06] bg-[#111827]">
+                  <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">Progresso da meta</span>
+                  <strong className="mt-2 text-5xl font-black tracking-tighter text-white">77%</strong>
+                  <span className="mt-1 text-[11px] font-bold text-emerald-400">no ritmo esperado</span>
                 </div>
               </div>
-            </motion.div>
+              <p className="mt-7 text-xs font-medium leading-relaxed text-slate-500">A projeção acompanha o desempenho real do funil e mostra quanto falta para atingir o objetivo.</p>
+            </div>
 
-            {/* DEPOIS */}
-            <motion.div 
-              initial={{ opacity: 0, x: 50 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, amount: 0.3 }}
-              transition={{ duration: 1.4, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-gradient-to-br from-[#1e293b]/50 to-[#0f172a]/30 backdrop-blur-sm border border-orange-500/20 rounded-[2.5rem] p-8 sm:p-10 relative overflow-hidden shadow-[0_15px_40px_-20px_rgba(249,115,22,0.15)]"
-            >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-              <div className="absolute -left-10 -bottom-10 w-32 h-32 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
-              <div className="flex items-center gap-3 mb-8">
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#F97316] bg-orange-500/10 border border-orange-500/20 px-3 py-1 rounded-full shadow-sm">Com o SellClin</span>
+            <div>
+              <div className="mb-7">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Objetivo mensal</span>
+                <p className="mt-2 text-4xl font-black tracking-tighter text-white">{revenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}</p>
+                <p className="mt-1 text-xs font-medium text-slate-500">Ticket médio de {ticket.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}</p>
               </div>
-              <div className="space-y-4">
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-950/80 border border-orange-500/20 shadow-[0_4px_20px_rgba(249,115,22,0.08)] transition-all hover:border-orange-500/40 hover:-translate-y-0.5 duration-300">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0 border border-emerald-500/20 text-emerald-400 shadow-sm">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <p className="text-slate-100 text-[13px] font-semibold leading-relaxed mt-1">Sliders interativos para definir Faturamento Desejado, Ticket Médio e taxas por etapa do funil comercial.</p>
-                </div>
 
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-950/80 border border-orange-500/20 shadow-[0_4px_20px_rgba(249,115,22,0.08)] transition-all hover:border-orange-500/40 hover:-translate-y-0.5 duration-300">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0 border border-emerald-500/20 text-emerald-400 shadow-sm">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {[
+                  { value: totalSales, label: 'vendas', detail: 'objetivo final', icon: DollarSign, color: 'text-emerald-400 bg-emerald-400/10' },
+                  { value: Math.round(totalSales / 0.45), label: 'agendamentos', detail: '45% de fechamento', icon: Calendar, color: 'text-blue-400 bg-blue-400/10' },
+                  { value: neededLeads, label: 'leads', detail: '60% de agendamento', icon: Target, color: 'text-orange-400 bg-orange-400/10' },
+                ].map((metric, index) => (
+                  <div key={metric.label} className="relative rounded-2xl border border-white/[0.07] bg-white/[0.035] p-5">
+                    {index > 0 && <ArrowRight className="absolute -left-5 top-1/2 hidden h-4 w-4 -translate-y-1/2 text-slate-600 sm:block" />}
+                    <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${metric.color}`}><metric.icon className="h-4 w-4" /></span>
+                    <p className="mt-5 text-3xl font-black tracking-tighter text-white">{metric.value}</p>
+                    <p className="mt-1 text-xs font-bold text-slate-300">{metric.label}</p>
+                    <p className="mt-2 text-[9px] font-semibold uppercase tracking-wider text-slate-600">{metric.detail}</p>
                   </div>
-                  <p className="text-slate-100 text-[13px] font-semibold leading-relaxed mt-1">Cálculo instantâneo que mostra a quantidade necessária de Leads, Agendamentos e Vendas para atingir o alvo.</p>
-                </div>
-
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-950/80 border border-orange-500/20 shadow-[0_4px_20px_rgba(249,115,22,0.08)] transition-all hover:border-orange-500/40 hover:-translate-y-0.5 duration-300">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0 border border-emerald-500/20 text-emerald-400 shadow-sm">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <p className="text-slate-100 text-[13px] font-semibold leading-relaxed mt-1">Possibilidade de salvar diferentes planos e cenários diretamente no banco de dados para comparação rápida.</p>
-                </div>
+                ))}
               </div>
-            </motion.div>
-          </div>
+
+              <div className="mt-5 flex items-center gap-3 rounded-2xl border border-orange-400/15 bg-orange-400/[0.06] px-5 py-4">
+                <TrendingUp className="h-5 w-5 shrink-0 text-orange-400" />
+                <p className="text-xs font-semibold leading-relaxed text-slate-300">Se uma taxa muda, toda a projeção é recalculada para mostrar o novo esforço necessário.</p>
+              </div>
+            </div>
+          </motion.div>
         </div>
       </section>
 
@@ -339,7 +298,7 @@ const MetasPage = () => {
                     <Calendar className="w-6 h-6" />
                   </div>
                   <h3 className="text-xl font-black text-[#0F172A] mb-3">Agenda Inteligente</h3>
-                  <p className="text-slate-500 font-medium text-sm leading-relaxed mb-6">Confirmações automáticas por WhatsApp Web e painel de status visual colorido para a recepção.</p>
+                  <p className="text-slate-500 font-medium text-sm leading-relaxed mb-6">Confirmações pelo WhatsApp oficial e painel de status visual para toda a recepção.</p>
                 </div>
                 <div className="text-xs font-black text-[#F97316] uppercase tracking-widest flex items-center gap-2 group-hover:gap-3 transition-all">
                   Conhecer a Agenda <ArrowRight size={14} />

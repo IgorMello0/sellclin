@@ -262,112 +262,83 @@ const AgendaPage = () => {
           </div>
         </div>
       </section>
-      {/* ANTES VS DEPOIS (IMPACTO REAL) */}
-      <section className="py-24 bg-[#0F172A] border-t border-slate-800 relative overflow-hidden">
-        {/* Background grid mesh */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_0.6px,transparent_0.6px),linear-gradient(to_bottom,#1e293b_0.6px,transparent_0.6px)] bg-[size:3rem_3rem] pointer-events-none opacity-40" />
-        {/* Ambient glowing circles */}
-        <div className="absolute left-1/4 top-1/4 w-[400px] h-[400px] bg-red-500/10 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute right-1/4 bottom-1/4 w-[450px] h-[450px] bg-emerald-500/10 rounded-full blur-[100px] pointer-events-none" />
+      {/* AGENDA DO DIA */}
+      <section className="relative overflow-hidden border-t border-slate-800 bg-[#0F172A] py-24">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_0.6px,transparent_0.6px),linear-gradient(to_bottom,#1e293b_0.6px,transparent_0.6px)] bg-[size:3rem_3rem] opacity-35" />
+        <div className="absolute right-1/4 top-1/3 h-[420px] w-[420px] rounded-full bg-orange-500/10 blur-[110px]" />
 
-        <div className="max-w-5xl mx-auto px-8 relative z-10">
-          <motion.div 
-            initial={{ opacity: 0, y: 50 }}
+        <div className="relative z-10 mx-auto max-w-6xl px-6 sm:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.3 }}
-            transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
-            className="text-center mb-16"
+            transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+            className="mb-14 max-w-2xl"
           >
-            <span className="text-[#F97316] font-black text-[10px] uppercase tracking-[0.4em] mb-4 inline-block bg-orange-500/10 border border-orange-500/20 px-4 py-1.5 rounded-full">Rotina da Clínica</span>
-            <h2 className="text-3xl md:text-5xl font-headline font-black tracking-tighter text-white">A evolução da sua rotina na recepção</h2>
+            <span className="mb-4 block text-[10px] font-black uppercase tracking-[0.4em] text-orange-400">A rotina em uma tela</span>
+            <h2 className="text-3xl font-headline font-black tracking-tighter text-white md:text-5xl">A recepção sabe o que acontece agora e o que vem depois.</h2>
+            <p className="mt-5 text-sm font-medium leading-relaxed text-slate-400 sm:text-base">Horários, profissionais e confirmações ficam visíveis sem abrir planilhas ou procurar informações em várias telas.</p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
-            {/* ANTES */}
-            <motion.div 
-              initial={{ opacity: 0, x: -50 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, amount: 0.3 }}
-              transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-slate-900/40 backdrop-blur-sm border border-slate-800/80 rounded-[2.5rem] p-8 sm:p-10 relative overflow-hidden shadow-2xl"
-            >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 rounded-full blur-3xl pointer-events-none" />
-              <div className="flex items-center gap-3 mb-8">
-                <span className="text-[10px] font-black uppercase tracking-widest text-red-400 bg-red-500/10 border border-red-500/20 px-3 py-1 rounded-full shadow-sm">Como era antes</span>
+          <motion.div
+            initial={{ opacity: 0, y: 45 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 1.2, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+            className="grid gap-5 lg:grid-cols-[0.72fr_1.28fr]"
+          >
+            <div className="flex flex-col justify-between rounded-[2rem] border border-white/[0.08] bg-white/[0.035] p-7 sm:p-8">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Agenda de hoje</span>
+                  <Calendar className="h-5 w-5 text-orange-400" />
+                </div>
+                <p className="mt-7 text-6xl font-black tracking-tighter text-white">12</p>
+                <p className="mt-1 text-sm font-semibold text-slate-400">consultas programadas</p>
               </div>
-              <div className="space-y-4">
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-950/60 border border-slate-800/60 shadow-inner transition-all hover:bg-slate-950 hover:border-slate-700 duration-300">
-                  <div className="w-9 h-9 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0 border border-red-500/20 text-red-400 shadow-sm">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+              <div className="mt-10 space-y-4">
+                {[
+                  { label: 'Confirmadas', value: '9', color: 'bg-emerald-400' },
+                  { label: 'Aguardando confirmação', value: '2', color: 'bg-amber-400' },
+                  { label: 'Concluída', value: '1', color: 'bg-orange-400' },
+                ].map((item) => (
+                  <div key={item.label} className="flex items-center justify-between border-b border-white/[0.06] pb-3 last:border-0 last:pb-0">
+                    <span className="flex items-center gap-2 text-xs font-semibold text-slate-400"><span className={`h-1.5 w-1.5 rounded-full ${item.color}`} />{item.label}</span>
+                    <span className="text-sm font-black text-white">{item.value}</span>
                   </div>
-                  <p className="text-slate-400 text-[13px] font-medium leading-relaxed mt-1">Perder tempo digitando manualmente a mensagem de confirmação para cada paciente agendado.</p>
-                </div>
-
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-950/60 border border-slate-800/60 shadow-inner transition-all hover:bg-slate-950 hover:border-slate-700 duration-300">
-                  <div className="w-9 h-9 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0 border border-red-500/20 text-red-400 shadow-sm">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </div>
-                  <p className="text-slate-400 text-[13px] font-medium leading-relaxed mt-1">Dificuldade para identificar rapidamente quais consultas estão confirmadas, pendentes ou concluídas.</p>
-                </div>
-
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-950/60 border border-slate-800/60 shadow-inner transition-all hover:bg-slate-950 hover:border-slate-700 duration-300">
-                  <div className="w-9 h-9 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0 border border-red-500/20 text-red-400 shadow-sm">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </div>
-                  <p className="text-slate-400 text-[13px] font-medium leading-relaxed mt-1">Navegação lenta e confusa para visualizar a agenda individual de cada profissional da clínica.</p>
-                </div>
+                ))}
               </div>
-            </motion.div>
+            </div>
 
-            {/* DEPOIS */}
-            <motion.div 
-              initial={{ opacity: 0, x: 50 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, amount: 0.3 }}
-              transition={{ duration: 1.4, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-gradient-to-br from-[#1e293b]/50 to-[#0f172a]/30 backdrop-blur-sm border border-orange-500/20 rounded-[2.5rem] p-8 sm:p-10 relative overflow-hidden shadow-[0_15px_40px_-20px_rgba(249,115,22,0.15)]"
-            >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-              <div className="absolute -left-10 -bottom-10 w-32 h-32 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
-              <div className="flex items-center gap-3 mb-8">
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#F97316] bg-orange-500/10 border border-orange-500/20 px-3 py-1 rounded-full shadow-sm">Com o SellClin</span>
-              </div>
-              <div className="space-y-4">
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-950/80 border border-orange-500/20 shadow-[0_4px_20px_rgba(249,115,22,0.08)] transition-all hover:border-orange-500/40 hover:-translate-y-0.5 duration-300">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0 border border-emerald-500/20 text-emerald-400 shadow-sm">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <p className="text-slate-100 text-[13px] font-semibold leading-relaxed mt-1">Botão "Avisar" que abre o WhatsApp Web com mensagem de confirmação de consulta 100% pronta.</p>
+            <div className="rounded-[2rem] border border-white/[0.08] bg-slate-950/45 p-4 sm:p-6">
+              <div className="flex items-center justify-between px-2 pb-5">
+                <div>
+                  <p className="text-sm font-black text-white">Próximos atendimentos</p>
+                  <p className="mt-1 text-[11px] font-medium text-slate-500">Todos os profissionais</p>
                 </div>
-
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-950/80 border border-orange-500/20 shadow-[0_4px_20px_rgba(249,115,22,0.08)] transition-all hover:border-orange-500/40 hover:-translate-y-0.5 duration-300">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0 border border-emerald-500/20 text-emerald-400 shadow-sm">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <p className="text-slate-100 text-[13px] font-semibold leading-relaxed mt-1">Status visuais coloridos (Agendado, Confirmado, Concluído, Cancelado) no próprio painel da consulta.</p>
-                </div>
-
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-950/80 border border-orange-500/20 shadow-[0_4px_20px_rgba(249,115,22,0.08)] transition-all hover:border-orange-500/40 hover:-translate-y-0.5 duration-300">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0 border border-emerald-500/20 text-emerald-400 shadow-sm">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <p className="text-slate-100 text-[13px] font-semibold leading-relaxed mt-1">Visualização rápida da agenda em formato de Dia, Semana e Mês, com filtro instantâneo por profissional.</p>
+                <div className="flex gap-1.5">
+                  {['Dia', 'Semana', 'Mês'].map((view, index) => <span key={view} className={`rounded-lg px-2.5 py-1.5 text-[9px] font-black ${index === 0 ? 'bg-orange-500 text-white' : 'text-slate-500'}`}>{view}</span>)}
                 </div>
               </div>
-            </motion.div>
-          </div>
+              <div className="space-y-2.5">
+                {[
+                  { time: '09:00', name: 'Mariana Alves', service: 'Avaliação • Dra. Camila', status: 'Confirmado', tone: 'border-emerald-400/25 bg-emerald-400/[0.07] text-emerald-400' },
+                  { time: '10:30', name: 'Paulo Henrique', service: 'Retorno • Dr. Lucas', status: 'Agendado', tone: 'border-blue-400/25 bg-blue-400/[0.07] text-blue-400' },
+                  { time: '14:00', name: 'Fernanda Lima', service: 'Procedimento • Dra. Camila', status: 'Confirmar', tone: 'border-amber-400/25 bg-amber-400/[0.07] text-amber-400' },
+                ].map((appointment) => (
+                  <div key={appointment.time} className="grid grid-cols-[54px_1fr] items-center gap-3 rounded-2xl bg-white/[0.035] p-3.5 sm:grid-cols-[58px_1fr_auto] sm:p-4">
+                    <span className="text-sm font-black tabular-nums text-white">{appointment.time}</span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-slate-100">{appointment.name}</p>
+                      <p className="mt-0.5 truncate text-[11px] font-medium text-slate-500">{appointment.service}</p>
+                    </div>
+                    <span className={`col-start-2 w-fit rounded-full border px-2.5 py-1 text-[9px] font-black sm:col-start-auto ${appointment.tone}`}>{appointment.status}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 flex items-center gap-2 px-2 text-[11px] font-semibold text-slate-500"><Bell className="h-3.5 w-3.5 text-orange-400" />Confirmações e mudanças de status ficam visíveis para toda a equipe.</div>
+            </div>
+          </motion.div>
         </div>
       </section>
 
