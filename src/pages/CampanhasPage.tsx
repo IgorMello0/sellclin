@@ -16,19 +16,21 @@ const CampanhasPage = () => {
   }, []);
 
   const benefits = [
-    { icon: <Send className="w-6 h-6" />, title: "Disparos Rápidos", desc: "Envie milhares de mensagens via WhatsApp em poucos cliques, sem complicação ou configurações técnicas." },
-    { icon: <Users className="w-6 h-6" />, title: "Segmentação Inteligente", desc: "Filtre sua base por tags, etapa do funil ou importe planilhas CSV para enviar a mensagem certa para a pessoa certa." },
-    { icon: <MessageSquare className="w-6 h-6" />, title: "Mensagens Personalizadas", desc: "Use variáveis como nome do lead ou serviço de interesse para criar mensagens que convertem de verdade." },
-    { icon: <Activity className="w-6 h-6" />, title: "Acompanhamento ao Vivo", desc: "Veja em tempo real quem recebeu, quem leu e o progresso da sua campanha direto no dashboard." },
-    { icon: <ShieldCheck className="w-6 h-6" />, title: "Envio Cadenciado (Anti-ban)", desc: "Nosso sistema simula o comportamento humano com pausas estratégicas para proteger seu número contra bloqueios." },
-    { icon: <KanbanSquare className="w-6 h-6" />, title: "Integração com Funil", desc: "Os leads que responderem a campanha já entram automaticamente no seu funil comercial, prontos para a venda." },
+    { icon: <ShieldCheck className="w-6 h-6" />, title: "API Oficial do WhatsApp", desc: "Campanhas enviadas pela infraestrutura oficial da Meta, sem automações que imitam uma pessoa e sem depender do WhatsApp Web." },
+    { icon: <MessageSquare className="w-6 h-6" />, title: "Coexistência no Mesmo Número", desc: "Sua equipe continua usando o WhatsApp Business no celular enquanto o SellClin centraliza campanhas e atendimentos no mesmo número." },
+    { icon: <CheckCircle2 className="w-6 h-6" />, title: "Templates Aprovados pela Meta", desc: "Inicie campanhas com modelos revisados pela Meta, usando textos, variáveis e chamadas para ação dentro do padrão oficial." },
+    { icon: <Users className="w-6 h-6" />, title: "Segmentação Inteligente", desc: "Selecione contatos por tags, etapa do funil e histórico para enviar mensagens relevantes à base autorizada da clínica." },
+    { icon: <Activity className="w-6 h-6" />, title: "Métricas Oficiais", desc: "Acompanhe os status informados pela própria API: mensagens enviadas, entregues, lidas e respondidas." },
+    { icon: <KanbanSquare className="w-6 h-6" />, title: "Respostas Direto no Funil", desc: "Quando o paciente responde, a conversa e o lead ficam disponíveis para a equipe continuar o atendimento dentro do SellClin." },
   ];
 
   const faqs = [
-    { q: "Preciso de um celular conectado o tempo todo?", a: "Para disparos via WhatsApp Web, você precisará conectar seu aparelho através do QR Code e mantê-lo com internet, exatamente como usa o WhatsApp Web no computador." },
-    { q: "Há risco de ter meu número banido?", a: "O SellClin utiliza algoritmos de envio cadenciado (pausas aleatórias) para simular o comportamento humano e reduzir o risco de bloqueios, mas é importante seguir as boas práticas e evitar spam para contatos que não solicitaram mensagens." },
-    { q: "Posso enviar campanhas para listas frias compradas?", a: "Não recomendamos. Nossa ferramenta foi desenhada para nutrir e reengajar a base de contatos e leads que já interagiram com a sua clínica. O envio para listas não autorizadas aumenta exponencialmente as chances de banimento do WhatsApp." },
-    { q: "As métricas de leitura são exatas?", a: "Mostramos a taxa de entrega e envio com 100% de exatidão. A leitura (blue tick) depende da configuração de privacidade de quem recebe a mensagem." },
+    { q: "Preciso manter um celular conectado ou escanear QR Code?", a: "Não. As campanhas são enviadas pela API Oficial do WhatsApp, sem depender de uma sessão do WhatsApp Web ou de um celular permanentemente conectado." },
+    { q: "O que significa coexistência?", a: "A coexistência permite usar o WhatsApp Business no celular e a plataforma oficial integrada ao SellClin com o mesmo número. A equipe mantém a rotina no aplicativo e também atende e acompanha campanhas pelo sistema." },
+    { q: "Posso escrever qualquer mensagem para iniciar uma campanha?", a: "Para iniciar conversas fora da janela de atendimento, a Meta exige um template previamente aprovado. No SellClin, você seleciona o modelo oficial, personaliza as variáveis permitidas e define a audiência." },
+    { q: "Usar a API Oficial elimina qualquer risco de restrição?", a: "A API Oficial oferece a estrutura correta para operar no WhatsApp, mas a clínica ainda deve obter autorização dos contatos, respeitar as políticas da Meta e manter mensagens relevantes. Denúncias e baixa qualidade podem gerar limites ou restrições." },
+    { q: "Posso enviar para listas frias compradas?", a: "Não. Campanhas devem ser direcionadas a contatos que autorizaram comunicações da clínica. Listas compradas prejudicam a qualidade do número e violam as boas práticas da plataforma." },
+    { q: "Quais métricas ficam disponíveis?", a: "O painel acompanha os eventos retornados pela API Oficial, como envio, entrega, leitura e resposta. A confirmação de leitura depende das configurações de privacidade do destinatário." },
   ];
 
   return (
@@ -55,13 +57,13 @@ const CampanhasPage = () => {
               <ArrowRight className="w-4 h-4 rotate-180 group-hover:-translate-x-1 transition-transform" />
               Voltar ao início
             </Link>
-            <span className="text-[#F97316] font-black text-[10px] uppercase tracking-[0.4em] mb-6 block">Campanhas & Disparos</span>
+            <span className="text-[#F97316] font-black text-[10px] uppercase tracking-[0.4em] mb-6 block">WhatsApp Business Platform</span>
             <h1 className="text-5xl sm:text-6xl lg:text-7xl font-headline font-black text-white tracking-tighter leading-[0.95] mb-8">
-              Sua clínica na<br />
-              <span className="bg-gradient-to-r from-[#F97316] via-orange-400 to-amber-400 bg-clip-text text-transparent">palma da mão</span> do lead.
+              Campanhas no WhatsApp.<br />
+              <span className="bg-gradient-to-r from-[#F97316] via-orange-400 to-amber-400 bg-clip-text text-transparent">Pela API Oficial.</span>
             </h1>
             <p className="text-lg text-slate-400 font-medium leading-relaxed mb-12 max-w-lg">
-              Reative pacientes antigos, divulgue promoções e lote a agenda da semana em poucos cliques com nossos disparos inteligentes via WhatsApp.
+              Reative pacientes e preencha sua agenda com templates aprovados pela Meta, métricas oficiais e coexistência com o WhatsApp Business no mesmo número.
             </p>
             <Link to="/entrar" className="inline-flex items-center gap-3 bg-[#F97316] text-white px-10 py-5 rounded-full font-black text-xs uppercase tracking-[0.2em] hover:scale-105 transition-all shadow-2xl shadow-orange-900/30">
               Começar Agora <ArrowRight size={16} />
@@ -90,12 +92,12 @@ const CampanhasPage = () => {
                     </div>
                     <div>
                       <h4 className="text-sm font-black text-[#0F172A]">Promoção Botox</h4>
-                      <p className="text-[10px] text-slate-500 font-medium">WhatsApp • 842 contatos</p>
+                      <p className="text-[10px] text-slate-500 font-medium">API Oficial • 842 contatos</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 rounded-full px-3 py-1">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-[9px] font-black text-emerald-600 uppercase tracking-wider">Ao Vivo</span>
+                    <span className="text-[9px] font-black text-emerald-600 uppercase tracking-wider">Meta Oficial</span>
                   </div>
                 </div>
 
@@ -224,8 +226,8 @@ const CampanhasPage = () => {
       <section className="py-32 bg-white">
         <div className="max-w-7xl mx-auto px-8">
           <div className="text-center mb-20">
-            <span className="text-[#F97316] font-black text-[10px] uppercase tracking-[0.4em] mb-4 block">Funcionalidades</span>
-            <h2 className="text-4xl md:text-6xl font-headline font-black tracking-tighter">Muito além de <span className="text-[#F97316]">apertar enviar</span></h2>
+            <span className="text-[#F97316] font-black text-[10px] uppercase tracking-[0.4em] mb-4 block">Estrutura Oficial da Meta</span>
+            <h2 className="text-4xl md:text-6xl font-headline font-black tracking-tighter">Campanhas com a <span className="text-[#F97316]">estrutura certa</span></h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {benefits.map((b, i) => (
@@ -260,8 +262,8 @@ const CampanhasPage = () => {
             transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
             className="text-center mb-16"
           >
-            <span className="text-[#F97316] font-black text-[10px] uppercase tracking-[0.4em] mb-4 inline-block bg-orange-500/10 border border-orange-500/20 px-4 py-1.5 rounded-full">Reativação de Base</span>
-            <h2 className="text-3xl md:text-5xl font-headline font-black tracking-tighter text-white">O fim do ctrl+c ctrl+v manual</h2>
+            <span className="text-[#F97316] font-black text-[10px] uppercase tracking-[0.4em] mb-4 inline-block bg-orange-500/10 border border-orange-500/20 px-4 py-1.5 rounded-full">API Oficial + Coexistência</span>
+            <h2 className="text-3xl md:text-5xl font-headline font-black tracking-tighter text-white">Do improviso para uma operação oficial</h2>
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
@@ -284,7 +286,7 @@ const CampanhasPage = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </div>
-                  <p className="text-slate-400 text-[13px] font-medium leading-relaxed mt-1">Sua secretária precisando copiar e colar mensagens paciente por paciente no WhatsApp por horas.</p>
+                  <p className="text-slate-400 text-[13px] font-medium leading-relaxed mt-1">Sua equipe copiando e colando mensagens manualmente, contato por contato, durante horas.</p>
                 </div>
 
                 <div className="flex gap-4 p-4 rounded-2xl bg-slate-950/60 border border-slate-800/60 shadow-inner transition-all hover:bg-slate-950 hover:border-slate-700 duration-300">
@@ -293,7 +295,7 @@ const CampanhasPage = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </div>
-                  <p className="text-slate-400 text-[13px] font-medium leading-relaxed mt-1">Usar listas de transmissão que só entregam a mensagem para quem tem o número da clínica salvo na agenda.</p>
+                  <p className="text-slate-400 text-[13px] font-medium leading-relaxed mt-1">Conexões por QR Code sujeitas a desconexões, dependência do celular e pouca previsibilidade operacional.</p>
                 </div>
 
                 <div className="flex gap-4 p-4 rounded-2xl bg-slate-950/60 border border-slate-800/60 shadow-inner transition-all hover:bg-slate-950 hover:border-slate-700 duration-300">
@@ -302,7 +304,7 @@ const CampanhasPage = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </div>
-                  <p className="text-slate-400 text-[13px] font-medium leading-relaxed mt-1">Pacientes respondendo "quem é?" porque a mensagem foi genérica e não tinha o nome deles.</p>
+                  <p className="text-slate-400 text-[13px] font-medium leading-relaxed mt-1">Mensagens sem governança, métricas confiáveis ou um fluxo organizado para tratar as respostas.</p>
                 </div>
               </div>
             </motion.div>
@@ -327,7 +329,7 @@ const CampanhasPage = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-                  <p className="text-slate-100 text-[13px] font-semibold leading-relaxed mt-1">Dispare para centenas de pacientes em 1 clique, enquanto sua secretária foca em fechar as vendas no Funil.</p>
+                  <p className="text-slate-100 text-[13px] font-semibold leading-relaxed mt-1">Envie campanhas com templates aprovados pela Meta e acompanhe o processamento pela API Oficial.</p>
                 </div>
 
                 <div className="flex gap-4 p-4 rounded-2xl bg-slate-950/80 border border-orange-500/20 shadow-[0_4px_20px_rgba(249,115,22,0.08)] transition-all hover:border-orange-500/40 hover:-translate-y-0.5 duration-300">
@@ -336,7 +338,7 @@ const CampanhasPage = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-                  <p className="text-slate-100 text-[13px] font-semibold leading-relaxed mt-1">Envio garantido, 1 a 1. A mensagem chega mesmo se o paciente não tiver o contato da clínica salvo.</p>
+                  <p className="text-slate-100 text-[13px] font-semibold leading-relaxed mt-1">Mantenha o WhatsApp Business ativo no celular e use o SellClin no mesmo número com a coexistência.</p>
                 </div>
 
                 <div className="flex gap-4 p-4 rounded-2xl bg-slate-950/80 border border-orange-500/20 shadow-[0_4px_20px_rgba(249,115,22,0.08)] transition-all hover:border-orange-500/40 hover:-translate-y-0.5 duration-300">
@@ -345,7 +347,7 @@ const CampanhasPage = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-                  <p className="text-slate-100 text-[13px] font-semibold leading-relaxed mt-1">Mensagens que parecem que foram digitadas na hora, chamando pelo nome e contextualizadas com a jornada dele.</p>
+                  <p className="text-slate-100 text-[13px] font-semibold leading-relaxed mt-1">Centralize respostas, responsáveis e leads no funil para transformar a campanha em atendimento comercial.</p>
                 </div>
               </div>
             </motion.div>
@@ -485,12 +487,12 @@ const CampanhasPage = () => {
             <div className="absolute bottom-0 left-0 w-80 h-80 bg-blue-600/10 rounded-full blur-[80px] pointer-events-none" />
             
             <div className="space-y-4 max-w-xl relative z-10 text-center md:text-left">
-              <span className="text-[#F97316] font-black text-[10px] uppercase tracking-[0.3em] block">Comece em Minutos</span>
+              <span className="text-[#F97316] font-black text-[10px] uppercase tracking-[0.3em] block">Campanhas pela API Oficial</span>
               <h2 className="text-3xl sm:text-4xl font-headline font-black tracking-tight leading-tight">
-                Sua próxima campanha a um clique de distância.
+                Seu WhatsApp Business continua. Sua operação evolui.
               </h2>
               <p className="text-sm sm:text-base text-slate-400 font-medium leading-relaxed">
-                Pare de perder tempo com listas de transmissão que não chegam. Envie mensagens que convertem de verdade.
+                Use o mesmo número com coexistência e transforme templates oficiais em campanhas acompanhadas de ponta a ponta no SellClin.
               </p>
             </div>
 
