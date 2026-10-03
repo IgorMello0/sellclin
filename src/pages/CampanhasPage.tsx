@@ -33,6 +33,21 @@ const CampanhasPage = () => {
     { q: "Quais métricas ficam disponíveis?", a: "O painel acompanha os eventos retornados pela API Oficial, como envio, entrega, leitura e resposta. A confirmação de leitura depende das configurações de privacidade do destinatário." },
   ];
 
+  const comparisonRows = [
+    {
+      before: "Copiar e colar mensagens, contato por contato, durante horas.",
+      after: "Campanhas com templates aprovados e processamento pela API Oficial.",
+    },
+    {
+      before: "QR Code, celular conectado e sessões que podem cair.",
+      after: "WhatsApp Business e SellClin no mesmo número com coexistência.",
+    },
+    {
+      before: "Respostas dispersas, sem responsável ou visão comercial.",
+      after: "Conversas, responsáveis e leads organizados direto no funil.",
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-white text-[#0F172A] font-body overflow-x-hidden">
       {/* SHARED SITE NAVBAR */}
@@ -254,7 +269,7 @@ const CampanhasPage = () => {
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_0.6px,transparent_0.6px),linear-gradient(to_bottom,#1e293b_0.6px,transparent_0.6px)] bg-[size:3rem_3rem] pointer-events-none opacity-40" />
         <div className="absolute right-1/4 bottom-1/4 w-[450px] h-[450px] bg-emerald-500/10 rounded-full blur-[100px] pointer-events-none" />
 
-        <div className="max-w-5xl mx-auto px-8 relative z-10">
+        <div className="max-w-6xl mx-auto px-6 sm:px-8 relative z-10">
           <motion.div 
             initial={{ opacity: 0, y: 50 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -266,92 +281,53 @@ const CampanhasPage = () => {
             <h2 className="text-3xl md:text-5xl font-headline font-black tracking-tighter text-white">Do improviso para uma operação oficial</h2>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
-            {/* ANTES */}
-            <motion.div 
-              initial={{ opacity: 0, x: -50 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, amount: 0.3 }}
-              transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-slate-900/40 backdrop-blur-sm border border-slate-800/80 rounded-[2.5rem] p-8 sm:p-10 relative overflow-hidden shadow-2xl"
-            >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 rounded-full blur-3xl pointer-events-none" />
-              <div className="flex items-center gap-3 mb-8">
-                <span className="text-[10px] font-black uppercase tracking-widest text-red-400 bg-red-500/10 border border-red-500/20 px-3 py-1 rounded-full shadow-sm">Como era antes</span>
-              </div>
-              <div className="space-y-4">
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-950/60 border border-slate-800/60 shadow-inner transition-all hover:bg-slate-950 hover:border-slate-700 duration-300">
-                  <div className="w-9 h-9 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0 border border-red-500/20 text-red-400 shadow-sm">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </div>
-                  <p className="text-slate-400 text-[13px] font-medium leading-relaxed mt-1">Sua equipe copiando e colando mensagens manualmente, contato por contato, durante horas.</p>
-                </div>
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+            className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.025] p-3 shadow-2xl shadow-black/20 backdrop-blur-sm sm:p-5"
+          >
+            <div className="hidden grid-cols-[1fr_48px_1fr] items-center gap-4 px-5 pb-4 md:grid">
+              <span className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Antes</span>
+              <span />
+              <span className="text-[10px] font-black uppercase tracking-[0.22em] text-orange-400">Com o SellClin</span>
+            </div>
 
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-950/60 border border-slate-800/60 shadow-inner transition-all hover:bg-slate-950 hover:border-slate-700 duration-300">
-                  <div className="w-9 h-9 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0 border border-red-500/20 text-red-400 shadow-sm">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+            <div className="space-y-2.5">
+              {comparisonRows.map((row, index) => (
+                <motion.div
+                  key={row.before}
+                  initial={{ opacity: 0, y: 24 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.4 }}
+                  transition={{ duration: 0.8, delay: index * 0.1, ease: [0.16, 1, 0.3, 1] }}
+                  className="grid grid-cols-1 items-stretch gap-2.5 md:grid-cols-[1fr_48px_1fr] md:gap-4"
+                >
+                  <div className="flex items-center gap-3 rounded-2xl bg-slate-950/45 px-5 py-5 text-slate-400">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-400/10 text-red-400">
+                      <span className="text-lg font-light leading-none">×</span>
+                    </span>
+                    <p className="text-sm font-medium leading-relaxed">{row.before}</p>
                   </div>
-                  <p className="text-slate-400 text-[13px] font-medium leading-relaxed mt-1">Conexões por QR Code sujeitas a desconexões, dependência do celular e pouca previsibilidade operacional.</p>
-                </div>
 
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-950/60 border border-slate-800/60 shadow-inner transition-all hover:bg-slate-950 hover:border-slate-700 duration-300">
-                  <div className="w-9 h-9 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0 border border-red-500/20 text-red-400 shadow-sm">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+                  <div className="flex items-center justify-center">
+                    <span className="flex h-9 w-9 rotate-90 items-center justify-center rounded-full border border-white/10 bg-slate-900 text-slate-500 md:rotate-0">
+                      <ArrowRight className="h-4 w-4" />
+                    </span>
                   </div>
-                  <p className="text-slate-400 text-[13px] font-medium leading-relaxed mt-1">Mensagens sem governança, métricas confiáveis ou um fluxo organizado para tratar as respostas.</p>
-                </div>
-              </div>
-            </motion.div>
 
-            {/* DEPOIS */}
-            <motion.div 
-              initial={{ opacity: 0, x: 50 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, amount: 0.3 }}
-              transition={{ duration: 1.4, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-gradient-to-br from-[#1e293b]/50 to-[#0f172a]/30 backdrop-blur-sm border border-orange-500/20 rounded-[2.5rem] p-8 sm:p-10 relative overflow-hidden shadow-[0_15px_40px_-20px_rgba(249,115,22,0.15)]"
-            >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-              <div className="absolute -left-10 -bottom-10 w-32 h-32 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
-              <div className="flex items-center gap-3 mb-8">
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#F97316] bg-orange-500/10 border border-orange-500/20 px-3 py-1 rounded-full shadow-sm">Com o SellClin</span>
-              </div>
-              <div className="space-y-4">
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-950/80 border border-orange-500/20 shadow-[0_4px_20px_rgba(249,115,22,0.08)] transition-all hover:border-orange-500/40 hover:-translate-y-0.5 duration-300">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0 border border-emerald-500/20 text-emerald-400 shadow-sm">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
+                  <div className="relative flex items-center gap-3 overflow-hidden rounded-2xl border border-orange-400/15 bg-gradient-to-r from-orange-500/[0.09] to-emerald-400/[0.05] px-5 py-5 text-slate-100">
+                    <div className="absolute inset-y-0 left-0 w-0.5 bg-gradient-to-b from-orange-400 to-emerald-400" />
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-400/10 text-emerald-400">
+                      <CheckCircle2 className="h-4 w-4" />
+                    </span>
+                    <p className="text-sm font-semibold leading-relaxed">{row.after}</p>
                   </div>
-                  <p className="text-slate-100 text-[13px] font-semibold leading-relaxed mt-1">Envie campanhas com templates aprovados pela Meta e acompanhe o processamento pela API Oficial.</p>
-                </div>
-
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-950/80 border border-orange-500/20 shadow-[0_4px_20px_rgba(249,115,22,0.08)] transition-all hover:border-orange-500/40 hover:-translate-y-0.5 duration-300">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0 border border-emerald-500/20 text-emerald-400 shadow-sm">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <p className="text-slate-100 text-[13px] font-semibold leading-relaxed mt-1">Mantenha o WhatsApp Business ativo no celular e use o SellClin no mesmo número com a coexistência.</p>
-                </div>
-
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-950/80 border border-orange-500/20 shadow-[0_4px_20px_rgba(249,115,22,0.08)] transition-all hover:border-orange-500/40 hover:-translate-y-0.5 duration-300">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0 border border-emerald-500/20 text-emerald-400 shadow-sm">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <p className="text-slate-100 text-[13px] font-semibold leading-relaxed mt-1">Centralize respostas, responsáveis e leads no funil para transformar a campanha em atendimento comercial.</p>
-                </div>
-              </div>
-            </motion.div>
-          </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
         </div>
       </section>
 
