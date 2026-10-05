@@ -1,70 +1,88 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { GoogleLogin, type CredentialResponse } from '@react-oauth/google';
+import { motion } from 'framer-motion';
+import {
+  ArrowRight,
+  BarChart3,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Loader2,
+  Lock,
+  Mail,
+  MessageCircle,
+  ShieldCheck,
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { authApi } from '@/lib/api';
-import { 
-  Loader2, Mail, Lock, ArrowRight, Check, Eye, EyeOff, 
-  Calendar, Filter, TrendingUp, DollarSign, MessageSquare, 
-  Sparkles, Bot, Shield, Cloud, HeartHandshake 
-} from 'lucide-react';
-import { motion } from 'framer-motion';
-import { GoogleLogin } from '@react-oauth/google';
-
-const leftBadges = [
-  { id: 1, text: 'Agenda Inteligente', icon: Calendar, top: '15%', left: '8%', path: 'M 420 360 C 330 360, 320 120, 230 120' },
-  { id: 2, text: 'Funil de Vendas', icon: Filter, top: '30%', left: '5%', path: 'M 420 380 C 310 380, 290 240, 180 240' },
-  { id: 3, text: 'Gestão Comercial', icon: TrendingUp, top: '45%', left: '8%', path: 'M 420 400 C 330 400, 320 360, 230 360' },
-  { id: 4, text: 'Faturamento do Dia', icon: DollarSign, top: '60%', left: '4%', path: 'M 420 420 C 310 420, 310 480, 200 480' },
-  { id: 5, text: 'Avisos WhatsApp', icon: MessageSquare, top: '75%', left: '9%', path: 'M 420 440 C 330 440, 320 600, 230 600' }
-];
-
-const rightBadges = [
-  { id: 1, text: 'WhatsApp Cloud', icon: MessageSquare, top: '10%', right: '9%', path: 'M 860 320 C 950 320, 940 80, 1030 80' },
-  { id: 2, text: 'Agentes de IA', icon: Bot, top: '22%', right: '5%', path: 'M 860 350 C 970 350, 970 176, 1080 176' },
-  { id: 3, text: 'Relatórios de Métricas', icon: Sparkles, top: '34%', right: '10%', path: 'M 860 380 C 930 380, 940 272, 1010 272' },
-  { id: 4, text: 'Segurança LGPD', icon: Shield, top: '46%', right: '4%', path: 'M 860 400 C 980 400, 980 368, 1100 368' },
-  { id: 5, text: 'Suporte Dedicado', icon: HeartHandshake, top: '58%', right: '11%', path: 'M 860 420 C 930 420, 930 464, 1000 464' },
-  { id: 6, text: 'Backup em Nuvem', icon: Cloud, top: '70%', right: '6%', path: 'M 860 450 C 960 450, 970 560, 1070 560' },
-  { id: 7, text: 'Google Calendar', icon: Calendar, top: '82%', right: '10%', path: 'M 860 480 C 930 480, 940 656, 1010 656' }
-];
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [unverifiedEmail, setUnverifiedEmail] = useState('');
   const { login, loginWithGoogle, isLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [activeBadge, setActiveBadge] = useState<string | null>(null);
-  const [unverifiedEmail, setUnverifiedEmail] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
     if (!email || !password) {
-      toast({ 
-        title: 'Campos vazios', 
-        description: 'Por favor, preencha seu e-mail e senha.', 
-        variant: 'destructive' 
+      toast({
+        title: 'Campos vazios',
+        description: 'Por favor, preencha seu e-mail e senha.',
+        variant: 'destructive',
       });
       return;
     }
+
     const result = await login(email, password);
     if (result.success) {
-      toast({ 
-        title: 'Que bom ter você aqui!', 
-        description: `Login realizado com sucesso no seu painel.` 
+      toast({
+        title: 'Que bom ter você aqui!',
+        description: 'Login realizado com sucesso no seu painel.',
       });
       navigate('/painel');
-    } else {
-      const message = result.error || 'E-mail ou senha incorretos.';
-      setUnverifiedEmail(message.toLowerCase().includes('verifique seu e-mail') ? email : '');
-      toast({ 
-        title: 'Verifique seus dados', 
-        description: message,
-        variant: 'destructive' 
-      });
+      return;
     }
+
+    const message = result.error || 'E-mail ou senha incorretos.';
+    setUnverifiedEmail(message.toLowerCase().includes('verifique seu e-mail') ? email : '');
+    toast({
+      title: 'Verifique seus dados',
+      description: message,
+      variant: 'destructive',
+    });
+  };
+
+  const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
+    if (!credentialResponse.credential) {
+      toast({
+        title: 'Erro no login com Google',
+        description: 'Não foi possível obter a credencial.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const result = await loginWithGoogle(credentialResponse.credential);
+    if (result.success) {
+      toast({
+        title: 'Login com Google realizado!',
+        description: 'Que bom ter você de volta!',
+      });
+      navigate('/painel');
+      return;
+    }
+
+    toast({
+      title: 'Erro no login com Google',
+      description: result.error || 'Tente novamente.',
+      variant: 'destructive',
+    });
   };
 
   const handleResendVerification = async () => {
@@ -79,295 +97,119 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-[#FAF9F6] font-body flex items-center justify-center">
-      
-      {/* 1. Background Grid Pattern */}
-      <div 
-        className="absolute inset-0 pointer-events-none opacity-[0.25]" 
-        style={{ backgroundImage: 'radial-gradient(#CBD5E1 1px, transparent 1px)', backgroundSize: '32px 32px' }} 
-      />
-      
-      {/* 2. Vibrant Orange Gradient Area at the bottom of the screen */}
-      <div className="absolute bottom-0 left-0 right-0 h-[45%] bg-gradient-to-t from-[#F97316]/75 via-[#F97316]/30 to-transparent pointer-events-none" />
+    <div className="min-h-screen bg-white font-body text-[#0F172A] lg:grid lg:grid-cols-[minmax(430px,42%)_minmax(0,58%)]">
+      <section className="relative flex min-h-screen items-center justify-center overflow-hidden px-6 py-12 sm:px-10 lg:px-14">
+        <div
+          className="absolute inset-x-0 bottom-0 h-56 opacity-35 pointer-events-none"
+          style={{ backgroundImage: 'radial-gradient(#CBD5E1 1px, transparent 1px)', backgroundSize: '14px 14px' }}
+        />
 
-      {/* 3. Central responsive container containing both layout sides and the login card */}
-      <div className="w-full max-w-7xl min-h-screen mx-auto relative flex items-center justify-center px-4 sm:px-6 lg:px-8">
-        
-        {/* SVG CONNECTIONS (Mindmap paths with high-res viewBox to avoid scaling distortion) */}
-        <svg 
-          className="absolute inset-0 w-full h-full pointer-events-none hidden lg:block" 
-          viewBox="0 0 1280 800" 
-          preserveAspectRatio="none"
-        >
-          <defs>
-            <linearGradient id="leftLineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#F97316" stopOpacity="0.4" />
-              <stop offset="100%" stopColor="#F97316" stopOpacity="0.08" />
-            </linearGradient>
-            <linearGradient id="rightLineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#F97316" stopOpacity="0.08" />
-              <stop offset="100%" stopColor="#F97316" stopOpacity="0.4" />
-            </linearGradient>
-          </defs>
-          <style>{`
-            @keyframes dashflow {
-              to {
-                stroke-dashoffset: -40;
-              }
-            }
-            .animated-path {
-              stroke-dasharray: 6, 6;
-              animation: dashflow 6s linear infinite;
-            }
-          `}</style>
-          
-          {/* Left lines */}
-          {leftBadges.map((badge) => {
-            const isHighlighted = activeBadge === `left-${badge.id}`;
-            return (
-              <path 
-                key={`line-left-${badge.id}`} 
-                d={badge.path} 
-                fill="none" 
-                stroke={isHighlighted ? '#F97316' : 'url(#leftLineGradient)'} 
-                strokeWidth={isHighlighted ? '2.5' : '1.2'}
-                opacity={isHighlighted ? '0.95' : '1'}
-                className="animated-path transition-all duration-300"
-              />
-            );
-          })}
-
-          {/* Right lines */}
-          {rightBadges.map((badge) => {
-            const isHighlighted = activeBadge === `right-${badge.id}`;
-            return (
-              <path 
-                key={`line-right-${badge.id}`} 
-                d={badge.path} 
-                fill="none" 
-                stroke={isHighlighted ? '#F97316' : 'url(#rightLineGradient)'} 
-                strokeWidth={isHighlighted ? '2.5' : '1.2'}
-                opacity={isHighlighted ? '0.95' : '1'}
-                className="animated-path transition-all duration-300"
-              />
-            );
-          })}
-        </svg>
-
-        {/* LEFT FLOATING BADGES */}
-        <div className="absolute inset-y-0 left-0 w-full pointer-events-none hidden lg:block">
-          {leftBadges.map((badge) => {
-            const IconComponent = badge.icon;
-            const isHovered = activeBadge === `left-${badge.id}`;
-            return (
-              <motion.div
-                key={`badge-left-${badge.id}`}
-                style={{ top: badge.top, left: badge.left }}
-                animate={{
-                  y: [0, -5, 0],
-                }}
-                transition={{
-                  duration: 4 + badge.id,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-                onMouseEnter={() => setActiveBadge(`left-${badge.id}`)}
-                onMouseLeave={() => setActiveBadge(null)}
-                className="absolute px-4 py-2.5 bg-white rounded-full border border-slate-100/80 shadow-[0_8px_30px_rgba(15,23,42,0.04)] flex items-center gap-2.5 hover:shadow-[0_10px_25px_-5px_rgba(249,115,22,0.15)] hover:border-orange-200 hover:scale-[1.06] transition-all duration-300 pointer-events-auto cursor-pointer group"
-              >
-                <div className={`flex items-center justify-center w-5 h-5 rounded-full ${
-                  isHovered ? 'bg-[#F97316] text-white' : 'bg-orange-50 text-[#F97316]'
-                } transition-colors duration-300`}>
-                  <IconComponent size={11} className="stroke-[2.5]" />
-                </div>
-                <span className={`text-[11px] font-bold ${
-                  isHovered ? 'text-[#F97316]' : 'text-slate-700'
-                } tracking-tight transition-colors duration-300`}>{badge.text}</span>
-              </motion.div>
-            );
-          })}
-        </div>
-
-        {/* RIGHT FLOATING BADGES */}
-        <div className="absolute inset-y-0 right-0 w-full pointer-events-none hidden lg:block">
-          {rightBadges.map((badge) => {
-            const IconComponent = badge.icon;
-            const isHovered = activeBadge === `right-${badge.id}`;
-            return (
-              <motion.div
-                key={`badge-right-${badge.id}`}
-                style={{ top: badge.top, right: badge.right }}
-                animate={{
-                  y: [0, -5, 0],
-                }}
-                transition={{
-                  duration: 4 + badge.id,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-                onMouseEnter={() => setActiveBadge(`right-${badge.id}`)}
-                onMouseLeave={() => setActiveBadge(null)}
-                className="absolute px-4 py-2.5 bg-white rounded-full border border-slate-100/80 shadow-[0_8px_30px_rgba(15,23,42,0.04)] flex items-center gap-2.5 hover:shadow-[0_10px_25px_-5px_rgba(249,115,22,0.15)] hover:border-orange-200 hover:scale-[1.06] transition-all duration-300 pointer-events-auto cursor-pointer group"
-              >
-                <div className={`flex items-center justify-center w-5 h-5 rounded-full ${
-                  isHovered ? 'bg-[#F97316] text-white' : 'bg-orange-50 text-[#F97316]'
-                } transition-colors duration-300`}>
-                  <IconComponent size={11} className="stroke-[2.5]" />
-                </div>
-                <span className={`text-[11px] font-bold ${
-                  isHovered ? 'text-[#F97316]' : 'text-slate-700'
-                } tracking-tight transition-colors duration-300`}>{badge.text}</span>
-              </motion.div>
-            );
-          })}
-        </div>
-
-        {/* CENTRAL LOGIN CARD */}
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className="relative z-10 w-full max-w-[440px] bg-white/95 backdrop-blur-md rounded-[2.5rem] shadow-[0_30px_70px_-20px_rgba(120,40,0,0.08),0_0_0_1px_rgba(15,23,42,0.03)] border border-slate-100/60 p-8 sm:p-10 flex flex-col justify-center gap-6"
+          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+          className="relative z-10 w-full max-w-[430px]"
         >
-          {/* Logo */}
-          <div className="flex justify-center mb-1">
-            <Link to="/" aria-label="Voltar para a página inicial" className="inline-flex opacity-95 hover:opacity-100 transition-opacity">
-              <img
-                src="/logo-site.png"
-                alt="SellClin Logo"
-                className="h-7 w-auto translate-y-0.5"
-              />
+          <div className="mb-10 text-center">
+            <Link to="/" aria-label="Voltar para a página inicial" className="mb-8 inline-flex transition-opacity hover:opacity-75">
+              <img src="/logo-site.png" alt="SellClin" className="h-9 w-auto" />
             </Link>
-          </div>
-
-          {/* Header */}
-          <div className="text-center space-y-2">
-            <h1 className="text-2xl font-headline font-black text-slate-800 tracking-tight">
-              Boas vindas ao <span className="text-[#F97316]">SellClin.</span>
+            <h1 className="font-headline text-3xl font-black tracking-tight text-[#0F172A] sm:text-[34px]">
+              Boas-vindas ao SellClin
             </h1>
-            <p className="text-slate-400 text-xs font-semibold leading-relaxed px-4">
-              Preparamos seu espaço para que o dia de hoje seja produtivo, leve e cheio de resultados.
+            <p className="mx-auto mt-3 max-w-sm text-sm font-medium leading-relaxed text-slate-500">
+              Acesse sua operação comercial e continue de onde sua equipe parou.
             </p>
           </div>
 
-          {/* Form */}
+          <div className="flex w-full justify-center overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-sm transition-shadow hover:shadow-md">
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => {
+                toast({
+                  title: 'Erro no Google',
+                  description: 'Não foi possível conectar com o Google.',
+                  variant: 'destructive',
+                });
+              }}
+              theme="outline"
+              size="large"
+              width="400"
+              text="continue_with"
+              shape="rectangular"
+              logo_alignment="left"
+            />
+          </div>
+
+          <div className="relative my-7">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-white px-4 text-xs font-medium text-slate-400">Ou entre com e-mail</span>
+            </div>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-5">
-            
-            {/* Google Sign-In Button */}
-            <div className="flex justify-center w-full">
-              <div className="relative w-full shadow-sm hover:shadow transition-shadow duration-300 rounded-full overflow-hidden border border-slate-200/80 bg-white">
-                <GoogleLogin
-                  onSuccess={async (credentialResponse) => {
-                    if (!credentialResponse.credential) {
-                      toast({ 
-                        title: 'Erro no login com Google', 
-                        description: 'Não foi possível obter credencial.', 
-                        variant: 'destructive' 
-                      });
-                      return;
-                    }
-                    const result = await loginWithGoogle(credentialResponse.credential);
-                    if (result.success) {
-                      toast({ 
-                        title: 'Login com Google realizado!', 
-                        description: 'Que bom ter você de volta!' 
-                      });
-                      navigate('/painel');
-                    } else {
-                      toast({ 
-                        title: 'Erro no login com Google', 
-                        description: result.error || 'Tente novamente.', 
-                        variant: 'destructive' 
-                      });
-                    }
-                  }}
-                  onError={() => {
-                    toast({ 
-                      title: 'Erro no Google', 
-                      description: 'Não foi possível conectar com o Google.', 
-                      variant: 'destructive' 
-                    });
-                  }}
-                  theme="outline"
-                  size="large"
-                  width="360"
-                  text="continue_with"
-                  shape="pill"
-                  logo_alignment="left"
+            <div className="space-y-2">
+              <label htmlFor="email" className="block text-sm font-bold text-slate-700">
+                E-mail de acesso
+              </label>
+              <div className="group relative">
+                <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-[#F97316]" />
+                <input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="voce@exemplo.com"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  required
+                  className="h-14 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm font-medium text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:border-[#F97316] focus:ring-4 focus:ring-orange-100/60"
                 />
               </div>
             </div>
 
-            {/* Divider */}
-            <div className="relative py-2">
-              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100" /></div>
-              <div className="relative flex justify-center">
-                <span className="px-4 text-[10px] font-black text-slate-400 bg-white uppercase tracking-[0.15em]">
-                  ou acesse com e-mail
-                </span>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-4">
+                <label htmlFor="password" className="block text-sm font-bold text-slate-700">
+                  Senha de acesso
+                </label>
+                <Link to="/esqueci-senha" className="text-xs font-bold text-slate-400 transition-colors hover:text-[#F97316]">
+                  Esqueceu a senha?
+                </Link>
+              </div>
+              <div className="group relative">
+                <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-[#F97316]" />
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  placeholder="Sua senha"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                  className="h-14 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-12 text-sm font-medium text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:border-[#F97316] focus:ring-4 focus:ring-orange-100/60"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-[#F97316]"
+                  aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </div>
 
-            {/* Inputs Group */}
-            <div className="space-y-4">
-              {/* Email */}
-              <div className="space-y-1.5">
-                <label htmlFor="email" className="block text-[12px] font-bold text-slate-600 ml-1">E-mail de acesso</label>
-                <div className="relative group">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#F97316] transition-colors duration-300">
-                    <Mail className="w-4 h-4" />
-                  </div>
-                  <input 
-                    id="email"
-                    type="email" 
-                    placeholder="voce@exemplo.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="w-full h-[50px] pl-11 pr-5 border border-slate-200 rounded-2xl text-[13px] font-medium text-slate-700 bg-white placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-[#F97316]/5 focus:border-[#F97316] transition-all duration-300 shadow-[0_2px_4px_rgba(0,0,0,0.01)]"
-                  />
-                </div>
-              </div>
-
-              {/* Password */}
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center ml-1">
-                  <label htmlFor="password" className="block text-[12px] font-bold text-slate-600">Senha de acesso</label>
-                  <Link to="/esqueci-senha" className="text-[11px] text-slate-400 hover:text-[#F97316] font-bold transition-colors duration-300">Esqueceu a senha?</Link>
-                </div>
-                <div className="relative group">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#F97316] transition-colors duration-300">
-                    <Lock className="w-4 h-4" />
-                  </div>
-                  <input 
-                    id="password"
-                    type={showPassword ? "text" : "password"} 
-                    placeholder="Sua senha"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    className="w-full h-[50px] pl-11 pr-12 border border-slate-200 rounded-2xl text-[13px] font-medium text-slate-700 bg-white placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-[#F97316]/5 focus:border-[#F97316] transition-all duration-300 shadow-[0_2px_4px_rgba(0,0,0,0.01)]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#F97316] transition-colors duration-300"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Submit Button */}
             <motion.button
               type="submit"
               disabled={isLoading}
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
-              className="w-full h-[50px] bg-[#F97316] hover:bg-orange-600 text-white rounded-2xl text-[14px] font-headline font-bold uppercase tracking-wider flex items-center justify-center gap-2 disabled:opacity-85 disabled:cursor-not-allowed shadow-[0_8px_20px_-6px_rgba(249,115,22,0.3)] hover:shadow-[0_12px_24px_-6px_rgba(249,115,22,0.5)] transition-all duration-300 mt-2"
+              className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#F97316] text-sm font-black text-white shadow-[0_12px_28px_-14px_rgba(249,115,22,0.75)] transition-colors hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
               {isLoading ? 'Acessando...' : 'Acessar painel'}
             </motion.button>
 
@@ -380,31 +222,91 @@ const Login = () => {
                 Reenviar e-mail de verificação
               </button>
             )}
-
-            {/* Terms Consent and Back Link */}
-            <div className="space-y-4 pt-2">
-              <p className="text-[11px] text-slate-400 text-center leading-relaxed font-medium px-2">
-                Ao fazer login, você concorda com nossos{' '}
-                <Link to="/termos-de-uso" className="underline text-slate-500 hover:text-[#F97316] transition-colors">
-                  termos e condições
-                </Link>
-                .
-              </p>
-              
-              <div className="text-center">
-                <Link 
-                  to="/" 
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-[#F97316] hover:-translate-x-1 transition-all duration-300"
-                >
-                  <span>← Voltar para a página inicial</span>
-                </Link>
-              </div>
-            </div>
-
           </form>
-        </motion.div>
 
-      </div>
+          <div className="mt-7 space-y-4 text-center">
+            <p className="text-sm font-medium text-slate-500">
+              Ainda não possui uma conta?{' '}
+              <Link to="/cadastro" className="font-black text-[#0F172A] transition-colors hover:text-[#F97316]">
+                Começar agora
+              </Link>
+            </p>
+            <p className="text-[11px] font-medium leading-relaxed text-slate-400">
+              Ao acessar, você concorda com nossos{' '}
+              <Link to="/termos-de-uso" className="underline underline-offset-2 hover:text-[#F97316]">
+                termos de uso
+              </Link>{' '}
+              e com a{' '}
+              <Link to="/politica-de-privacidade" className="underline underline-offset-2 hover:text-[#F97316]">
+                política de privacidade
+              </Link>
+              .
+            </p>
+          </div>
+        </motion.div>
+      </section>
+
+      <section className="relative hidden min-h-screen overflow-hidden bg-[#F3F6FA] p-5 lg:block">
+        <div className="relative h-full min-h-[calc(100vh-2.5rem)] overflow-hidden rounded-[2.5rem] border border-slate-200/70 bg-[#F7F9FC] shadow-[0_30px_90px_-45px_rgba(15,23,42,0.3)]">
+          <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between px-8 py-6">
+            <div className="flex items-center gap-2 rounded-full border border-white/80 bg-white/90 px-4 py-2 shadow-sm backdrop-blur">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">Operação em tempo real</span>
+            </div>
+            <div className="rounded-full border border-white/80 bg-white/90 px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 shadow-sm backdrop-blur">
+              SellClin CRM
+            </div>
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, x: 50, scale: 0.98 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            transition={{ duration: 0.9, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+            className="absolute left-10 top-24 w-[calc(100%+12rem)] overflow-hidden rounded-l-[2rem] border border-slate-200 bg-white p-3 shadow-[0_35px_90px_-40px_rgba(15,23,42,0.4)]"
+          >
+            <img
+              src="/dashboard-tela-sellclin-correto.png"
+              alt="Dashboard do SellClin"
+              className="block w-full rounded-l-[1.5rem]"
+            />
+          </motion.div>
+
+          <div className="absolute inset-x-0 bottom-0 z-20 h-[48%] bg-gradient-to-t from-[#F3F6FA] via-[#F3F6FA]/95 to-transparent" />
+
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.45 }}
+            className="absolute inset-x-0 bottom-12 z-30 mx-auto max-w-2xl px-10 text-center"
+          >
+            <h2 className="font-headline text-4xl font-black tracking-tight text-[#0F172A] xl:text-5xl">
+              Toda a operação comercial em uma única visão.
+            </h2>
+            <p className="mx-auto mt-4 max-w-lg text-sm font-medium leading-relaxed text-slate-500">
+              Acompanhe conversas, funil, agenda, propostas e resultados sem perder o contexto da equipe.
+            </p>
+            <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+              {[
+                { icon: MessageCircle, label: 'WhatsApp Oficial' },
+                { icon: BarChart3, label: 'Funil e metas' },
+                { icon: ShieldCheck, label: 'Equipe e permissões' },
+              ].map((item) => {
+                const Icon = item.icon;
+                return (
+                  <div key={item.label} className="flex items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-4 py-2 text-xs font-bold text-slate-600 shadow-sm backdrop-blur">
+                    <Icon className="h-3.5 w-3.5 text-[#F97316]" />
+                    {item.label}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-7 flex items-center justify-center gap-2 text-xs font-bold text-emerald-700">
+              <CheckCircle2 className="h-4 w-4" />
+              API Oficial da Meta com coexistência
+            </div>
+          </motion.div>
+        </div>
+      </section>
     </div>
   );
 };
