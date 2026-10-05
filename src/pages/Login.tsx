@@ -122,7 +122,7 @@ const Login = () => {
             </p>
           </div>
 
-          <div className="flex w-full justify-center overflow-hidden rounded-full bg-[#0F172A] shadow-[0_12px_28px_-18px_rgba(15,23,42,0.75)] transition-transform hover:-translate-y-0.5">
+          <div className="flex w-full justify-center overflow-hidden rounded-full bg-[#0F172A] px-1 py-2 shadow-[0_12px_28px_-18px_rgba(15,23,42,0.75)] transition-transform hover:-translate-y-0.5">
             <GoogleLogin
               onSuccess={handleGoogleSuccess}
               onError={() => {
