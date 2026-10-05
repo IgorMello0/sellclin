@@ -97,7 +97,7 @@ const Index = () => {
                 }}
                 className="text-[32px] sm:text-4xl md:text-5xl xl:text-[58px] font-headline font-black text-[#0F172A] leading-[1.08] tracking-tighter mb-5 max-w-2xl"
               >
-                WhatsApp Oficial e operação comercial no <span className="shimmer-text">mesmo CRM.</span>
+                CRM feito para clínicas que querem vender mais com <span className="shimmer-text">inteligência comercial.</span>
               </motion.h1>
               <motion.p
                 variants={{
