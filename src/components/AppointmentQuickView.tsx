@@ -37,9 +37,10 @@ interface AppointmentQuickViewProps {
   isOpen: boolean;
   onClose: () => void;
   onUpdate: () => void;
+  onReschedule?: (appointment: any) => void;
 }
 
-export function AppointmentQuickView({ appointmentId, isOpen, onClose, onUpdate }: AppointmentQuickViewProps) {
+export function AppointmentQuickView({ appointmentId, isOpen, onClose, onUpdate, onReschedule }: AppointmentQuickViewProps) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [data, setData] = useState<any>(null);
@@ -59,12 +60,16 @@ export function AppointmentQuickView({ appointmentId, isOpen, onClose, onUpdate 
 
   const fetchDetails = async (id: number) => {
     setLoading(true);
+    setData(null);
     try {
       const response = await appointmentsApi.getById(id);
       if (response.success) {
         setData(response.data);
         setTempStatus(response.data.status);
         setTempNotes(response.data.notes || '');
+      } else {
+        toast({ title: 'Erro', description: response.error?.message || 'Não foi possível carregar os detalhes.', variant: 'destructive' });
+        onClose();
       }
     } catch (error) {
       toast({ title: 'Erro', description: 'Não foi possível carregar os detalhes.', variant: 'destructive' });
@@ -95,14 +100,15 @@ export function AppointmentQuickView({ appointmentId, isOpen, onClose, onUpdate 
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (statusOverride?: string) => {
     if (!allowAction('agendamentos', 'editarAgendamentos')) return;
-    if (tempStatus === 'cancelado' && !allowAction('agendamentos', 'cancelarAgendamentos')) return;
+    const nextStatus = statusOverride || tempStatus;
+    if (nextStatus === 'cancelado' && !allowAction('agendamentos', 'cancelarAgendamentos')) return;
     if (!data) return;
     setSaving(true);
     try {
       const response = await appointmentsApi.update(data.id, {
-        status: tempStatus,
+        status: nextStatus,
         notes: tempNotes,
         // Mantemos os outros dados
         professionalId: data.professionalId,
@@ -116,8 +122,10 @@ export function AppointmentQuickView({ appointmentId, isOpen, onClose, onUpdate 
       onUpdate();
       toast({ title: 'Sucesso!', description: 'Agendamento atualizado com sucesso.' });
       onClose();
+      return true;
     } catch (error) {
-      toast({ title: 'Erro', description: 'Falha ao salvar as alterações.', variant: 'destructive' });
+      toast({ title: 'Erro', description: error instanceof Error ? error.message : 'Falha ao salvar as alterações.', variant: 'destructive' });
+      return false;
     } finally {
       setSaving(false);
     }
@@ -354,10 +362,9 @@ export function AppointmentQuickView({ appointmentId, isOpen, onClose, onUpdate 
             </Button>
 
             <Button 
-              onClick={() => {
-                setTempStatus('cancelado');
-                handleSave();
-                toast({ title: 'Agendamento cancelado', description: 'Por favor, crie um novo agendamento para reagendar.' });
+              onClick={async () => {
+                const saved = await handleSave('cancelado');
+                if (saved) onReschedule?.(data);
               }}
               variant="outline"
               className="flex-1 h-9 rounded-lg font-bold border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800 px-2 text-[11px] shadow-sm"
@@ -377,7 +384,7 @@ export function AppointmentQuickView({ appointmentId, isOpen, onClose, onUpdate 
               </Button>
             ) : (
               <Button 
-                onClick={() => { onClose(); navigate('/patients'); }}
+                onClick={() => { onClose(); navigate('/pacientes'); }}
                 variant="outline"
                 className="flex-1 h-9 rounded-lg font-bold border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800 px-2 text-[11px] shadow-sm"
               >
@@ -387,7 +394,7 @@ export function AppointmentQuickView({ appointmentId, isOpen, onClose, onUpdate 
             )}
           </div>
           <Button 
-            onClick={handleSave} 
+            onClick={() => handleSave()}
             disabled={saving} 
             className="w-full h-10 rounded-lg font-bold shadow-md shadow-primary/20 gap-2 bg-[#111827] hover:bg-[#1f2937]"
           >

@@ -23,6 +23,7 @@ const Appointments = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [openModal, setOpenModal] = useState(false);
   const [quickViewAptId, setQuickViewAptId] = useState<number | null>(null);
+  const [rescheduleTarget, setRescheduleTarget] = useState<any>(null);
   const { toast } = useToast();
   const { professional, hasPermission } = useAuth();
   const allowAction = useActionPermission();
@@ -216,7 +217,7 @@ const Appointments = () => {
     apt.service.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const todayAppointments = appointments.filter(apt => isSameDay(apt.date, new Date()));
+  const todayAppointments = appointments.filter(apt => isSameDay(apt.date, new Date()) && apt.status !== 'cancelado');
   const todayConfirmed = todayAppointments.filter(a => a.status === 'confirmado').length;
   const todayPending = todayAppointments.filter(a => a.status === 'agendado').length;
 
@@ -253,7 +254,7 @@ const Appointments = () => {
             </Select>
           )}
 
-          <Button disabled={!hasPermission('agendamentos', 'criarAgendamentos')} variant="secondary" size="xl" onClick={() => setOpenModal(true)} className="shadow-lg shadow-secondary/20 h-9 sm:h-auto text-xs sm:text-sm">
+          <Button disabled={!hasPermission('agendamentos', 'criarAgendamentos')} variant="secondary" size="xl" onClick={() => { setRescheduleTarget(null); setOpenModal(true); }} className="shadow-lg shadow-secondary/20 h-9 sm:h-auto text-xs sm:text-sm">
             <span className="material-symbols-outlined text-base sm:text-lg">add</span>
             <span className="hidden sm:inline">Novo Agendamento</span>
             <span className="sm:hidden">Novo</span>
@@ -461,10 +462,10 @@ const Appointments = () => {
                                     {apt.time} - {format(endTime, 'HH:mm')}
                                   </div>
                                 )}
-                                {apt.status !== 'confirmado' && (
+                                {apt.status === 'agendado' && (
                                   <button
                                     onClick={(e) => { e.stopPropagation(); handleCheckApt(apt.id); }}
-                                    title="Marcar como compareceu"
+                                    title="Confirmar agendamento"
                                     className="w-6 h-6 rounded-full bg-white/70 hover:bg-emerald-500 hover:text-white text-emerald-600 flex items-center justify-center transition-all border border-current/20 shrink-0"
                                   >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
@@ -605,9 +606,19 @@ const Appointments = () => {
 
       <NewAppointmentModal
         open={openModal}
-        onOpenChange={setOpenModal}
+        onOpenChange={(open) => {
+          setOpenModal(open);
+          if (!open) setRescheduleTarget(null);
+        }}
         onSuccess={loadAppointments}
-        initialDate={selectedDate}
+        initialDate={rescheduleTarget ? parseISO(rescheduleTarget.startTime) : selectedDate}
+        initialClientId={rescheduleTarget?.clientId ? String(rescheduleTarget.clientId) : undefined}
+        initialClientName={rescheduleTarget?.client?.name}
+        initialClientPhone={rescheduleTarget?.client?.phone}
+        initialLeadId={rescheduleTarget?.leadId ? String(rescheduleTarget.leadId) : undefined}
+        initialLeadName={rescheduleTarget?.lead?.name}
+        initialLeadPhone={rescheduleTarget?.lead?.phone}
+        initialServiceTags={rescheduleTarget?.service?.name ? [rescheduleTarget.service.name] : undefined}
       />
 
       <AppointmentQuickView
@@ -615,6 +626,14 @@ const Appointments = () => {
         appointmentId={quickViewAptId}
         onClose={() => setQuickViewAptId(null)}
         onUpdate={loadAppointments}
+        onReschedule={(appointment) => {
+          const appointmentDate = parseISO(appointment.startTime);
+          setSelectedDate(appointmentDate);
+          setCurrentWeek(appointmentDate);
+          setRescheduleTarget(appointment);
+          setQuickViewAptId(null);
+          setOpenModal(true);
+        }}
       />
     </div>
   );

@@ -121,13 +121,14 @@ export function NewAppointmentModal({
   useEffect(() => {
     if (open && professional) {
       loadInitialData();
+      setDate(initialDate ? format(initialDate, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"));
       if (initialClientId) setSelectedClient(initialClientId);
       else setSelectedClient("");
       setSelectedServiceId("");
       setTime("");
       setAvailableSlots([]);
     }
-  }, [open, initialClientId, professional]);
+  }, [open, initialClientId, initialDate, professional]);
 
   const loadInitialData = async () => {
     if (!professional?.id) return;

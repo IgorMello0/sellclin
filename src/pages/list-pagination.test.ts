@@ -22,6 +22,7 @@ function setup([page, name, end, api, setter]: typeof cases[number], getAll: any
   const toast = vi.fn();
   const context = vm.createContext({
     loadAllPages, listRequest: { current: 0 }, professional: { id: 1 }, searchQuery: 'Teste', selectedProfFilter: '7',
+    professionalsList: [{ id: 7, _selectionKey: '7', _isUsuario: false }],
     [api]: { getAll }, [setter]: (items: any[]) => { state.items = items; }, setIsLoading: (value: boolean) => { state.loading = value; },
     toast, console, useCallback: (fn: any) => fn, parseISO: (s: string) => new Date(s), format: () => '10:00',
   });

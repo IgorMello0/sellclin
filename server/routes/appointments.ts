@@ -10,9 +10,20 @@ import {
 } from '../services/tenant.js'
 import { logAudit } from '../utils/audit.js'
 import { deleteAppointmentFromGoogle, syncAppointmentToGoogle } from '../services/google-calendar.js'
+import { actionPermissions, hasActionPermission } from '../middleware/action-permissions.js'
 
 export const router = Router()
 router.use(auth(), actionPermissions('agendamentos'))
+
+const APPOINTMENT_STATUSES = new Set(['agendado', 'confirmado', 'cancelado', 'concluido'])
+
+function parseAppointmentRange(startTime: unknown, endTime: unknown) {
+  if (typeof startTime !== 'string' || typeof endTime !== 'string') return null
+  const start = new Date(startTime)
+  const end = new Date(endTime)
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || end <= start) return null
+  return { start, end }
+}
 
 router.get('/', auth(), requireModule('agendamentos'), async (req, res) => {
   const { skip, take, page, pageSize } = parsePagination(req.query)
@@ -312,6 +323,13 @@ router.get('/:id', auth(), requireModule('agendamentos'), async (req, res) => {
 router.post('/', auth(), requireModule('agendamentos'), async (req, res) => {
   try {
     const { clientId, leadId, tags, serviceId, startTime, endTime, status, notes, sdrId, especialistaId, consultationAmount, consultationPaymentMethod } = req.body
+    const range = parseAppointmentRange(startTime, endTime)
+    if (!range) {
+      return res.status(400).json(createErrorResponse('Informe um período válido para o agendamento.', 400))
+    }
+    if (status !== undefined && !APPOINTMENT_STATUSES.has(status)) {
+      return res.status(400).json(createErrorResponse('Status de agendamento inválido.', 400))
+    }
     
     let professionalId: number;
     if (req.body.professionalId) {
@@ -360,10 +378,11 @@ router.post('/', auth(), requireModule('agendamentos'), async (req, res) => {
 
     // Overbooking Validation
     const overbookingWhere: any = {
+      companyId: req.user!.companyId,
       status: { not: 'cancelado' },
       AND: [
-        { startTime: { lt: new Date(endTime) } },
-        { endTime: { gt: new Date(startTime) } }
+        { startTime: { lt: range.end } },
+        { endTime: { gt: range.start } }
       ]
     };
     if (req.body.especialistaId) {
@@ -373,9 +392,7 @@ router.post('/', auth(), requireModule('agendamentos'), async (req, res) => {
       overbookingWhere.especialistaId = null;
     }
 
-    const conflicting = await prisma.appointment.findFirst({
-      where: overbookingWhere
-    });
+    const conflicting = status === 'cancelado' ? null : await prisma.appointment.findFirst({ where: overbookingWhere });
 
     if (conflicting) {
       return res.status(409).json(createErrorResponse('Este horário já está ocupado para este profissional.', 409));
@@ -397,8 +414,8 @@ router.post('/', auth(), requireModule('agendamentos'), async (req, res) => {
         clientId: clientId ? Number(clientId) : null, 
         leadId: leadId ? Number(leadId) : null,
         serviceId: serviceId ? Number(serviceId) : null, 
-        startTime: new Date(startTime), 
-        endTime: new Date(endTime), 
+        startTime: range.start,
+        endTime: range.end,
         status: status || 'agendado', 
         notes,
         sdrId: finalSdrId,
@@ -481,8 +498,23 @@ router.put('/:id', auth(), requireModule('agendamentos'), async (req, res) => {
     const id = Number(req.params.id)
     const { clientId, serviceId, startTime, endTime, status, notes, sdrId, especialistaId } = req.body
 
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json(createErrorResponse('Agendamento inválido.', 400))
+    }
+    if (status !== undefined && !APPOINTMENT_STATUSES.has(status)) {
+      return res.status(400).json(createErrorResponse('Status de agendamento inválido.', 400))
+    }
+
     const current = await prisma.appointment.findFirst({ where: { id, companyId: req.user!.companyId } });
     if (!current) return res.status(404).json(createErrorResponse('Agendamento não encontrado', 404));
+
+    const range = parseAppointmentRange(
+      startTime === undefined ? current.startTime.toISOString() : startTime,
+      endTime === undefined ? current.endTime.toISOString() : endTime,
+    )
+    if (!range) {
+      return res.status(400).json(createErrorResponse('Informe um período válido para o agendamento.', 400))
+    }
 
     let professionalId = current.professionalId;
     if (req.body.professionalId) {
@@ -516,10 +548,11 @@ router.put('/:id', auth(), requireModule('agendamentos'), async (req, res) => {
     // Overbooking Validation
     const putOverbookingWhere: any = {
       id: { not: id },
+      companyId: req.user!.companyId,
       status: { not: 'cancelado' },
       AND: [
-        { startTime: { lt: new Date(endTime || current.endTime) } },
-        { endTime: { gt: new Date(startTime || current.startTime) } }
+        { startTime: { lt: range.end } },
+        { endTime: { gt: range.start } }
       ]
     };
     
@@ -532,9 +565,12 @@ router.put('/:id', auth(), requireModule('agendamentos'), async (req, res) => {
       putOverbookingWhere.especialistaId = null;
     }
 
-    const conflicting = startTime && endTime ? await prisma.appointment.findFirst({
-      where: putOverbookingWhere
-    }) : null;
+    const timeChanged = range.start.getTime() !== current.startTime.getTime() || range.end.getTime() !== current.endTime.getTime()
+    const resourceChanged = professionalId !== current.professionalId || Number(finalEspecialistaId || 0) !== Number(current.especialistaId || 0)
+    const nextStatus = status || current.status
+    const conflicting = nextStatus !== 'cancelado' && (timeChanged || resourceChanged)
+      ? await prisma.appointment.findFirst({ where: putOverbookingWhere })
+      : null;
 
     if (conflicting) {
       return res.status(409).json(createErrorResponse('Este horário já está ocupado.', 409));
@@ -546,8 +582,8 @@ router.put('/:id', auth(), requireModule('agendamentos'), async (req, res) => {
         professionalId: req.body.professionalId ? Number(req.body.professionalId) : undefined,
         clientId: clientId ? Number(clientId) : undefined, 
         serviceId: serviceId ? Number(serviceId) : undefined, 
-        startTime: startTime ? new Date(startTime) : undefined, 
-        endTime: endTime ? new Date(endTime) : undefined, 
+        startTime: startTime !== undefined ? range.start : undefined,
+        endTime: endTime !== undefined ? range.end : undefined,
         status, 
         notes,
         sdrId: sdrId !== undefined ? (sdrId ? Number(sdrId) : null) : undefined,
@@ -639,4 +675,3 @@ router.delete('/:id', auth(), requireModule('agendamentos'), async (req, res) =>
   
   res.json(createSuccessResponse({ id }))
 })
-import { actionPermissions, hasActionPermission } from '../middleware/action-permissions.js'
