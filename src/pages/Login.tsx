@@ -271,11 +271,13 @@ const Login = () => {
             />
           </motion.div>
 
+          <div className="pointer-events-none absolute inset-x-0 bottom-[250px] z-20 h-24 bg-gradient-to-t from-white via-white/75 to-transparent" />
+
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.45 }}
-            className="absolute inset-x-0 bottom-0 z-30 min-h-[250px] border-t border-slate-200 bg-white px-8 py-7 xl:px-10"
+            className="absolute inset-x-0 bottom-0 z-30 min-h-[250px] border-t border-white bg-white px-8 py-7 shadow-[0_-24px_50px_-38px_rgba(15,23,42,0.45)] xl:px-10"
           >
             <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">
               <CheckCircle2 className="h-4 w-4" />
