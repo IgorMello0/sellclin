@@ -57,7 +57,7 @@ async function main() {
     if (proposal > now) proposal = now;
     if (closed > now) closed = now;
 
-    let updateData: any = {};
+    const updateData: any = {};
     if (attendedStages.includes(lead.status) && lead.attendedAt && lead.attendedAt >= new Date('2026-08-01T00:00:00.000Z')) {
        updateData.attendedAt = attended;
     }

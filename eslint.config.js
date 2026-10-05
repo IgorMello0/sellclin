@@ -5,7 +5,31 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist"] },
+  {
+    ignores: [
+      "dist/**",
+      "dist-server/**",
+      ".security-check/**",
+      "skills/**",
+      "**/*.js",
+      "**/*.cjs",
+      "**/*.mjs",
+      "original_sales_funnel.tsx",
+      "check*.ts",
+      "dump*.ts",
+      "fix*.ts",
+      "query*.ts",
+      "test*.ts",
+      "assign_sdrs.ts",
+      "count_unassigned.ts",
+      "gerar_relatorio.ts",
+      "grant_access.ts",
+      "last_lead.ts",
+      "patch*.ts",
+      "sanitize-phones.ts",
+      "trigger-cadence-fix.ts",
+    ],
+  },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],

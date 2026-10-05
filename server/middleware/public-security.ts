@@ -40,7 +40,8 @@ export function installAuthLimits(app: Express, limits = { loginIp: 30, loginAcc
       skip: (req) => typeof req.body?.email !== 'string' || !req.body.email.trim(),
     } : {}),
     handler: (req, res) => {
-      const resetTime = req.rateLimit?.resetTime?.getTime()
+      const rateLimitInfo = (req as typeof req & { rateLimit?: { resetTime?: Date } }).rateLimit
+      const resetTime = rateLimitInfo?.resetTime?.getTime()
       const retryAfterSeconds = Math.max(1, Math.ceil(((resetTime || Date.now() + 15 * 60_000) - Date.now()) / 1000))
       return res.status(429).json(createErrorResponse(
         'Muitas tentativas. Aguarde um pouco antes de tentar novamente.',

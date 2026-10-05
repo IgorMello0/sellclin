@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import SalesFunnel from './SalesFunnel';
 import { leadsApi } from '@/lib/api';
 
@@ -34,7 +35,7 @@ beforeEach(() => {
   vi.mocked(leadsApi.update).mockImplementation(async (_id, data) => { Object.assign(fixture.lead, data); return { success: true, data: { ...fixture.lead, value: data.proposalId ? 350 : 900 } }; });
 });
 afterEach(cleanup);
-async function mount() { render(<SalesFunnel />); await waitFor(() => expect(screen.getByTestId('card-stage').textContent).toBe('prospect_lead')); }
+async function mount() { render(<MemoryRouter><SalesFunnel /></MemoryRouter>); await waitFor(() => expect(screen.getByTestId('card-stage').textContent).toBe('prospect_lead')); }
 
 it('keeps the saved card stage when the API rejects a move', async () => {
   await mount(); vi.mocked(leadsApi.update).mockResolvedValue({ success: false, error: { message: 'Recusado' } });

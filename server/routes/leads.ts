@@ -155,14 +155,11 @@ router.get('/:id', auth(), async (req, res) => {
 // Criar novo lead
 router.post('/', auth(), async (req, res) => {
   try {
-    let { name, value, origin, status, avatar, phone, email, notes, responsible, tags, sdrId: requestedSdrId, closerId: requestedCloserId, especialistaId: requestedEspecialistaId } = req.body
+    const { name, value, origin, status, avatar, phone: rawPhone, email, notes, responsible, tags, sdrId: requestedSdrId, closerId: requestedCloserId, especialistaId: requestedEspecialistaId } = req.body
+    const phone = rawPhone ? String(rawPhone).replace(/\D/g, '') : rawPhone
 
     if (!name) {
       return res.status(400).json(createErrorResponse('O nome Ã© obrigatÃ³rio', 400))
-    }
-
-    if (phone) {
-      phone = String(phone).replace(/\D/g, '');
     }
 
     let professionalId: number;
@@ -194,7 +191,7 @@ router.post('/', auth(), async (req, res) => {
 
     let sdrId: number | undefined = undefined;
     let closerId: number | undefined = requestedCloserId ? Number(requestedCloserId) : undefined;
-    let especialistaId: number | undefined = requestedEspecialistaId ? Number(requestedEspecialistaId) : undefined;
+    const especialistaId: number | undefined = requestedEspecialistaId ? Number(requestedEspecialistaId) : undefined;
 
     // Se a interface enviar o SDR (pode ser um ID numÃ©rico, null para forÃ§ar nenhum, ou undefined/'random')
     if (requestedSdrId === 'random') {
@@ -1103,7 +1100,7 @@ router.patch('/bulk-assignment', auth(), async (req, res) => {
       if (access.error) return res.status(access.status).json(createErrorResponse(`Acesso negado ao lead ${leadId}`, access.status));
     }
 
-    // Se estÃ¡ atribuindo a SDR, verificar que o SDR pertence Ã  clÃ­nica
+    // Verificar se o SDR pertence a clinica
     if (sdrId !== undefined && sdrId !== null) {
       const sdr = await prisma.usuario.findUnique({ where: { id: parseInt(sdrId) }, select: { companyId: true } });
       if (!sdr || (companyId && sdr.companyId !== companyId)) {
@@ -1111,7 +1108,7 @@ router.patch('/bulk-assignment', auth(), async (req, res) => {
       }
     }
 
-    // Se estÃ¡ atribuindo a Closer, verificar que o Closer pertence Ã  clÃ­nica
+    // Verificar se o Closer pertence a clinica
     if (closerId !== undefined && closerId !== null) {
       const closer = await prisma.usuario.findUnique({ where: { id: parseInt(closerId) }, select: { companyId: true } });
       if (!closer || (companyId && closer.companyId !== companyId)) {
@@ -1119,7 +1116,7 @@ router.patch('/bulk-assignment', auth(), async (req, res) => {
       }
     }
 
-    // Se estÃ¡ atribuindo a Especialista, verificar que o Especialista pertence Ã  clÃ­nica
+    // Verificar se o Especialista pertence a clinica
     if (especialistaId !== undefined && especialistaId !== null) {
       const especialista = await prisma.usuario.findUnique({ where: { id: parseInt(especialistaId) }, select: { companyId: true } });
       if (!especialista || (companyId && especialista.companyId !== companyId)) {

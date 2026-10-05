@@ -164,7 +164,7 @@ export default function Tasks() {
         leadsApi.getAll({ pageSize: 100 })
       ]);
 
-      let combinedProfs: any[] = [];
+      const combinedProfs: any[] = [];
       if (profsRes.success && profsRes.data) {
         combinedProfs.push(...profsRes.data.map((p: any) => ({
           id: `prof-${p.id}`,

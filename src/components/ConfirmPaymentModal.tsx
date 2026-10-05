@@ -108,7 +108,7 @@ export function ConfirmPaymentModal({ open, onOpenChange, leadId, leadValue, pro
   useEffect(() => {
     if (!open) return;
     
-    let newInstallments: any[] = [];
+    const newInstallments: any[] = [];
     const today = new Date();
 
     paymentBlocks.forEach(block => {

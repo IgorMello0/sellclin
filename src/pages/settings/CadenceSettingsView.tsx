@@ -117,7 +117,7 @@ export default function CadenceSettingsView() {
   };
 
   const updateStep = (index: number, field: string, value: any) => {
-    let newSteps = [...config.steps];
+    const newSteps = [...config.steps];
     newSteps[index][field] = value;
     if (field === 'day') {
       newSteps.sort((a, b) => (a.day || 1) - (b.day || 1));

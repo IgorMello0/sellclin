@@ -10,7 +10,7 @@ const cases = [
   ['Clients', 'loadClients', '  // Recarregar quando searchQuery', 'clientsApi', 'setClients'],
   ['Leads', 'loadLeads', '  const loadServices', 'leadsApi', 'setLeads'],
   ['Appointments', 'loadAppointments', '  const loadProfessionals', 'appointmentsApi', 'setAppointments'],
-  ['Campaigns', 'loadCampaigns', '  const loadMessageCredits', 'campaignsApi', 'setCampaigns'],
+  ['Campaigns', 'loadCampaigns', '  useEffect(() => {', 'campaignsApi', 'setCampaigns'],
 ] as const;
 
 function setup([page, name, end, api, setter]: typeof cases[number], getAll: any) {
