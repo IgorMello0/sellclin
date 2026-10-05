@@ -262,30 +262,32 @@ const Login = () => {
             initial={{ opacity: 0, x: 50, scale: 0.98 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
             transition={{ duration: 0.9, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute left-10 top-24 w-[calc(100%+12rem)] overflow-hidden rounded-l-[2rem] border border-slate-200 bg-white p-3 shadow-[0_35px_90px_-40px_rgba(15,23,42,0.4)]"
+            className="absolute bottom-[250px] left-8 right-0 top-24 overflow-hidden rounded-l-[2rem] border border-slate-200 bg-white p-3 shadow-[0_35px_90px_-40px_rgba(15,23,42,0.4)]"
           >
             <img
               src="/dashboard-tela-sellclin-correto.png"
               alt="Dashboard do SellClin"
-              className="block w-full rounded-l-[1.5rem]"
+              className="block h-full w-full rounded-l-[1.5rem] object-cover object-left-top"
             />
           </motion.div>
-
-          <div className="absolute inset-x-0 bottom-0 z-20 h-[48%] bg-gradient-to-t from-[#F3F6FA] via-[#F3F6FA]/95 to-transparent" />
 
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.45 }}
-            className="absolute inset-x-0 bottom-12 z-30 mx-auto max-w-2xl px-10 text-center"
+            className="absolute inset-x-0 bottom-0 z-30 min-h-[250px] border-t border-slate-200 bg-white px-8 py-7 xl:px-10"
           >
-            <h2 className="font-headline text-4xl font-black tracking-tight text-[#0F172A] xl:text-5xl">
-              Toda a operação comercial em uma única visão.
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">
+              <CheckCircle2 className="h-4 w-4" />
+              API Oficial da Meta com coexistência
+            </div>
+            <h2 className="mt-3 max-w-xl font-headline text-3xl font-black leading-[1.08] tracking-tight text-[#0F172A] xl:text-4xl">
+              Toda a operação comercial, em uma única visão.
             </h2>
-            <p className="mx-auto mt-4 max-w-lg text-sm font-medium leading-relaxed text-slate-500">
-              Acompanhe conversas, funil, agenda, propostas e resultados sem perder o contexto da equipe.
+            <p className="mt-3 max-w-xl text-sm font-medium leading-relaxed text-slate-500">
+              Conversas, funil, agenda, propostas e resultados conectados ao trabalho da equipe.
             </p>
-            <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+            <div className="mt-5 flex flex-wrap items-center gap-2.5">
               {[
                 { icon: MessageCircle, label: 'WhatsApp Oficial' },
                 { icon: BarChart3, label: 'Funil e metas' },
@@ -293,16 +295,12 @@ const Login = () => {
               ].map((item) => {
                 const Icon = item.icon;
                 return (
-                  <div key={item.label} className="flex items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-4 py-2 text-xs font-bold text-slate-600 shadow-sm backdrop-blur">
+                  <div key={item.label} className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-600">
                     <Icon className="h-3.5 w-3.5 text-[#F97316]" />
                     {item.label}
                   </div>
                 );
               })}
-            </div>
-            <div className="mt-7 flex items-center justify-center gap-2 text-xs font-bold text-emerald-700">
-              <CheckCircle2 className="h-4 w-4" />
-              API Oficial da Meta com coexistência
             </div>
           </motion.div>
         </div>
