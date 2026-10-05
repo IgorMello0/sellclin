@@ -7,6 +7,8 @@ export interface ApiResponse<T> {
   error?: {
     message: string
     code?: number
+    reason?: string
+    retryAfterSeconds?: number
   }
   pagination?: {
     page: number

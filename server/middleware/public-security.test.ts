@@ -42,6 +42,10 @@ test('HTTP protections share login/account budgets, limit recovery and enforce C
     const blocked = await request('/api/usuarios/login')
     assert.equal(blocked.status, 429)
     assert.ok(blocked.headers.get('retry-after'))
+    const blockedBody = await blocked.json() as any
+    assert.equal(blockedBody.error.reason, 'rate_limited')
+    assert.equal(typeof blockedBody.error.retryAfterSeconds, 'number')
+    assert.ok(blockedBody.error.retryAfterSeconds > 0)
     assert.equal((await request('/api/profissionais/login', 'other@example.com')).status, 200)
     assert.equal((await request('/api/usuarios/login', 'third@example.com')).status, 200)
     assert.equal((await request('/api/profissionais/login', 'fourth@example.com')).status, 429)

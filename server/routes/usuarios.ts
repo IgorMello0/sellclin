@@ -67,9 +67,14 @@ router.post('/login', async (req, res) => {
       },
     }
   })
-  if (!await matchesLoginPassword(password, user?.passwordHash)) return res.status(401).json(createErrorResponse('Credenciais inválidas', 401))
-  if (!user.isActive || !user.emailVerified) {
-    return res.status(403).json(createErrorResponse('Aceite o convite enviado para seu e-mail antes de acessar.', 403))
+  if (!await matchesLoginPassword(password, user?.passwordHash)) {
+    return res.status(401).json(createErrorResponse('E-mail ou senha incorretos.', 401, { reason: 'invalid_credentials' }))
+  }
+  if (!user.emailVerified) {
+    return res.status(403).json(createErrorResponse('Confirme seu e-mail ou aceite o convite recebido antes de acessar.', 403, { reason: 'email_unverified' }))
+  }
+  if (!user.isActive) {
+    return res.status(403).json(createErrorResponse('Sua conta está desativada. Fale com o administrador da clínica para recuperar o acesso.', 403, { reason: 'account_disabled' }))
   }
 
   

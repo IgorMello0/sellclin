@@ -24,11 +24,18 @@ interface Professional {
 
 type Permission = ModulePermission;
 
+interface LoginResult {
+  success: boolean;
+  error?: string;
+  reason?: string;
+  retryAfterSeconds?: number;
+}
+
 interface AuthContextType {
   professional: Professional | null;
   permissions: Permission[];
   permissionsLoaded: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<LoginResult>;
   loginWithGoogle: (credential: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   signup: (data: Omit<Professional, 'id'> & { password: string }) => Promise<{ success: boolean; error?: string; requiresEmailVerification?: boolean; email?: string }>;
@@ -197,7 +204,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false);
   }, []);
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  const login = async (email: string, password: string): Promise<LoginResult> => {
     setIsLoading(true);
     
     try {
@@ -211,16 +218,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Professional e Usuario sao cadastros separados. O mesmo e-mail pode
       // ter um cadastro profissional pendente e um convite de equipe ativo.
       if (!professionalResponse.success) {
-        console.log('[Auth] Professional login failed, trying user login...');
-        const userResponse = await usuariosApi.login(email.trim().toLowerCase(), password);
-        console.log('[Auth] User login response:', userResponse);
+        const professionalCode = professionalResponse.error?.code;
+        const terminalFailure = professionalCode === 0 || professionalCode === 429 || (professionalCode !== undefined && professionalCode >= 500);
 
-        if (userResponse.success) {
-          response = userResponse;
-        } else if (professionalResponse.error?.code === 403 || professionalResponse.error?.code === 500) {
+        if (terminalFailure) {
           response = professionalResponse;
         } else {
-          response = userResponse;
+          console.log('[Auth] Professional login failed, trying user login...');
+          const userResponse = await usuariosApi.login(email.trim().toLowerCase(), password);
+          console.log('[Auth] User login response:', userResponse);
+
+          if (userResponse.success) {
+            response = userResponse;
+          } else if (professionalResponse.error?.code === 403 || professionalResponse.error?.code === 500) {
+            response = professionalResponse;
+          } else {
+            response = userResponse;
+          }
         }
       }
       
@@ -272,14 +286,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
       return { 
         success: false, 
-        error: response.error?.message || 'Email ou senha incorretos.' 
+        error: response.error?.message || 'E-mail ou senha incorretos.',
+        reason: response.error?.reason || (response.error?.code === 0 ? 'connection_error' : undefined),
+        retryAfterSeconds: response.error?.retryAfterSeconds,
       };
     } catch (error) {
       console.error('[Auth] Login exception:', error);
       setIsLoading(false);
       return { 
         success: false, 
-        error: 'Erro de conexão. Verifique se o servidor está rodando e tente novamente.' 
+        error: 'Não foi possível conectar. Verifique sua conexão e tente novamente.',
+        reason: 'connection_error',
       };
     }
   };

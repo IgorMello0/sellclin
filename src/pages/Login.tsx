@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { GoogleLogin, type CredentialResponse } from '@react-oauth/google';
 import { motion } from 'framer-motion';
 import {
   ArrowRight,
+  AlertCircle,
   BarChart3,
   CheckCircle2,
+  Clock3,
   Eye,
   EyeOff,
   Loader2,
@@ -23,12 +25,33 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [unverifiedEmail, setUnverifiedEmail] = useState('');
+  const [loginFeedback, setLoginFeedback] = useState<{ title: string; message: string } | null>(null);
+  const [retryAfterSeconds, setRetryAfterSeconds] = useState(0);
   const { login, loginWithGoogle, isLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  useEffect(() => {
+    if (retryAfterSeconds <= 0) return;
+    const timer = window.setInterval(() => {
+      setRetryAfterSeconds((seconds) => Math.max(0, seconds - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [retryAfterSeconds]);
+
+  const formatWaitTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainder = seconds % 60;
+    return `${minutes}:${String(remainder).padStart(2, '0')}`;
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+
+    if (retryAfterSeconds > 0) return;
+
+    setLoginFeedback(null);
+    setUnverifiedEmail('');
 
     if (!email || !password) {
       toast({
@@ -50,10 +73,39 @@ const Login = () => {
     }
 
     const message = result.error || 'E-mail ou senha incorretos.';
-    setUnverifiedEmail(message.toLowerCase().includes('verifique seu e-mail') ? email : '');
+    let title = 'Não foi possível entrar';
+    let feedbackMessage = message;
+
+    switch (result.reason) {
+      case 'invalid_credentials':
+        title = 'E-mail ou senha incorretos';
+        feedbackMessage = 'Confira os dados informados e tente novamente.';
+        break;
+      case 'account_disabled':
+        title = 'Conta desativada';
+        feedbackMessage = 'Seu acesso foi desativado. Fale com o administrador da clínica.';
+        break;
+      case 'email_unverified':
+        title = 'Confirme seu e-mail';
+        setUnverifiedEmail(email.trim());
+        break;
+      case 'rate_limited': {
+        title = 'Muitas tentativas';
+        const waitSeconds = Math.max(1, result.retryAfterSeconds || 15 * 60);
+        setRetryAfterSeconds(waitSeconds);
+        feedbackMessage = `Por segurança, o acesso foi bloqueado temporariamente. Tente novamente em ${formatWaitTime(waitSeconds)}.`;
+        break;
+      }
+      case 'connection_error':
+        title = 'Falha de conexão';
+        feedbackMessage = 'Não foi possível acessar o servidor. Verifique sua conexão e tente novamente.';
+        break;
+    }
+
+    setLoginFeedback({ title, message: feedbackMessage });
     toast({
-      title: 'Verifique seus dados',
-      description: message,
+      title,
+      description: feedbackMessage,
       variant: 'destructive',
     });
   };
@@ -163,7 +215,10 @@ const Login = () => {
                   autoComplete="email"
                   placeholder="voce@exemplo.com"
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  onChange={(event) => {
+                    setEmail(event.target.value);
+                    if (retryAfterSeconds === 0) setLoginFeedback(null);
+                  }}
                   required
                   className="h-14 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm font-medium text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:border-[#F97316] focus:ring-4 focus:ring-orange-100/60"
                 />
@@ -187,7 +242,10 @@ const Login = () => {
                   autoComplete="current-password"
                   placeholder="Sua senha"
                   value={password}
-                  onChange={(event) => setPassword(event.target.value)}
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    if (retryAfterSeconds === 0) setLoginFeedback(null);
+                  }}
                   required
                   className="h-14 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-12 text-sm font-medium text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:border-[#F97316] focus:ring-4 focus:ring-orange-100/60"
                 />
@@ -202,15 +260,43 @@ const Login = () => {
               </div>
             </div>
 
+            {loginFeedback && (
+              <div
+                role="alert"
+                aria-live="polite"
+                className="flex gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-left"
+              >
+                {retryAfterSeconds > 0
+                  ? <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+                  : <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />}
+                <div>
+                  <p className="text-sm font-bold text-red-900">{loginFeedback.title}</p>
+                  <p className="mt-0.5 text-xs font-medium leading-relaxed text-red-700">
+                    {retryAfterSeconds > 0
+                      ? `Por segurança, o acesso foi bloqueado temporariamente. Tente novamente em ${formatWaitTime(retryAfterSeconds)}.`
+                      : loginFeedback.message}
+                  </p>
+                </div>
+              </div>
+            )}
+
             <motion.button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || retryAfterSeconds > 0}
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
               className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#F97316] text-sm font-black text-white shadow-[0_12px_28px_-14px_rgba(249,115,22,0.75)] transition-colors hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-              {isLoading ? 'Acessando...' : 'Acessar painel'}
+              {isLoading
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : retryAfterSeconds > 0
+                  ? <Clock3 className="h-4 w-4" />
+                  : <ArrowRight className="h-4 w-4" />}
+              {isLoading
+                ? 'Acessando...'
+                : retryAfterSeconds > 0
+                  ? `Tente novamente em ${formatWaitTime(retryAfterSeconds)}`
+                  : 'Acessar painel'}
             </motion.button>
 
             {unverifiedEmail && (

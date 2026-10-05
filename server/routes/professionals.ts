@@ -27,11 +27,11 @@ router.post('/login', async (req, res) => {
       }
     })
     if (!await matchesLoginPassword(password, professional?.passwordHash)) {
-      return res.status(401).json(createErrorResponse('Credenciais inválidas', 401))
+      return res.status(401).json(createErrorResponse('E-mail ou senha incorretos.', 401, { reason: 'invalid_credentials' }))
     }
     
     if (!professional.emailVerified) {
-      return res.status(403).json(createErrorResponse('Verifique seu e-mail antes de acessar. Enviamos um link de confirmação para sua caixa de entrada.', 403))
+      return res.status(403).json(createErrorResponse('Verifique seu e-mail antes de acessar. Enviamos um link de confirmação para sua caixa de entrada.', 403, { reason: 'email_unverified' }))
     }
 
     const companiesMap = new Map<number, string>()

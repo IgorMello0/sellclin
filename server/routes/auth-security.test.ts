@@ -44,7 +44,15 @@ for (const [route, model] of [['owners', 'professional'], ['employees', 'usuario
     record = null
     assert.deepEqual(await unknown(), unverified)
     record = { id: 7, emailVerified: false, isActive: false, passwordHash }
-    assert.equal((await call(`/${route}/login`, { email: 'test@example.com', password: 'Working-pass' })).status, 403)
+    const pending = await call(`/${route}/login`, { email: 'test@example.com', password: 'Working-pass' })
+    assert.equal(pending.status, 403)
+    assert.equal(pending.body.error.reason, 'email_unverified')
+    if (route === 'employees') {
+      record = { id: 7, emailVerified: true, isActive: false, passwordHash }
+      const disabled = await call(`/${route}/login`, { email: 'test@example.com', password: 'Working-pass' })
+      assert.equal(disabled.status, 403)
+      assert.equal(disabled.body.error.reason, 'account_disabled')
+    }
     assert.equal((await call(`/${route}/login`, { email: 'test@example.com', password: {} })).status, 400)
   })
 }

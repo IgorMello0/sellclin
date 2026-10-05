@@ -39,7 +39,15 @@ export function installAuthLimits(app: Express, limits = { loginIp: 30, loginAcc
       keyGenerator: (req) => createHash('sha256').update(String(req.body?.email || '').trim().toLowerCase()).digest('hex'),
       skip: (req) => typeof req.body?.email !== 'string' || !req.body.email.trim(),
     } : {}),
-    handler: (_req, res) => res.status(429).json(createErrorResponse('Muitas tentativas. Aguarde 15 minutos e tente novamente.', 429)),
+    handler: (req, res) => {
+      const resetTime = req.rateLimit?.resetTime?.getTime()
+      const retryAfterSeconds = Math.max(1, Math.ceil(((resetTime || Date.now() + 15 * 60_000) - Date.now()) / 1000))
+      return res.status(429).json(createErrorResponse(
+        'Muitas tentativas. Aguarde um pouco antes de tentar novamente.',
+        429,
+        { reason: 'rate_limited', retryAfterSeconds },
+      ))
+    },
   })
   app.post(['/api/profissionais/login', '/api/usuarios/login'], limiter(limits.loginIp), limiter(limits.loginAccount, true))
   app.post(['/api/auth/forgot-password', '/api/auth/resend-verification'], limiter(limits.emailIp), limiter(limits.emailAccount, true))
