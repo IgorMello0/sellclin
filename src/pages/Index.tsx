@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { 
-  CheckCircle2, 
-  Target, 
+import {
+  CheckCircle2,
+  Target,
   ShieldCheck,
   ArrowRight,
   Plus,
@@ -68,7 +68,7 @@ const Index = () => {
       <section className="relative min-h-[90vh] lg:min-h-screen flex items-center overflow-hidden bg-white pt-24 pb-12 sm:pt-28 sm:pb-16 lg:pt-24 lg:pb-20">
         <div className="max-w-[1440px] mx-auto px-5 sm:px-8 w-full">
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,0.86fr)_minmax(540px,1.14fr)] gap-8 sm:gap-12 lg:gap-14 items-center">
-            <motion.div 
+            <motion.div
               initial="hidden"
               animate="visible"
               variants={{
@@ -80,6 +80,16 @@ const Index = () => {
               }}
               className="z-10 py-0 max-w-2xl"
             >
+              <motion.div
+                variants={{
+                  hidden: { opacity: 0, y: 16 },
+                  visible: { opacity: 1, y: 0, transition: { duration: 1, ease: [0.16, 1, 0.3, 1] } }
+                }}
+                className="inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-4 py-2 mb-5"
+              >
+                <ShieldCheck size={14} className="text-emerald-600" />
+                <span className="text-[9px] font-black uppercase tracking-[0.22em] text-emerald-700">API Oficial da Meta + coexistência</span>
+              </motion.div>
               <motion.h1 
                 variants={{
                   hidden: { opacity: 0, y: 30 },
@@ -87,18 +97,18 @@ const Index = () => {
                 }}
                 className="text-[32px] sm:text-4xl md:text-5xl xl:text-[58px] font-headline font-black text-[#0F172A] leading-[1.08] tracking-tighter mb-5 max-w-2xl"
               >
-                CRM feito para clínicas que querem vender mais com <span className="shimmer-text">inteligência comercial.</span>
+                WhatsApp Oficial e operação comercial no <span className="shimmer-text">mesmo CRM.</span>
               </motion.h1>
-              <motion.p 
+              <motion.p
                 variants={{
                   hidden: { opacity: 0, y: 20 },
                   visible: { opacity: 1, y: 0, transition: { duration: 1.4, ease: [0.16, 1, 0.3, 1] } }
                 }}
                 className="text-lg text-[#64748B] font-medium leading-relaxed mb-6 max-w-md"
               >
-                A infraestrutura comercial que sua clínica precisa, sem a complexidade que você não quer. Gestão inteligente e sem atritos.
+                Atenda pela API Oficial da Meta, mantenha o WhatsApp Business no celular com coexistência e conecte conversas, leads, agenda e vendas.
               </motion.p>
-              <motion.div 
+              <motion.div
                 variants={{
                   hidden: { opacity: 0, y: 20 },
                   visible: { opacity: 1, y: 0, transition: { duration: 1.4, ease: [0.16, 1, 0.3, 1] } }
@@ -112,7 +122,7 @@ const Index = () => {
                   Por que usar?
                 </a>
               </motion.div>
-              <motion.div 
+              <motion.div
                 variants={{
                   hidden: { opacity: 0, y: 20 },
                   visible: { opacity: 1, y: 0, transition: { duration: 1.4, ease: [0.16, 1, 0.3, 1] } }
@@ -135,8 +145,8 @@ const Index = () => {
                 ))}
               </motion.div>
             </motion.div>
-            
-            <motion.div 
+
+            <motion.div
               initial={{ opacity: 0, x: 100, rotateY: -15 }}
               animate={{ opacity: 1, x: 0, rotateY: 0 }}
               transition={{ duration: 1.8, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
@@ -156,78 +166,52 @@ const Index = () => {
       {/* 3. PRODUCT SHOWCASE — INTERACTIVE APP BROWSER */}
       <InteractiveAppBrowser />
 
-      {/* 4. SOCIAL PROOF — DUAL ROW MARQUEE */}
-      <section className="py-16 sm:py-32 bg-slate-50/30 overflow-hidden relative">
-        <motion.div 
-          initial={{ opacity: 0, y: 50 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.3, margin: "-100px" }}
-          transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
-          className="max-w-6xl mx-auto px-8 mb-16 text-center"
-        >
-          <span className="text-[#F97316] font-black text-[10px] uppercase tracking-[0.4em] mb-6 block">Resultados Reais</span>
-          <h2 className="text-3xl sm:text-4xl md:text-6xl font-headline font-black text-[#0F172A] mb-6 tracking-tighter">Quem usa, <span className="text-[#F97316]">vende mais.</span></h2>
-        </motion.div>
+      {/* 4. TEAM ROLES — HONEST PRODUCT VALUE */}
+      <section className="py-20 sm:py-32 bg-slate-50/50 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(249,115,22,0.08),transparent_34%)] pointer-events-none" />
+        <div className="max-w-7xl mx-auto px-6 sm:px-8 relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+            className="max-w-3xl mb-12 sm:mb-16"
+          >
+            <span className="text-[#F97316] font-black text-[10px] uppercase tracking-[0.4em] mb-5 block">Uma operação conectada</span>
+            <h2 className="text-3xl sm:text-4xl md:text-6xl font-headline font-black text-[#0F172A] mb-6 tracking-tighter leading-[1.05]">
+              Cada pessoa sabe o que fazer. <span className="text-slate-400">A clínica inteira enxerga o mesmo processo.</span>
+            </h2>
+            <p className="text-base sm:text-lg text-slate-500 font-medium leading-relaxed max-w-2xl">
+              O SellClin organiza responsabilidades, conversas e próximos passos para que cada perfil trabalhe com foco, sem depender de planilhas espalhadas.
+            </p>
+          </motion.div>
 
-        {/* Row 1 — Moving Left */}
-        <motion.div 
-          initial={{ opacity: 0, y: 40 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.3, margin: "-100px" }}
-          transition={{ duration: 1.6, delay: 0.2 }}
-          className="flex mask-fade-edges mb-8"
-        >
-          <div className="flex gap-6 animate-marquee-left pause-marquee py-4">
-            {[...Array(2)].map((_, idx) => (
-              <React.Fragment key={idx}>
-                {[
-                  { name: "Dr. Ricardo Santos", clinic: "Clínica OrthoDesign", text: "O SellClin mudou o jogo aqui. Aumentamos nossa conversão de implantes em 45% no primeiro trimestre.", img: "/testimonials/ricardo-santos.jpg" },
-                  { name: "Mariana Costa", clinic: "Aesthetic Center", text: "Finalmente tenho controle total dos meus leads de WhatsApp. Não perdemos mais nenhuma oportunidade.", img: "/testimonials/mariana-costa.jpg" },
-                  { name: "Dr. Paulo Vieira", clinic: "Vision Institute", text: "A agenda inteligente é fantástica. Reduzimos o no-show em 30% usando as automações do CRM.", img: "/testimonials/paulo-vieira.jpg" },
-                  { name: "Dra. Eliana Melo", clinic: "DermaGlow", text: "O melhor investimento que fiz este ano. O suporte é incrível e a plataforma é muito intuitiva.", img: "/testimonials/eliana-melo.jpg" },
-                ].map((t, i) => (
-                  <div key={i} className="w-[85vw] sm:w-[380px] flex-shrink-0 bg-white p-6 sm:p-8 rounded-[2rem] sm:rounded-[3rem] border border-[#F97316]/30 shadow-[0_0_20px_rgba(249,115,22,0.05)] hover:border-[#F97316] hover:shadow-[0_0_30px_rgba(249,115,22,0.15)] hover:-translate-y-2 transition-all duration-500">
-                    <div className="flex items-center gap-4 mb-6">
-                      <img src={t.img} className="h-12 w-12 rounded-full border-2 border-orange-50 object-cover" alt={t.name} />
-                      <div><div className="text-sm font-black text-[#0F172A]">{t.name}</div><div className="text-[10px] font-bold text-[#F97316] uppercase tracking-wider">{t.clinic}</div></div>
-                    </div>
-                    <p className="text-sm text-[#64748B] font-medium leading-relaxed italic">"{t.text}"</p>
-                  </div>
-                ))}
-              </React.Fragment>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+            {[
+              { icon: <LayoutDashboard size={20} />, role: 'Proprietário e gestor', text: 'Acompanhe funil, equipe, metas e faturamento em uma visão central da operação.' },
+              { icon: <MessageCircle size={20} />, role: 'Recepção', text: 'Organize conversas, confirmações e agenda sem perder o histórico do paciente.' },
+              { icon: <Users size={20} />, role: 'SDR', text: 'Receba leads, registre contatos e avance cada oportunidade para o próximo passo.' },
+              { icon: <Target size={20} />, role: 'Closer', text: 'Conduza propostas, retornos e negociações com contexto completo do atendimento.' },
+              { icon: <Calendar size={20} />, role: 'Especialista', text: 'Visualize sua agenda, seus pacientes e os compromissos ligados à rotina clínica.' },
+              { icon: <BarChart size={20} />, role: 'Marketing', text: 'Conecte campanhas oficiais às respostas, aos leads e ao resultado comercial.' },
+            ].map((item, index) => (
+              <motion.div
+                key={item.role}
+                initial={{ opacity: 0, y: 24 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.3 }}
+                transition={{ duration: 0.7, delay: index * 0.06 }}
+                className="group rounded-[1.75rem] border border-slate-200/80 bg-white p-6 sm:p-7 shadow-[0_16px_50px_-36px_rgba(15,23,42,0.35)] hover:-translate-y-1 hover:border-orange-200 transition-all duration-300"
+              >
+                <div className="w-11 h-11 rounded-2xl bg-slate-50 text-[#0F172A] flex items-center justify-center mb-6 group-hover:bg-[#F97316] group-hover:text-white transition-colors">
+                  {item.icon}
+                </div>
+                <h3 className="font-headline font-black text-lg text-[#0F172A] mb-2">{item.role}</h3>
+                <p className="text-sm text-slate-500 font-medium leading-relaxed">{item.text}</p>
+              </motion.div>
             ))}
           </div>
-        </motion.div>
-
-        {/* Row 2 — Moving Right */}
-        <motion.div 
-          initial={{ opacity: 0, y: 40 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.3, margin: "-100px" }}
-          transition={{ duration: 1.6, delay: 0.3 }}
-          className="flex mask-fade-edges"
-        >
-          <div className="flex gap-6 animate-marquee-right pause-marquee py-4">
-            {[...Array(2)].map((_, idx) => (
-              <React.Fragment key={idx}>
-                {[
-                  { name: "Dr. Felipe Neves", clinic: "Neves Odontologia", text: "O sistema de funis é o que faltava para organizar meu comercial. Hoje sei exatamente onde focar.", img: "/testimonials/felipe-neves.jpg" },
-                  { name: "Dra. Sarah Lima", clinic: "Lima Cardiovascular", text: "Interface limpa e resultados expressivos. A SellClin entende o dia a dia de uma clínica.", img: "/testimonials/sarah-lima.jpg" },
-                  { name: "Bruno Rocha", clinic: "Rocha & Associados", text: "Gerenciar leads nunca foi tão simples. O dashboard me dá clareza total para tomar decisões.", img: "/testimonials/bruno-rocha.jpg" },
-                  { name: "Dra. Beatriz Ferraz", clinic: "Ferraz Pediatria", text: "Minha equipe amou a plataforma. Facilitou demais a comunicação com os pais via WhatsApp.", img: "/testimonials/beatriz-ferraz.jpg" },
-                ].map((t, i) => (
-                  <div key={i} className="w-[85vw] sm:w-[380px] flex-shrink-0 bg-white p-6 sm:p-8 rounded-[2rem] sm:rounded-[3rem] border border-[#F97316]/30 shadow-[0_0_20px_rgba(249,115,22,0.05)] hover:border-[#F97316] hover:shadow-[0_0_30px_rgba(249,115,22,0.15)] hover:-translate-y-2 transition-all duration-500">
-                    <div className="flex items-center gap-4 mb-6">
-                      <img src={t.img} className="h-12 w-12 rounded-full border-2 border-orange-50 object-cover" alt={t.name} />
-                      <div><div className="text-sm font-black text-[#0F172A]">{t.name}</div><div className="text-[10px] font-bold text-[#F97316] uppercase tracking-wider">{t.clinic}</div></div>
-                    </div>
-                    <p className="text-sm text-[#64748B] font-medium leading-relaxed italic">"{t.text}"</p>
-                  </div>
-                ))}
-              </React.Fragment>
-            ))}
-          </div>
-        </motion.div>
+        </div>
       </section>
 
       {/* 5. METAS — PRECISION CONSOLE */}
@@ -235,9 +219,9 @@ const Index = () => {
         <div className="absolute top-0 left-0 w-full h-[1px] bg-white/5" />
         <div className="max-w-7xl mx-auto px-8 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-24 items-center">
-            
+
             {/* Left: Copy and Value Proposition */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 60 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.3, margin: "-100px" }}
@@ -250,7 +234,7 @@ const Index = () => {
               <p className="text-lg text-slate-400 font-medium leading-relaxed mb-12 max-w-lg">
                 Pare de "achar" quanto vai faturar. Use nossa engenharia para calcular exatamente o volume de leads e conversão necessários para bater seu próximo recorde.
               </p>
-              
+
               <div className="space-y-6 mb-12">
                 {[
                   { t: "Previsibilidade", d: "Saiba quanto investir para o retorno esperado." },
@@ -273,7 +257,7 @@ const Index = () => {
             </motion.div>
 
             {/* Right: The Pristine White Console (Compact Version) */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 60 }}
               whileInView={{ opacity: 1, scale: 1, y: 0 }}
               viewport={{ once: true, amount: 0.3, margin: "-100px" }}
@@ -298,16 +282,16 @@ const Index = () => {
                       </span>
                     </div>
                     <div className="relative h-1 w-full bg-slate-100 rounded-full">
-                      <div 
+                      <div
                         className="absolute top-0 left-0 h-full bg-[#F97316] rounded-full"
                         style={{ width: `${(revenue / 1000000) * 100}%` }}
                       />
-                      <input 
+                      <input
                         type="range" min="10000" max="1000000" step="10000"
                         value={revenue} onChange={(e) => setRevenue(Number(e.target.value))}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                       />
-                      <div 
+                      <div
                         className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full border-[3px] border-[#F97316] shadow-xl pointer-events-none transition-transform duration-300 group-hover:scale-110"
                         style={{ left: `calc(${(revenue / 1000000) * 100}% - 8px)` }}
                       />
@@ -323,16 +307,16 @@ const Index = () => {
                       </span>
                     </div>
                     <div className="relative h-1 w-full bg-slate-100 rounded-full">
-                      <div 
+                      <div
                         className="absolute top-0 left-0 h-full bg-[#0F172A] rounded-full"
                         style={{ width: `${(ticket / 20000) * 100}%` }}
                       />
-                      <input 
+                      <input
                         type="range" min="500" max="20000" step="500"
                         value={ticket} onChange={(e) => setTicket(Number(e.target.value))}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                       />
-                      <div 
+                      <div
                         className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full border-[3px] border-[#0F172A] shadow-xl pointer-events-none transition-transform duration-300 group-hover:scale-110"
                         style={{ left: `calc(${(ticket / 20000) * 100}% - 8px)` }}
                       />
@@ -381,7 +365,7 @@ const Index = () => {
 
         <div className="max-w-7xl mx-auto px-6 sm:px-8 relative z-10">
           {/* Section Header — Centered */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 50 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.3, margin: "-100px" }}
@@ -390,21 +374,21 @@ const Index = () => {
           >
             <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-5 py-2 mb-8 backdrop-blur-sm">
               <Send size={12} className="text-[#F97316]" />
-              <span className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em]">Campanhas & Disparos</span>
+              <span className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em]">WhatsApp Business Platform</span>
             </div>
             <h2 className="text-4xl sm:text-5xl md:text-7xl font-headline font-black text-white mb-6 tracking-tighter leading-[1.05]">
-              Dispare para milhares.<br />
-              <span className="bg-gradient-to-r from-[#F97316] via-orange-400 to-amber-400 bg-clip-text text-transparent">Em segundos.</span>
+              Campanhas pela API Oficial.<br />
+              <span className="bg-gradient-to-r from-[#F97316] via-orange-400 to-amber-400 bg-clip-text text-transparent">Conversas dentro do CRM.</span>
             </h2>
             <p className="text-base sm:text-lg text-slate-400 font-medium leading-relaxed max-w-2xl mx-auto">
-              Envie campanhas personalizadas via WhatsApp para toda sua base. Segmente por funil, tags ou importe uma planilha — e acompanhe tudo ao vivo.
+              Envie templates aprovados pela Meta para sua base autorizada, acompanhe o processamento oficial e transforme cada resposta em atendimento comercial.
             </p>
           </motion.div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-center">
-            
+
             {/* Left: Immersive Phone Mockup with floating chat bubbles */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 80, scale: 0.9 }}
               whileInView={{ opacity: 1, y: 0, scale: 1 }}
               viewport={{ once: true, amount: 0.2, margin: "-100px" }}
@@ -413,10 +397,10 @@ const Index = () => {
             >
               {/* Glow behind the card */}
               <div className="absolute -inset-10 bg-gradient-to-tr from-[#F97316]/15 via-transparent to-blue-500/10 blur-[80px] rounded-full" />
-              
+
               <div className="relative bg-white p-2 sm:p-3 rounded-[2rem] sm:rounded-[2.5rem] border border-[#F97316]/20 shadow-[0_0_40px_rgba(249,115,22,0.08)]">
                 <div className="bg-white rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden border border-slate-100 shadow-sm">
-                  
+
                   {/* Top Bar — Campaign Info */}
                   <div className="px-5 sm:px-7 pt-5 sm:pt-7 pb-4 flex items-center justify-between border-b border-slate-100 bg-slate-50/50">
                     <div className="flex items-center gap-3">
@@ -426,12 +410,12 @@ const Index = () => {
                       </div>
                       <div>
                         <h4 className="text-sm font-black text-[#0F172A]">Promoção Julho</h4>
-                        <p className="text-[10px] text-slate-500 font-medium">WhatsApp • 1.247 contatos</p>
+                        <p className="text-[10px] text-slate-500 font-medium">API Oficial • 1.247 contatos</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 rounded-full px-3 py-1">
                       <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="text-[9px] font-black text-emerald-600 uppercase tracking-wider">Ao Vivo</span>
+                      <span className="text-[9px] font-black text-emerald-600 uppercase tracking-wider">Meta Oficial</span>
                     </div>
                   </div>
 
@@ -447,8 +431,8 @@ const Index = () => {
                           { label: "CSV", active: false },
                         ].map((chip, i) => (
                           <div key={i} className={`px-3 py-1.5 rounded-full text-[10px] font-bold transition-all cursor-pointer border ${
-                            chip.active 
-                              ? 'bg-[#F97316]/10 text-[#F97316] border-[#F97316]/30' 
+                            chip.active
+                              ? 'bg-[#F97316]/10 text-[#F97316] border-[#F97316]/30'
                               : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-300'
                           }`}>
                             {chip.label}
@@ -476,7 +460,7 @@ const Index = () => {
                             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="6" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="18" r="1.5"/></svg>
                           </div>
                         </div>
-                        
+
                         {/* Chat Area with WhatsApp light wallpaper */}
                         <div className="bg-[#EFEAE2] px-4 py-4 min-h-[140px] relative" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'200\' height=\'200\' viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M50 20c2 0 3 1 3 3s-1 3-3 3-3-1-3-3 1-3 3-3zm100 0c2 0 3 1 3 3s-1 3-3 3-3-1-3-3 1-3 3-3zm-50 50c2 0 3 1 3 3s-1 3-3 3-3-1-3-3 1-3 3-3zm-80 30c2 0 3 1 3 3s-1 3-3 3-3-1-3-3 1-3 3-3zm160 0c2 0 3 1 3 3s-1 3-3 3-3-1-3-3 1-3 3-3zm-80 50c2 0 3 1 3 3s-1 3-3 3-3-1-3-3 1-3 3-3z\' fill=\'%23000000\' fill-opacity=\'0.03\'/%3E%3C/svg%3E")' }}>
                           {/* Outgoing bubble */}
@@ -539,7 +523,7 @@ const Index = () => {
               </div>
 
               {/* Floating notification badges */}
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
@@ -553,7 +537,7 @@ const Index = () => {
                 </div>
               </motion.div>
 
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
@@ -569,7 +553,7 @@ const Index = () => {
             </motion.div>
 
             {/* Right: Features */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 60 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.3, margin: "-100px" }}
@@ -578,38 +562,38 @@ const Index = () => {
             >
               <div className="space-y-6 sm:space-y-8">
                 {[
-                  { 
+                  {
                     icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
-                    t: "Disparo em Massa via WhatsApp", 
-                    d: "Envie mensagens personalizadas para milhares de contatos em poucos cliques. O sistema gerencia a fila e garante entrega.",
+                    t: "API Oficial da Meta",
+                    d: "Envie campanhas pelo canal oficial do WhatsApp, com templates aprovados e processamento acompanhado dentro do SellClin.",
                     color: "from-emerald-500 to-emerald-600"
                   },
-                  { 
+                  {
                     icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12l2 2 4-4"/></svg>,
-                    t: "Variáveis Dinâmicas", 
-                    d: "Use {{nome}}, {{data}}, {{especialista}} e mais. Cada mensagem é única e personalizada automaticamente.",
+                    t: "Coexistência no mesmo número",
+                    d: "Mantenha o WhatsApp Business ativo no celular e use o SellClin no mesmo número para organizar a operação da equipe.",
                     color: "from-[#F97316] to-orange-600"
                   },
-                  { 
+                  {
                     icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>,
-                    t: "Segmentação Inteligente", 
-                    d: "Filtre por leads, clientes, etapa do funil ou tags. Envie a mensagem certa para a pessoa certa.",
+                    t: "Segmentação Inteligente",
+                    d: "Filtre sua base autorizada por leads, clientes, etapa do funil ou tags e direcione cada campanha com contexto.",
                     color: "from-blue-500 to-blue-600"
                   },
-                  { 
+                  {
                     icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
-                    t: "Importação por Planilha", 
-                    d: "Importe até 5.000 contatos via CSV com nome, telefone e dados customizados. Dispare para públicos externos.",
+                    t: "Templates aprovados",
+                    d: "Use modelos aprovados pela Meta para iniciar conversas e retomar contatos fora da janela de 24 horas.",
                     color: "from-purple-500 to-purple-600"
                   },
-                  { 
+                  {
                     icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>,
-                    t: "Métricas em Tempo Real", 
-                    d: "Acompanhe envios, entregas e taxa de sucesso ao vivo enquanto a campanha roda.",
+                    t: "Métricas em Tempo Real",
+                    d: "Acompanhe processamento, envios, entregas e respostas reportados pela integração oficial.",
                     color: "from-cyan-500 to-cyan-600"
                   }
                 ].map((item, i) => (
-                  <motion.div 
+                  <motion.div
                     key={i}
                     initial={{ opacity: 0, x: 30 }}
                     whileInView={{ opacity: 1, x: 0 }}
@@ -628,7 +612,7 @@ const Index = () => {
                 ))}
               </div>
 
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
@@ -647,7 +631,7 @@ const Index = () => {
       {/* 6. PRICING */}
       <section id="planos" className="py-20 sm:py-40 bg-slate-50/50 relative overflow-hidden">
         <div className="max-w-6xl mx-auto px-8 relative z-10">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 50 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.3, margin: "-100px" }}
@@ -656,19 +640,19 @@ const Index = () => {
           >
             <span className="text-[#F97316] font-black text-[10px] uppercase tracking-[0.4em] mb-4 block">Planos</span>
             <h2 className="text-3xl sm:text-4xl md:text-6xl font-headline font-black text-[#0F172A] mb-8 tracking-tighter">A estrutura certa para <br className="hidden sm:block"/> <span className="text-[#F97316]">cada etapa.</span></h2>
-            
+
             {/* BILLING TOGGLE */}
             <div className="flex items-center justify-center gap-4 mb-4">
               <div className="bg-slate-100 p-1.5 rounded-full inline-flex relative cursor-pointer shadow-inner" onClick={() => setIsAnnual(!isAnnual)}>
-                <div 
+                <div
                   className="absolute top-1.5 bottom-1.5 w-[140px] bg-white rounded-full shadow-[0_2px_10px_rgba(0,0,0,0.05)] border border-slate-200/50 transition-transform duration-300 ease-out"
                   style={{ transform: isAnnual ? 'translateX(140px)' : 'translateX(0)' }}
                 />
-                
+
                 <div className={`relative z-10 w-[140px] py-3 text-[11px] font-black uppercase tracking-[0.2em] transition-colors duration-300 text-center flex items-center justify-center ${!isAnnual ? 'text-[#0F172A]' : 'text-slate-400 hover:text-slate-600'}`}>
                   Mensal
                 </div>
-                
+
                 <div className={`relative z-10 w-[140px] py-3 text-[11px] font-black uppercase tracking-[0.2em] transition-colors duration-300 text-center flex items-center justify-center ${isAnnual ? 'text-[#0F172A]' : 'text-slate-400 hover:text-slate-600'}`}>
                   Anual
                   <div className={`absolute -top-3 -right-2 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full transition-all duration-300 shadow-sm ${isAnnual ? 'bg-emerald-100 text-emerald-600 scale-100' : 'bg-slate-200 text-slate-400 scale-95 opacity-70'}`}>
@@ -679,7 +663,7 @@ const Index = () => {
             </div>
 
           </motion.div>
-          <motion.div 
+          <motion.div
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, amount: 0.3, margin: "-100px" }}
@@ -693,36 +677,36 @@ const Index = () => {
             className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto items-stretch"
           >
             {[
-              { 
-                name: "Start", 
+              {
+                name: "Start",
                 priceMonthly: "197",
                 priceAnnual: "147",
                 savings: "600",
-                plan: "start", 
-                features: ["Até 5 Usuários", "Dashboard (Básico)", "Agenda Inteligente", "Gestão de Clientes e Leads", "Funil Comercial (Kanban)", "Gestão de Tarefas"], 
-                featured: false 
+                plan: "start",
+                features: ["Até 5 Usuários", "Dashboard (Básico)", "Agenda Inteligente", "Gestão de Clientes e Leads", "Funil Comercial (Kanban)", "Gestão de Tarefas"],
+                featured: false
               },
-              { 
-                name: "Pro", 
+              {
+                name: "Pro",
                 priceMonthly: "297",
                 priceAnnual: "247",
                 savings: "600",
-                plan: "pro", 
-                features: ["Até 10 Usuários", "Integrações (WhatsApp Oficial)", "Campanhas & Disparos", "Engenharia de Metas", "Dashboard de Conversão", "Tudo do plano Start"], 
-                featured: true 
+                plan: "pro",
+                features: ["Até 10 Usuários", "Integrações (WhatsApp Oficial)", "Campanhas & Disparos", "Engenharia de Metas", "Dashboard de Conversão", "Tudo do plano Start"],
+                featured: true
               },
-              { 
-                name: "Enterprise", 
+              {
+                name: "Enterprise",
                 priceMonthly: "497",
                 priceAnnual: "397",
                 savings: "1.200",
-                plan: "enterprise", 
-                features: ["Usuários Ilimitados", "Gestão Multiclínicas (Filiais)", "Visão de Rede (Dashboard Unificado)", "API Dedicada", "Treinamento para a Equipe", "Gestor de Contas Exclusivo"], 
-                featured: false 
+                plan: "enterprise",
+                features: ["Usuários Ilimitados", "Gestão Multiclínicas (Filiais)", "Visão de Rede (Dashboard Unificado)", "API Dedicada", "Treinamento para a Equipe", "Gestor de Contas Exclusivo"],
+                featured: false
               }
             ].map((p, i) => (
-              <motion.div 
-                key={i} 
+              <motion.div
+                key={i}
                 variants={{
                   hidden: { opacity: 0, y: 60 },
                   visible: { opacity: 1, y: 0, transition: { duration: 1.4, ease: [0.16, 1, 0.3, 1] } }
@@ -749,7 +733,7 @@ const Index = () => {
                       <div className="h-5" />
                     )}
                   </div>
-                  
+
                   <div className="space-y-5 mb-12 flex-grow">
                     {p.features.map((f, idx) => (
                       <div key={idx} className="flex items-center gap-3">
@@ -758,7 +742,7 @@ const Index = () => {
                       </div>
                     ))}
                   </div>
-                  
+
                   <Link to={`/cadastro?plan=${p.plan}&cycle=monthly`} className={`block text-center w-full py-5 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] transition-all duration-300 ${p.featured ? 'bg-[#F97316] text-white shadow-lg shadow-orange-200 hover:scale-105' : 'bg-[#0F172A] text-white hover:bg-slate-800'}`}>
                     Escolher Plano
                   </Link>
@@ -773,7 +757,7 @@ const Index = () => {
       <section id="sobre" className="py-16 sm:py-48 bg-white relative overflow-hidden border-t border-slate-100">
         <div className="max-w-7xl mx-auto px-8 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24 items-center">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 50 }}
               whileInView={{ opacity: 1, scale: 1, y: 0 }}
               viewport={{ once: true, amount: 0.3, margin: "-100px" }}
@@ -789,7 +773,7 @@ const Index = () => {
                 </div>
               </div>
             </motion.div>
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 50 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.3, margin: "-100px" }}
@@ -806,7 +790,7 @@ const Index = () => {
               </p>
               <div className="pt-8">
                 <Link to="/sobre" className="group flex items-center gap-4 text-sm font-black uppercase tracking-[0.3em] text-[#0F172A] hover:text-[#F97316] transition-colors">
-                  Conheça nossa história 
+                  Conheça nossa história
                   <div className="w-12 h-[1px] bg-[#0F172A] group-hover:bg-[#F97316] transition-all group-hover:w-16" />
                 </Link>
               </div>
@@ -821,9 +805,9 @@ const Index = () => {
           <div className="bg-[#F97316] rounded-[3rem] p-8 sm:p-16 lg:p-20 text-white relative overflow-hidden group shadow-[0_50px_100px_-20px_rgba(249,115,22,0.4)]">
             {/* Subtle dot grid pattern */}
             <div className="absolute inset-0 opacity-[0.15] pointer-events-none" style={{ backgroundImage: 'radial-gradient(white 1.5px, transparent 1.5px)', backgroundSize: '24px 24px' }} />
-            
+
             <div className="grid grid-cols-1 md:grid-cols-12 gap-12 items-center relative z-10">
-              
+
               {/* Left: Conversational Call to Action */}
               <div className="md:col-span-7 space-y-6 max-w-xl">
                 <span className="text-white/90 font-black text-[10px] uppercase tracking-[0.6em] block">Fim da Página</span>
@@ -834,7 +818,7 @@ const Index = () => {
                   Se você leu toda a nossa proposta até aqui, é porque o comercial da sua clínica precisa de um motor inteligente e profissional. Dê o próximo passo.
                 </p>
                 <div className="pt-4">
-                  <Link 
+                  <Link
                     to="/cadastro"
                     className="inline-flex items-center gap-3 px-8 py-4.5 bg-[#0B1225] hover:bg-white hover:text-[#0B1225] text-white rounded-full font-black text-xs uppercase tracking-[0.2em] transition-all hover:scale-105 active:scale-95 shadow-lg shadow-[#0B1225]/20"
                   >
@@ -846,23 +830,23 @@ const Index = () => {
               {/* Right: Premium Hand-drawn UI Sketch */}
               <div className="md:col-span-5 relative w-full aspect-square md:aspect-4/3 flex items-center justify-center select-none">
                 <svg viewBox="0 0 400 320" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full max-w-xs sm:max-w-sm">
-                  
+
                   {/* Background Aura / Blob */}
-                  <motion.path 
-                    d="M 120 70 C 250 30, 360 120, 330 240 C 280 300, 100 280, 80 160 Z" 
-                    fill="white" 
-                    fillOpacity="0.1" 
+                  <motion.path
+                    d="M 120 70 C 250 30, 360 120, 330 240 C 280 300, 100 280, 80 160 Z"
+                    fill="white"
+                    fillOpacity="0.1"
                     initial={{ opacity: 0, scale: 0.8 }}
                     whileInView={{ opacity: 1, scale: 1 }}
                     viewport={{ once: true }}
                     transition={{ duration: 1.5 }}
                   />
-                  
+
                   {/* Decorative dashed circle */}
                   <circle cx="200" cy="160" r="120" stroke="white" strokeOpacity="0.15" strokeWidth="1.5" strokeDasharray="6 6" />
 
                   {/* MAIN DASHBOARD CARD (Center) */}
-                  <motion.g 
+                  <motion.g
                     initial={{ opacity: 0, y: 30 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
@@ -872,7 +856,7 @@ const Index = () => {
                     <rect x="70" y="80" width="220" height="150" fill="white" rx="16" />
                     {/* Shadow Offset Fill */}
                     <rect x="78" y="88" width="220" height="150" fill="#0B1225" fillOpacity="0.08" rx="16" />
-                    
+
                     {/* Hand-drawn Outline (Architectural overshoot) */}
                     <g stroke="#0B1225" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <motion.path d="M 60 80 L 300 80" initial={{ pathLength: 0 }} whileInView={{ pathLength: 1 }} viewport={{ once: true }} transition={{ duration: 0.8, delay: 0.2 }} />
@@ -880,12 +864,12 @@ const Index = () => {
                       <motion.path d="M 300 230 L 60 230" initial={{ pathLength: 0 }} whileInView={{ pathLength: 1 }} viewport={{ once: true }} transition={{ duration: 0.8, delay: 0.6 }} />
                       <motion.path d="M 70 240 L 70 70" initial={{ pathLength: 0 }} whileInView={{ pathLength: 1 }} viewport={{ once: true }} transition={{ duration: 0.8, delay: 0.8 }} />
                     </g>
-                    
+
                     {/* Inner UI Elements (Skeletons) */}
                     {/* Header */}
                     <motion.path d="M 95 105 L 140 105" stroke="#0B1225" strokeWidth="4" strokeLinecap="round" strokeOpacity="0.2" initial={{ pathLength: 0 }} whileInView={{ pathLength: 1 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: 1.0 }} />
                     <motion.path d="M 95 115 L 120 115" stroke="#0B1225" strokeWidth="3" strokeLinecap="round" strokeOpacity="0.1" initial={{ pathLength: 0 }} whileInView={{ pathLength: 1 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: 1.1 }} />
-                    
+
                     {/* Badge */}
                     <rect x="235" y="98" width="40" height="16" rx="6" fill="#10B981" fillOpacity="0.15" />
                     <motion.path d="M 245 106 L 265 106" stroke="#10B981" strokeWidth="3" strokeLinecap="round" initial={{ pathLength: 0 }} whileInView={{ pathLength: 1 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: 1.2 }} />
@@ -904,7 +888,7 @@ const Index = () => {
                   </motion.g>
 
                   {/* FRONT CHART CARD (Bottom Left) */}
-                  <motion.g 
+                  <motion.g
                     initial={{ opacity: 0, x: -30, y: 20 }}
                     whileInView={{ opacity: 1, x: 0, y: 0 }}
                     viewport={{ once: true }}
@@ -913,7 +897,7 @@ const Index = () => {
                     <g transform="translate(30, 160)">
                       {/* Dark Fill */}
                       <rect x="0" y="0" width="160" height="110" fill="#0B1225" rx="12" />
-                      
+
                       {/* Outline */}
                       <g stroke="#0B1225" strokeWidth="2.5" strokeLinecap="round" fill="none">
                         <path d="M -10 0 L 170 0" />
@@ -925,21 +909,21 @@ const Index = () => {
                       {/* Card Content */}
                       <path d="M 20 25 L 70 25" stroke="white" strokeWidth="3" strokeOpacity="0.4" strokeLinecap="round" />
                       <path d="M 20 40 L 100 40" stroke="white" strokeWidth="6" strokeLinecap="round" />
-                      
+
                       {/* Growth Line Chart */}
-                      <motion.path 
-                        d="M 20 85 C 40 85, 60 55, 90 65 C 110 70, 120 45, 140 40" 
-                        fill="none" 
-                        stroke="#F97316" 
-                        strokeWidth="3.5" 
-                        strokeLinecap="round" 
+                      <motion.path
+                        d="M 20 85 C 40 85, 60 55, 90 65 C 110 70, 120 45, 140 40"
+                        fill="none"
+                        stroke="#F97316"
+                        strokeWidth="3.5"
+                        strokeLinecap="round"
                         strokeLinejoin="round"
                         initial={{ pathLength: 0 }}
                         whileInView={{ pathLength: 1 }}
                         viewport={{ once: true }}
                         transition={{ duration: 1.5, delay: 1.0, ease: "easeOut" }}
                       />
-                      <motion.circle 
+                      <motion.circle
                         cx="140" cy="40" r="5" fill="#0B1225" stroke="#F97316" strokeWidth="2.5"
                         initial={{ scale: 0 }}
                         whileInView={{ scale: 1 }}
@@ -950,7 +934,7 @@ const Index = () => {
                   </motion.g>
 
                   {/* NOTIFICATION PILL (Top Right) */}
-                  <motion.g 
+                  <motion.g
                     initial={{ opacity: 0, x: 20, y: -20 }}
                     whileInView={{ opacity: 1, x: 0, y: 0 }}
                     viewport={{ once: true }}
@@ -959,7 +943,7 @@ const Index = () => {
                     <g transform="translate(200, 50)">
                       <rect x="0" y="0" width="140" height="40" fill="white" rx="20" />
                       <rect x="4" y="4" width="140" height="40" fill="#0B1225" fillOpacity="0.08" rx="20" />
-                      
+
                       <g stroke="#0B1225" strokeWidth="2.5" strokeLinecap="round" fill="none">
                         <path d="M -5 20 C -5 5, 5 -5, 20 -5 L 120 -5 C 135 -5, 145 5, 145 20 C 145 35, 135 45, 120 45 L 20 45 C 5 45, -5 35, -5 20 Z" />
                       </g>
@@ -972,7 +956,7 @@ const Index = () => {
                   </motion.g>
 
                   {/* TARGET/GOAL BADGE (Bottom Right) */}
-                  <motion.g 
+                  <motion.g
                     initial={{ opacity: 0, scale: 0 }}
                     whileInView={{ opacity: 1, scale: 1 }}
                     viewport={{ once: true }}
@@ -989,12 +973,12 @@ const Index = () => {
                   </motion.g>
 
                   {/* Sketchy connecting lines / arrows */}
-                  <motion.path 
-                    d="M 120 160 C 120 120, 160 100, 200 70" 
-                    fill="none" 
-                    stroke="white" 
-                    strokeWidth="2" 
-                    strokeDasharray="4 4" 
+                  <motion.path
+                    d="M 120 160 C 120 120, 160 100, 200 70"
+                    fill="none"
+                    stroke="white"
+                    strokeWidth="2"
+                    strokeDasharray="4 4"
                     strokeOpacity="0.4"
                     initial={{ pathLength: 0 }}
                     whileInView={{ pathLength: 1 }}
@@ -1002,7 +986,7 @@ const Index = () => {
                     transition={{ duration: 1.0, delay: 1.2 }}
                   />
 
-                  
+
                 </svg>
               </div>
             </div>

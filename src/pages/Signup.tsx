@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { SiteNavbar } from '@/components/SiteNavbar';
 import { SiteFooter } from '@/components/SiteFooter';
@@ -16,6 +16,7 @@ import {
   Loader2,
   Lock,
   Mail,
+  MessageCircle,
   Phone,
   ShieldCheck,
   User,
@@ -51,12 +52,6 @@ const PLAN_OPTIONS: Array<{
   },
 ];
 
-const TESTIMONIALS = [
-  { text: "O SellClin mudou o jogo da nossa clínica. Centralizamos todos os leads e finalmente temos controle total do que entra e do que converte.", author: "Dr. Ricardo Santos", clinic: "Clínica OrthoDesign", img: "/testimonials/ricardo-santos.jpg" },
-  { text: "Finalmente tenho controle total dos meus leads de WhatsApp. Não perdemos mais nenhuma oportunidade de agendamento.", author: "Mariana Costa", clinic: "Aesthetic Center", img: "/testimonials/mariana-costa.jpg" },
-  { text: "A agenda inteligente é fantástica. Reduzimos o no-show em 30% usando as automações e integrações de calendário.", author: "Dr. Paulo Vieira", clinic: "Vision Institute", img: "/testimonials/paulo-vieira.jpg" },
-];
-
 const Signup = () => {
   const [searchParams] = useSearchParams();
   const requestedPlan = searchParams.get('plan');
@@ -74,14 +69,6 @@ const Signup = () => {
   const [selectedPlan, setSelectedPlan] = useState<PublicPlanCode>(initialPlan);
   const [billingCycle, setBillingCycle] = useState<BillingCycle>(initialBillingCycle);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [activeTestimonial, setActiveTestimonial] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveTestimonial((prev) => (prev + 1) % TESTIMONIALS.length);
-    }, 6000);
-    return () => clearInterval(interval);
-  }, []);
 
   const { toast } = useToast();
 
@@ -185,42 +172,30 @@ const Signup = () => {
               </div>
 
               <div className="pt-8 mt-8 border-t border-slate-100/60 max-w-md">
-                <div className="bg-slate-50/50 rounded-2xl p-6 border border-slate-100 relative mb-8 min-h-[160px] overflow-hidden">
-                  <div className="absolute -top-3 -left-3 w-8 h-8 rounded-full bg-[#F97316] text-white flex items-center justify-center shadow-lg shadow-orange-500/20 z-20">
-                     <span className="font-serif text-2xl leading-none pt-2">"</span>
-                  </div>
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={activeTestimonial}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.5, ease: "easeInOut" }}
-                      className="relative z-10"
-                    >
-                      <p className="text-sm text-slate-600 font-medium leading-italic mb-4">
-                        "{TESTIMONIALS[activeTestimonial].text}"
-                      </p>
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-slate-200 border-2 border-white shadow-sm overflow-hidden">
-                           <img src={TESTIMONIALS[activeTestimonial].img} alt={TESTIMONIALS[activeTestimonial].author} className="w-full h-full object-cover" />
-                        </div>
-                        <div>
-                          <div className="text-xs font-black text-[#0F172A]">{TESTIMONIALS[activeTestimonial].author}</div>
-                          <div className="text-[9px] font-bold text-[#F97316] uppercase tracking-wider">{TESTIMONIALS[activeTestimonial].clinic}</div>
-                        </div>
+                <div className="bg-[#0F172A] rounded-2xl p-6 border border-slate-800 relative mb-8 overflow-hidden">
+                  <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#F97316]/15 blur-2xl" />
+                  <div className="relative">
+                    <div className="flex items-center gap-3 mb-5">
+                      <div className="w-9 h-9 rounded-xl bg-[#F97316] text-white flex items-center justify-center">
+                        <MessageCircle size={17} />
                       </div>
-                    </motion.div>
-                  </AnimatePresence>
-                  
-                  {/* Testimonial Indicators */}
-                  <div className="absolute bottom-4 right-6 flex gap-1.5 z-20">
-                    {TESTIMONIALS.map((_, i) => (
-                      <div 
-                        key={i} 
-                        className={`h-1.5 rounded-full transition-all duration-500 ${i === activeTestimonial ? 'w-4 bg-[#F97316]' : 'w-1.5 bg-slate-300'}`} 
-                      />
-                    ))}
+                      <div>
+                        <div className="text-xs font-black text-white">WhatsApp Oficial dentro do CRM</div>
+                        <div className="text-[9px] font-bold text-orange-300 uppercase tracking-wider">API Oficial da Meta + coexistência</div>
+                      </div>
+                    </div>
+                    <div className="grid gap-3">
+                      {[
+                        'Atenda conversas e acompanhe a janela de 24 horas',
+                        'Envie campanhas com templates aprovados pela Meta',
+                        'Organize leads, agenda, propostas e equipe no mesmo fluxo',
+                      ].map((text) => (
+                        <div key={text} className="flex items-start gap-3 text-xs text-slate-300 font-medium leading-relaxed">
+                          <Check size={14} className="text-emerald-400 mt-0.5 shrink-0" strokeWidth={3} />
+                          {text}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
 

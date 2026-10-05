@@ -30,6 +30,7 @@ export const SiteFooter = () => {
               <li><Link to="/funcionalidades/funil" className="text-sm text-slate-500 font-medium hover:text-[#F97316] transition-colors">Funil de Vendas</Link></li>
               <li><Link to="/funcionalidades/agenda" className="text-sm text-slate-500 font-medium hover:text-[#F97316] transition-colors">Agenda Inteligente</Link></li>
               <li><Link to="/funcionalidades/metas" className="text-sm text-slate-500 font-medium hover:text-[#F97316] transition-colors">Engenharia de Metas</Link></li>
+              <li><Link to="/funcionalidades/campanhas" className="text-sm text-slate-500 font-medium hover:text-[#F97316] transition-colors">WhatsApp Oficial</Link></li>
               <li><Link to="/precos" className="text-sm text-slate-500 font-medium hover:text-[#F97316] transition-colors">Planos e Preços</Link></li>
             </ul>
           </div>
@@ -39,7 +40,7 @@ export const SiteFooter = () => {
             <h4 className="text-[11px] font-black text-[#0F172A] uppercase tracking-[0.3em]">Institucional</h4>
             <ul className="space-y-2">
               <li><Link to="/sobre" className="text-sm text-slate-500 font-medium hover:text-[#F97316] transition-colors">Sobre a SellClin</Link></li>
-              <li><Link to="/clientes" className="text-sm text-slate-500 font-medium hover:text-[#F97316] transition-colors">Nossos Clientes</Link></li>
+              <li><Link to="/clientes" className="text-sm text-slate-500 font-medium hover:text-[#F97316] transition-colors">Para quem é</Link></li>
               <li><Link to="/perguntas-frequentes" className="text-sm text-slate-500 font-medium hover:text-[#F97316] transition-colors">FAQ & Ajuda</Link></li>
               <li><a href="#" className="text-sm text-slate-500 font-medium hover:text-[#F97316] transition-colors">Falar com Consultor</a></li>
             </ul>

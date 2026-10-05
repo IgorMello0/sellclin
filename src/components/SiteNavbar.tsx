@@ -21,7 +21,7 @@ const produtoLinks = [
   {
     to: '/funcionalidades/campanhas',
     label: 'Campanhas & Disparos',
-    desc: 'Envios em massa via WhatsApp.',
+    desc: 'Campanhas pela API Oficial da Meta.',
   },
 ];
 
@@ -127,7 +127,7 @@ export const SiteNavbar = () => {
               Preços
             </Link>
             <Link to="/clientes" className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-slate-50/60 ${location.pathname === '/clientes' ? activeTextColor + ' font-bold' : textColor}`}>
-              Clientes
+              Para quem é
             </Link>
             <Link to="/sobre" className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-slate-50/60 ${location.pathname === '/sobre' ? activeTextColor + ' font-bold' : textColor}`}>
               Sobre
@@ -204,7 +204,7 @@ export const SiteNavbar = () => {
               <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em] px-3 mb-3">Empresa</p>
               {[
                 { to: '/precos', label: 'Preços' },
-                { to: '/clientes', label: 'Clientes' },
+                { to: '/clientes', label: 'Para quem é' },
                 { to: '/sobre', label: 'Sobre' },
                 { to: '/perguntas-frequentes', label: 'FAQ' },
               ].map((link) => (
