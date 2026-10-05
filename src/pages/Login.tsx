@@ -122,7 +122,7 @@ const Login = () => {
             </p>
           </div>
 
-          <div className="flex w-full justify-center overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-sm transition-shadow hover:shadow-md">
+          <div className="flex w-full justify-center overflow-hidden rounded-full bg-[#0F172A] shadow-[0_12px_28px_-18px_rgba(15,23,42,0.75)] transition-transform hover:-translate-y-0.5">
             <GoogleLogin
               onSuccess={handleGoogleSuccess}
               onError={() => {
@@ -132,11 +132,11 @@ const Login = () => {
                   variant: 'destructive',
                 });
               }}
-              theme="outline"
+              theme="filled_black"
               size="large"
               width="400"
               text="continue_with"
-              shape="rectangular"
+              shape="pill"
               logo_alignment="left"
             />
           </div>
