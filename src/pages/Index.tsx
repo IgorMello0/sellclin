@@ -80,16 +80,6 @@ const Index = () => {
               }}
               className="z-10 py-0 max-w-2xl"
             >
-              <motion.div
-                variants={{
-                  hidden: { opacity: 0, y: 16 },
-                  visible: { opacity: 1, y: 0, transition: { duration: 1, ease: [0.16, 1, 0.3, 1] } }
-                }}
-                className="inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-4 py-2 mb-5"
-              >
-                <ShieldCheck size={14} className="text-emerald-600" />
-                <span className="text-[9px] font-black uppercase tracking-[0.22em] text-emerald-700">API Oficial da Meta + coexistência</span>
-              </motion.div>
               <motion.h1 
                 variants={{
                   hidden: { opacity: 0, y: 30 },
