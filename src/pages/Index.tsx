@@ -145,7 +145,7 @@ const Index = () => {
                <div className="relative w-full">
                   <div className="absolute -inset-10 bg-gradient-to-tr from-[#F97316]/10 to-blue-500/5 blur-[100px] opacity-40" />
                   <div className="relative bg-white p-2.5 sm:p-3 rounded-[2rem] lg:rounded-[2.5rem] border border-slate-100 shadow-[0_40px_90px_-30px_rgba(15,23,42,0.22)] transition-transform duration-700 hover:scale-[1.01] overflow-hidden">
-                    <img src="/dashboard-tela-sellclin-correto.png" alt="SellClin Dashboard" className="block w-full h-auto rounded-[1.5rem] lg:rounded-[2rem]" />
+                    <img src="/dashboard-tela-sellclin-correto.webp" alt="SellClin Dashboard" className="block w-full h-auto rounded-[1.5rem] lg:rounded-[2rem]" />
                   </div>
                </div>
             </motion.div>
@@ -756,7 +756,7 @@ const Index = () => {
             >
               <div className="absolute -top-20 -left-20 w-64 h-64 bg-[#F97316]/5 rounded-full blur-[100px]" />
               <div className="relative z-10 rounded-[2rem] sm:rounded-[3rem] overflow-hidden border border-slate-100 shadow-2xl">
-                <img src="/Captura de tela 2026-05-15 183100.png" alt="Luiz Bucco" className="w-full h-[320px] sm:h-[600px] object-cover transition-all duration-1000" />
+                <img src="/fundador-sellclin.webp" alt="Luiz Bucco" className="w-full h-[320px] sm:h-[600px] object-cover transition-all duration-1000" />
                 <div className="absolute bottom-4 left-4 right-4 sm:bottom-8 sm:left-8 sm:right-8 bg-white/90 backdrop-blur-md p-6 sm:p-8 rounded-2xl sm:rounded-3xl border border-white/20 shadow-xl">
                   <div className="text-xl sm:text-2xl font-black text-[#0F172A] mb-1">Luiz Bucco</div>
                   <div className="text-[10px] font-black text-[#F97316] uppercase tracking-[0.4em]">CEO & Co-Founder</div>

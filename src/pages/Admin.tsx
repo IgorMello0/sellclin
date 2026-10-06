@@ -367,20 +367,18 @@ const Admin = () => {
   const loadSystemStats = async () => {
     setIsLoadingStats(true);
     try {
-      // Buscar todos os dados em paralelo
+      // A primeira linha já traz os totais paginados; não baixe bases inteiras para os cards.
       const [professionalsRes, appointmentsRes, clientsRes] = await Promise.all([
-        professionalsApi.getAll({ page: 1, pageSize: 1000 }),
-        appointmentsApi.getAll({ page: 1, pageSize: 1000 }),
-        clientsApi.getAll({ page: 1, pageSize: 1000 })
+        professionalsApi.getAll({ page: 1, pageSize: 1 }),
+        appointmentsApi.getAll({ page: 1, pageSize: 1 }),
+        clientsApi.getAll({ page: 1, pageSize: 1 })
       ]);
 
       const totalUsers = professionalsRes.success && professionalsRes.pagination 
         ? professionalsRes.pagination.total 
         : (professionalsRes.success && professionalsRes.data ? professionalsRes.data.length : 0);
       
-      const activeUsers = professionalsRes.success && professionalsRes.data
-        ? professionalsRes.data.length // Considerando todos como ativos por enquanto
-        : 0;
+      const activeUsers = totalUsers;
 
       const totalAppointments = appointmentsRes.success && appointmentsRes.pagination
         ? appointmentsRes.pagination.total

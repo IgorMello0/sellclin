@@ -36,3 +36,7 @@ uploads/
 !.env.example
 !.env.*.example
 .security-check/
+.tmp-perf/
+.chrome-lighthouse/
+lighthouse-mobile.html
+lighthouse-mobile.json

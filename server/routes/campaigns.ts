@@ -129,6 +129,18 @@ function resolveIds(req: any) {
   return { professionalId, companyId }
 }
 
+async function resolveCampaignScope(req: any) {
+  const { professionalId, companyId } = resolveIds(req)
+  if (!companyId) return { professionalId: undefined, companyId: undefined }
+  if (professionalId) return { professionalId, companyId }
+
+  const company = await prisma.empresa.findUnique({
+    where: { id: companyId },
+    select: { ownerId: true },
+  })
+  return { professionalId: company?.ownerId || undefined, companyId }
+}
+
 // ─── Stream de Mídias de Campanhas (Público, para a Evolution API obter as mídias salvas em Base64) ───
 router.get('/media/:campaignId/:index', async (req, res) => {
   try {
@@ -215,6 +227,56 @@ router.get('/', auth(), async (req, res) => {
     res.json(createSuccessResponse(campaigns, { page, pageSize, total }))
   } catch (error: any) {
     res.status(500).json(createErrorResponse(error.message))
+  }
+})
+
+// Dados pequenos usados pelo construtor, sem transferir milhares de contatos ao navegador.
+router.get('/audience-options', auth(), async (req, res) => {
+  try {
+    const { professionalId, companyId } = await resolveCampaignScope(req)
+    if (!professionalId || !companyId) {
+      return res.status(400).json(createErrorResponse('Nao foi possivel identificar a clinica'))
+    }
+
+    const rows = await prisma.$queryRaw<Array<{ tag: string }>>`
+      SELECT DISTINCT TRIM(tag) AS tag
+      FROM (
+        SELECT UNNEST(tags) AS tag
+        FROM leads
+        WHERE professional_id = ${professionalId} AND company_id = ${companyId}
+        UNION ALL
+        SELECT UNNEST(tags) AS tag
+        FROM clients
+        WHERE professional_id = ${professionalId} AND company_id = ${companyId}
+      ) audience_tags
+      WHERE TRIM(tag) <> ''
+      ORDER BY tag
+    `
+    const tags = rows.map(row => row.tag)
+
+    res.json(createSuccessResponse({ tags }))
+  } catch (error: any) {
+    res.status(500).json(createErrorResponse(error.message, 500))
+  }
+})
+
+router.post('/audience-preview', auth(), async (req, res) => {
+  try {
+    const { professionalId, companyId } = await resolveCampaignScope(req)
+    if (!professionalId || !companyId) {
+      return res.status(400).json(createErrorResponse('Nao foi possivel identificar a clinica'))
+    }
+
+    const audienceType = String(req.body?.audienceType || '')
+    const supportedTypes = new Set(['all_leads', 'all_clients', 'both', 'leads_by_status', 'by_tags'])
+    if (!supportedTypes.has(audienceType)) {
+      return res.status(400).json(createErrorResponse('Tipo de audiencia invalido'))
+    }
+
+    const count = await countAudience(audienceType, req.body?.audienceFilter || {}, professionalId, companyId)
+    res.json(createSuccessResponse({ count }))
+  } catch (error: any) {
+    res.status(500).json(createErrorResponse(error.message, 500))
   }
 })
 
@@ -812,6 +874,47 @@ function normalizeSpreadsheetContacts(audienceFilter: any): {
       truncated: rawContacts.length > SPREADSHEET_CONTACT_LIMIT || Boolean(clientStats.truncated),
     },
   }
+}
+
+async function countAudience(
+  audienceType: string,
+  audienceFilter: any,
+  professionalId: number,
+  companyId: number,
+) {
+  const leadWhere: any = { professionalId, companyId, phone: { not: '' } }
+  const clientWhere: any = {
+    professionalId,
+    companyId,
+    AND: [{ phone: { not: null } }, { phone: { not: '' } }],
+  }
+
+  if (audienceType === 'leads_by_status' && audienceFilter?.statuses?.length) {
+    leadWhere.status = { in: audienceFilter.statuses }
+  }
+
+  if (audienceType === 'all_leads' || audienceType === 'leads_by_status') {
+    return prisma.lead.count({ where: leadWhere })
+  }
+  if (audienceType === 'all_clients') {
+    return prisma.client.count({ where: clientWhere })
+  }
+
+  if (audienceType === 'by_tags') {
+    const selectedTags = Array.isArray(audienceFilter?.tags) ? audienceFilter.tags : []
+    if (!selectedTags.length) return 0
+    const target = audienceFilter?.target || 'both'
+    leadWhere.tags = { hasSome: selectedTags }
+    clientWhere.tags = { hasSome: selectedTags }
+    if (target === 'leads') return prisma.lead.count({ where: leadWhere })
+    if (target === 'clients') return prisma.client.count({ where: clientWhere })
+  }
+
+  const [leads, clients] = await Promise.all([
+    prisma.lead.findMany({ where: leadWhere, select: { phone: true }, distinct: ['phone'] }),
+    prisma.client.findMany({ where: clientWhere, select: { phone: true }, distinct: ['phone'] }),
+  ])
+  return new Set([...leads, ...clients].map(item => item.phone).filter(Boolean)).size
 }
 
 // Resolve audiência: busca leads/clientes com base nos filtros

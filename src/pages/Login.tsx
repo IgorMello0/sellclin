@@ -351,7 +351,7 @@ const Login = () => {
             className="absolute bottom-[250px] left-8 right-0 top-24 overflow-hidden rounded-l-[2rem] border border-slate-200 bg-white p-3 shadow-[0_35px_90px_-40px_rgba(15,23,42,0.4)]"
           >
             <img
-              src="/dashboard-tela-sellclin-correto.png"
+              src="/dashboard-tela-sellclin-correto.webp"
               alt="Dashboard do SellClin"
               className="block h-full w-full rounded-l-[1.5rem] object-cover object-left-top"
             />

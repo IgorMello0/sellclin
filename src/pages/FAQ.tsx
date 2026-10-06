@@ -469,7 +469,7 @@ const FAQ = () => {
           <div className="lg:col-span-5 relative min-h-[280px] lg:min-h-full overflow-hidden">
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(249,115,22,0.1),transparent_70%)] z-10 pointer-events-none" />
             <img
-              src="/atendente.jpg"
+              src="/atendente.webp"
               alt="Atendente SellClin"
               className="absolute inset-0 w-full h-full object-cover"
             />

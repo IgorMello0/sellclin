@@ -87,6 +87,9 @@ model Client {
   payments       Payment[]
   tasks          Task[]
 
+  @@index([companyId, updatedAt], map: "clients_company_updated_idx")
+  @@index([professionalId, updatedAt], map: "clients_professional_updated_idx")
+  @@index([tags], type: Gin, map: "clients_tags_gin_idx")
   @@map("clients")
 }
 
@@ -172,6 +175,12 @@ model Lead {
   visibilityGrants     LeadVisibilityGrant[]
 
   @@unique([phone, companyId])
+  @@index([companyId, status, updatedAt], map: "leads_company_status_updated_idx")
+  @@index([companyId, createdAt], map: "leads_company_created_idx")
+  @@index([companyId, sdrId], map: "leads_company_sdr_idx")
+  @@index([companyId, closerId], map: "leads_company_closer_idx")
+  @@index([professionalId, status], map: "leads_professional_status_idx")
+  @@index([tags], type: Gin, map: "leads_tags_gin_idx")
   @@map("leads")
 }
 
@@ -184,6 +193,7 @@ model LeadActivity {
   createdAt DateTime @default(now()) @map("created_at")
   lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
+  @@index([leadId, createdAt], map: "lead_activities_lead_created_idx")
   @@map("lead_activities")
 }
 
@@ -211,6 +221,7 @@ model Proposal {
   specialist         Usuario? @relation("SpecialistProposals", fields: [specialistId], references: [id])
   sdr                Usuario? @relation("SdrProposals", fields: [sdrId], references: [id])
 
+  @@index([leadId, createdAt], map: "proposals_lead_created_idx")
   @@map("proposals")
 }
 
@@ -312,6 +323,10 @@ model Appointment {
   service          CatalogItem?             @relation(fields: [serviceId], references: [id])
   payments         Payment[]
 
+  @@index([companyId, startTime], map: "appointments_company_start_idx")
+  @@index([professionalId, startTime], map: "appointments_professional_start_idx")
+  @@index([especialistaId, startTime], map: "appointments_specialist_start_idx")
+  @@index([leadId], map: "appointments_lead_idx")
   @@map("appointments")
 }
 
@@ -353,6 +368,8 @@ model Payment {
 
   @@index([leadId])
   @@index([saleId])
+  @@index([companyId, date], map: "payments_company_date_idx")
+  @@index([companyId, status, date], map: "payments_company_status_date_idx")
   @@map("payments")
 }
 
@@ -738,6 +755,7 @@ model Conversa {
 
   @@unique([phone, companyId])
   @@index([companyId, status, updatedAt])
+  @@index([companyId, lastMessageAt, updatedAt], map: "conversas_company_last_message_idx")
   @@index([assignedProfessionalId])
   @@index([assignedUserId])
   @@map("conversas")
@@ -823,6 +841,7 @@ model Mensagem {
   conversation      Conversa   @relation(fields: [conversationId], references: [id])
 
   @@unique([providerMessageId, conversationId])
+  @@index([conversationId, createdAt], map: "mensagens_conversation_created_idx")
   @@map("mensagens")
 }
 
@@ -1257,6 +1276,9 @@ model Task {
   subTasks       Task[]         @relation("SubTasks")
   notifications  Notification[]
 
+  @@index([companyId, status, dueDate], map: "tasks_company_status_due_idx")
+  @@index([assignedToUserId, status, dueDate], map: "tasks_user_status_due_idx")
+  @@index([assignedToId, status, dueDate], map: "tasks_professional_status_due_idx")
   @@map("tasks")
 }
 
@@ -1359,6 +1381,8 @@ model MessageCampaign {
   recipients   CampaignRecipient[]
   creditTransactions MessageCreditTransaction[]
 
+  @@index([companyId, createdAt], map: "message_campaigns_company_created_idx")
+  @@index([status, scheduledAt], map: "message_campaigns_status_scheduled_idx")
   @@map("message_campaigns")
 }
 
@@ -1391,6 +1415,7 @@ model CampaignRecipient {
   creditTransactions MessageCreditTransaction[]
 
   @@index([status, nextAttemptAt])
+  @@index([campaignId, status], map: "campaign_recipients_campaign_status_idx")
   @@index([providerMessageId])
   @@map("campaign_recipients")
 }

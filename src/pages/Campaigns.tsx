@@ -8,8 +8,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   campaignsApi,
-  leadsApi,
-  clientsApi,
   whatsappMetaApi,
   whatsappTemplatesApi,
   whatsappUazapiApi,
@@ -273,78 +271,39 @@ export default function Campaigns() {
 
   useEffect(() => { void loadConnections(); }, [loadConnections]);
 
-  // Load available tags dynamically
+  // Load only the lightweight filter metadata needed by the campaign form.
   useEffect(() => {
     if (!professional?.id) return;
-    (async () => {
-      try {
-        const tagsSet = new Set<string>();
-        const [rLeads, rClients] = await Promise.all([
-          leadsApi.getAll({ pageSize: 1000 }),
-          clientsApi.getAll({ pageSize: 1000 })
-        ]);
-        if (rLeads.success && rLeads.data) {
-          rLeads.data.forEach((l: any) => {
-            if (Array.isArray(l.tags)) l.tags.forEach((t: string) => { if (t) tagsSet.add(t); });
-          });
-        }
-        if (rClients.success && rClients.data) {
-          rClients.data.forEach((c: any) => {
-            if (Array.isArray(c.tags)) c.tags.forEach((t: string) => { if (t) tagsSet.add(t); });
-          });
-        }
-        setAvailableTags(Array.from(tagsSet).sort());
-      } catch (e) {
-        console.error('Error fetching tags:', e);
-      }
-    })();
-  }, [professional?.id, campaigns]);
+    void campaignsApi.getAudienceOptions().then(response => {
+      if (response.success) setAvailableTags(response.data?.tags || []);
+    });
+  }, [professional?.id]);
 
-  // Preview count when audience changes
+  // Count recipients on the server instead of downloading the contact database.
   useEffect(() => {
     if (!audienceType || !professional?.id) { setPreviewRecipients(0); return; }
     if (audienceType === 'spreadsheet') {
       setPreviewRecipients(spreadsheetContacts.length);
       return;
     }
-    (async () => {
-      try {
-        let count = 0;
-        if (audienceType === 'by_tags') {
-          if (selectedTags.length === 0) { setPreviewRecipients(0); return; }
-          if (tagTarget === 'leads' || tagTarget === 'both') {
-            const r = await leadsApi.getAll({ professionalId: Number(professional.id), pageSize: 1000 });
-            if (r.success) {
-              count += (r.data || []).filter((l: any) => 
-                l.phone && 
-                Array.isArray(l.tags) && 
-                l.tags.some((t: string) => selectedTags.includes(t))
-              ).length;
-            }
-          }
-          if (tagTarget === 'clients' || tagTarget === 'both') {
-            const r = await clientsApi.getAll({ pageSize: 1000 });
-            if (r.success) {
-              count += (r.data || []).filter((c: any) => 
-                c.phone && 
-                Array.isArray(c.tags) && 
-                c.tags.some((t: string) => selectedTags.includes(t))
-              ).length;
-            }
-          }
-        } else {
-          if (audienceType === 'all_leads' || audienceType === 'leads_by_status' || audienceType === 'both') {
-            const r = await leadsApi.getAll({ professionalId: Number(professional.id), pageSize: 1000 });
-            if (r.success) count += (r.data || []).filter((l: any) => l.phone).length;
-          }
-          if (audienceType === 'all_clients' || audienceType === 'both') {
-            const r = await clientsApi.getAll({ pageSize: 1000 });
-            if (r.success) count += (r.data || []).filter((c: any) => c.phone).length;
-          }
-        }
-        setPreviewRecipients(count);
-      } catch { setPreviewRecipients(0); }
-    })();
+    if (audienceType === 'by_tags' && selectedTags.length === 0) {
+      setPreviewRecipients(0);
+      return;
+    }
+
+    const audienceFilter = audienceType === 'by_tags'
+      ? { tags: selectedTags, target: tagTarget }
+      : undefined;
+    let active = true;
+    const timer = window.setTimeout(() => {
+      void campaignsApi.previewAudience(audienceType, audienceFilter).then(response => {
+        if (active) setPreviewRecipients(response.success ? response.data?.count || 0 : 0);
+      });
+    }, 250);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
   }, [audienceType, professional?.id, selectedTags, tagTarget, spreadsheetContacts.length]);
 
   const resetForm = () => {

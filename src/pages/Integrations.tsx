@@ -157,7 +157,7 @@ const integrationOptions: IntegrationOption[] = [
     description: 'Receba DMs e comentarios do Instagram na central de conversas.',
     status: 'Em breve',
     available: false,
-    logo: <img src="/integrations/instagram-icon.png" alt="Instagram" className={logoClass} />,
+    logo: <img src="/integrations/instagram-icon.webp" alt="Instagram" className={logoClass} />,
   },
   {
     id: 'messenger',
@@ -166,7 +166,7 @@ const integrationOptions: IntegrationOption[] = [
     description: 'Atenda conversas vindas do Facebook Messenger no mesmo fluxo.',
     status: 'Em breve',
     available: false,
-    logo: <img src="/integrations/facebook-messenger-logo.png" alt="Messenger" className={logoClass} />,
+    logo: <img src="/integrations/facebook-messenger-logo.webp" alt="Messenger" className={logoClass} />,
   },
   {
     id: 'googleCalendar',

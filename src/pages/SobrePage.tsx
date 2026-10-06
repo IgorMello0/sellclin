@@ -57,7 +57,7 @@ const SobrePage = () => {
             >
               {/* Image & Overlay */}
               <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A] via-[#0F172A]/40 to-transparent z-10" />
-              <img src="/Captura de tela 2026-05-15 183100.png" alt="Luiz Bucco" className="absolute inset-0 w-full h-full object-cover grayscale-[20%] group-hover:grayscale-0 group-hover:scale-105 transition-all duration-700" />
+              <img src="/fundador-sellclin.webp" alt="Luiz Bucco" className="absolute inset-0 w-full h-full object-cover grayscale-[20%] group-hover:grayscale-0 group-hover:scale-105 transition-all duration-700" />
               
               <div className="relative z-20 p-8 md:p-12">
                 <Quote className="w-10 h-10 text-[#F97316] mb-6" />

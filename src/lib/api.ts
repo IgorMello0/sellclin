@@ -1136,6 +1136,12 @@ export const campaignsApi = {
     return apiRequest<Array<any>>(`/campaigns?${query.toString()}`)
   },
   getById: async (id: number) => apiRequest<any>(`/campaigns/${id}`),
+  getAudienceOptions: async () => apiRequest<{ tags: string[] }>('/campaigns/audience-options'),
+  previewAudience: async (audienceType: string, audienceFilter?: any) =>
+    apiRequest<{ count: number }>('/campaigns/audience-preview', {
+      method: 'POST',
+      body: JSON.stringify({ audienceType, audienceFilter }),
+    }),
   create: async (data: {
     name: string
     message: string

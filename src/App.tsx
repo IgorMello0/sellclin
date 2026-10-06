@@ -9,41 +9,49 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { LayoutProvider } from "./contexts/LayoutContext";
 import { ScrollToTop } from "./components/ScrollToTop";
-import Index from "./pages/Index";
-import Login from "./pages/Login";
-import Signup from "./pages/Signup";
-import VerifyEmail from "./pages/VerifyEmail";
-import AcceptInvite from "./pages/AcceptInvite";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
-import SelectPlan from "./pages/SelectPlan";
-import Dashboard from "./pages/Dashboard";
-import Appointments from "./pages/Appointments";
-import Clients from "./pages/Clients";
-import Conversations from "./pages/Conversations";
-import Settings from "./pages/Settings";
+import { Loader2 } from "lucide-react";
+
+const Index = lazy(() => import("./pages/Index"));
+const Login = lazy(() => import("./pages/Login"));
+const Signup = lazy(() => import("./pages/Signup"));
+const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
+const AcceptInvite = lazy(() => import("./pages/AcceptInvite"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const SelectPlan = lazy(() => import("./pages/SelectPlan"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Appointments = lazy(() => import("./pages/Appointments"));
+const Clients = lazy(() => import("./pages/Clients"));
+const Conversations = lazy(() => import("./pages/Conversations"));
+const Settings = lazy(() => import("./pages/Settings"));
 const Admin = lazy(() => import("./pages/Admin"));
-import Integrations from "./pages/Integrations";
-import AppLayout from "./components/AppLayout";
-import NotFound from "./pages/NotFound";
-import Leads from "./pages/Leads";
-import SalesFunnel from "./pages/SalesFunnel";
-import Goals from "./pages/Goals";
-import Tasks from "./pages/Tasks";
-import FAQ from "./pages/FAQ";
-import FunilPage from "./pages/FunilPage";
-import AgendaPage from "./pages/AgendaPage";
-import MetasPage from "./pages/MetasPage";
-import PrecosPage from "./pages/PrecosPage";
-import ClientesPage from "./pages/ClientesPage";
-import SobrePage from "./pages/SobrePage";
-import CampanhasPage from "./pages/CampanhasPage";
-import Campaigns from "./pages/Campaigns";
-import LegalPage from "./pages/LegalPage";
-import WhatsAppTemplates from "./pages/WhatsAppTemplates";
-import WhatsAppTemplateCreate from "./pages/WhatsAppTemplateCreate";
+const Integrations = lazy(() => import("./pages/Integrations"));
+const AppLayout = lazy(() => import("./components/AppLayout"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const Leads = lazy(() => import("./pages/Leads"));
+const SalesFunnel = lazy(() => import("./pages/SalesFunnel"));
+const Goals = lazy(() => import("./pages/Goals"));
+const Tasks = lazy(() => import("./pages/Tasks"));
+const FAQ = lazy(() => import("./pages/FAQ"));
+const FunilPage = lazy(() => import("./pages/FunilPage"));
+const AgendaPage = lazy(() => import("./pages/AgendaPage"));
+const MetasPage = lazy(() => import("./pages/MetasPage"));
+const PrecosPage = lazy(() => import("./pages/PrecosPage"));
+const ClientesPage = lazy(() => import("./pages/ClientesPage"));
+const SobrePage = lazy(() => import("./pages/SobrePage"));
+const CampanhasPage = lazy(() => import("./pages/CampanhasPage"));
+const Campaigns = lazy(() => import("./pages/Campaigns"));
+const LegalPage = lazy(() => import("./pages/LegalPage"));
+const WhatsAppTemplates = lazy(() => import("./pages/WhatsAppTemplates"));
+const WhatsAppTemplateCreate = lazy(() => import("./pages/WhatsAppTemplateCreate"));
 
 const queryClient = new QueryClient();
+
+const PageFallback = () => (
+  <div className="flex min-h-screen items-center justify-center bg-background" role="status" aria-label="Carregando página">
+    <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
+  </div>
+);
 
 const LegacyRedirect = ({ to }: { to: string }) => {
   const location = useLocation();
@@ -60,6 +68,7 @@ const App = () => (
             <Sonner />
             <BrowserRouter>
               <ScrollToTop />
+              <Suspense fallback={<PageFallback />}>
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/entrar" element={<Login />} />
@@ -104,9 +113,7 @@ const App = () => (
                   <Route
                     path="administracao"
                     element={
-                      <Suspense fallback={<div />}> 
-                        <Admin />
-                      </Suspense>
+                      <Admin />
                     }
                   />
                   <Route path="perfil" element={<Navigate to="/configuracoes?tab=perfil" replace />} />
@@ -129,6 +136,7 @@ const App = () => (
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </Suspense>
             </BrowserRouter>
           </TooltipProvider>
         </AuthProvider>

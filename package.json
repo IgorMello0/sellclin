@@ -23,7 +23,10 @@
     "make-admin": "tsx server/scripts/make-admin.ts",
     "test:lists": "vitest run --config vitest.config.ts src/pages/list-pagination.test.ts",
     "test:funnel": "vitest run --config vitest.config.ts src/lib/funnel.test.ts src/pages/SalesFunnel.test.tsx src/components/funnel/ProposalDialog.test.tsx server/routes/leads.test.ts",
-    "test:dashboard": "tsx --test server/services/dashboard.test.ts && vitest run --config vitest.config.ts"
+    "test:dashboard": "tsx --test server/services/dashboard.test.ts && vitest run --config vitest.config.ts",
+    "perf:api:20": "node scripts/performance/load-test.mjs --concurrency=20",
+    "perf:api:50": "node scripts/performance/load-test.mjs --concurrency=50",
+    "perf:lighthouse": "npx --yes lighthouse http://127.0.0.1:4173 --only-categories=performance --form-factor=mobile --output=html --output-path=lighthouse-mobile.html --chrome-flags=\"--headless --no-sandbox\""
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
