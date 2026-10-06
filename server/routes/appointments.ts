@@ -607,7 +607,14 @@ router.put('/:id', auth(), requireModule('agendamentos'), async (req, res) => {
     const leadUpdateData: any = {};
     
     if (status === 'concluido') {
-      leadUpdateData.status = 'prospect_attended';
+      const stagesAtOrAfterAttendance = new Set([
+        'prospect_attended', 'comercial_consult', 'comercial_proposal', 'comercial_follow',
+        'comercial_negotiation', 'comercial_closed', 'sales_payment', 'sales_contract', 'sales_post',
+      ]);
+      if (!stagesAtOrAfterAttendance.has(updated.lead?.status || '')) {
+        leadUpdateData.status = 'prospect_attended';
+      }
+      if (!updated.lead?.attendedAt) leadUpdateData.attendedAt = new Date();
     }
 
     if (status === 'cancelado') {

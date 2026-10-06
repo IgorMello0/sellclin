@@ -158,6 +158,11 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
       confirmedAt: { gte: startDate, lt: endDate },
       voidedAt: null,
     };
+    const discountWhere: any = {
+      lead: buildLeadWhere([]),
+      discountApplied: true,
+      sales: { some: { confirmedAt: { gte: startDate, lt: endDate }, voidedAt: null } },
+    };
 
     // 3. Consultas em Paralelo para Performance
     const [
@@ -171,9 +176,9 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
       funilStatus,
       origemData,
       faturamentoFechadoAgg,
+      totalDiscountAgg,
       fechadosNoFunil,
-      leadsQueCompraram,
-      propostasConvertidas
+      leadsQueCompraram
     ] = await Promise.all([
       // 1. Total de Novos Leads (Criados no período)
       prisma.lead.count({ where: baseWhere }),
@@ -229,15 +234,17 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
 
       // 11. Faturamento Fechado (Valor dos leads que viraram fechamento no periodo)
       prisma.sale.aggregate({ _sum: { amount: true }, where: saleWhere }),
+      // 12. Descontos aplicados às vendas confirmadas no período.
+      prisma.proposal.aggregate({ _sum: { discountValue: true }, where: discountWhere }),
       prisma.lead.count({ where: { ...buildLeadWhere([], 'createdAt'), sales: { some: { voidedAt: null } } } }),
-      prisma.lead.count({ where: { ...buildLeadWhere([], 'createdAt'), sales: { some: { confirmedAt: { gte: startDate, lt: endDate }, voidedAt: null } } } }),
-      prisma.proposal.count({ where: { ...proposalWhere, sales: { some: { voidedAt: null } } } })
+      prisma.lead.count({ where: { ...buildLeadWhere([], 'createdAt'), sales: { some: { confirmedAt: { gte: startDate, lt: endDate }, voidedAt: null } } } })
     ]);
 
     // Cálculo da Receita Real
     // Regra: Boleto (transferencia) no entra na Receita Total nem no Faturamento Total. Carto, Pix e Dinheiro entram sempre (pago ou pendente).
     let faturamentoOrcado = Number(faturamentoTotalAgg._sum.value) || 0;
     let faturamentoFechado = Number(faturamentoFechadoAgg._sum.amount) || 0;
+    let totalDiscount = Number(totalDiscountAgg._sum.discountValue) || 0;
     
     // 4. KPIs de Eficiência Matemáticos
     
@@ -256,9 +263,10 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
       ? ((leadsQueCompraram / leadsCount) * 100)
       : 0;
 
-    // Taxa de Conversão por Quantidade de Propostas: Vendas Fechadas / Oportunidades (Propostas)
+    // Taxa exibida no card: contratos confirmados no período / propostas criadas no período.
+    // As bases são independentes, então o resultado pode superar 100% quando propostas antigas fecham agora.
     const conversaoPropostas = oportunidades > 0
-      ? ((propostasConvertidas / oportunidades) * 100)
+      ? ((leadsFechados / oportunidades) * 100)
       : 0;
 
     // Taxa de Conversao Financeira: Faturamento Fechado / Faturamento Orcado
@@ -272,6 +280,7 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
       ticketOrcado = 0;
       ticketFechado = 0;
       conversaoFinanceira = 0;
+      totalDiscount = 0;
     }
 
     let parcelamentoMedioBoleto = 0;
@@ -279,10 +288,10 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
       // Cálculo do Parcelamento Médio de Boleto:
       // Dividir o número de boletos gerados (método 'transferencia') pelo número de contratos fechados que têm boleto
       const boletosGrouped = await prisma.payment.groupBy({
-        by: ['clientId', 'appointmentId'],
+        by: ['saleId', 'clientId', 'appointmentId'],
         where: {
           method: 'transferencia',
-          status: { in: ['pago', 'pendente'] },
+          status: { in: ['pago', 'pendente', 'atrasado'] },
           professionalId: { in: professionalIds },
           ...(companyId && { companyId }),
           createdAt: { gte: startDate, lt: endDate },
@@ -302,12 +311,12 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
     // Processamento dos Agrupamentos (Sub-Métricas)
     const metodos = hasBillingPermission ? {
       boleto: {
-        gerados: faturamentoPorMetodo.filter(m => m.method === 'transferencia' && ['pago', 'pendente'].includes(m.status)).reduce((acc, curr) => acc + (Number(curr._sum.amount) || 0), 0)
+        gerados: faturamentoPorMetodo.filter(m => m.method === 'transferencia' && ['pago', 'pendente', 'atrasado'].includes(m.status)).reduce((acc, curr) => acc + (Number(curr._sum.amount) || 0), 0)
         // Removido boleto.pagos conforme solicitado
       },
-      cartao: faturamentoPorMetodo.filter(m => m.method === 'cartao' && ['pago', 'pendente'].includes(m.status)).reduce((acc, curr) => acc + (Number(curr._sum.amount) || 0), 0),
-      pix: faturamentoPorMetodo.filter(m => m.method === 'pix' && ['pago', 'pendente'].includes(m.status)).reduce((acc, curr) => acc + (Number(curr._sum.amount) || 0), 0),
-      dinheiro: faturamentoPorMetodo.filter(m => m.method === 'dinheiro' && ['pago', 'pendente'].includes(m.status)).reduce((acc, curr) => acc + (Number(curr._sum.amount) || 0), 0),
+      cartao: faturamentoPorMetodo.filter(m => m.method === 'cartao' && ['pago', 'pendente', 'atrasado'].includes(m.status)).reduce((acc, curr) => acc + (Number(curr._sum.amount) || 0), 0),
+      pix: faturamentoPorMetodo.filter(m => m.method === 'pix' && ['pago', 'pendente', 'atrasado'].includes(m.status)).reduce((acc, curr) => acc + (Number(curr._sum.amount) || 0), 0),
+      dinheiro: faturamentoPorMetodo.filter(m => m.method === 'dinheiro' && ['pago', 'pendente', 'atrasado'].includes(m.status)).reduce((acc, curr) => acc + (Number(curr._sum.amount) || 0), 0),
     } : {
       boleto: { gerados: 0, pagos: 0 },
       cartao: 0,
@@ -356,7 +365,7 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
       contratos: leadsFechados,
       faturamento: faturamentoOrcado,
       faturamentoFechado: faturamentoFechado,
-      totalDiscount: 0,
+      totalDiscount,
       ticketOrcado: ticketOrcado,
       ticketFechado: ticketFechado,
       conversao: conversaoLeads.toFixed(1),

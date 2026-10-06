@@ -65,7 +65,7 @@ const lead = (id: number, fields = {}) => ({
   closedAt: new Date('2026-09-08T12:00:00Z'), origin: 'Google', ...fields,
 })
 
-async function execute(options: { query?: any; user?: any; globalRole?: any; activeRole?: any; leads?: any[] } = {}) {
+async function execute(options: { query?: any; user?: any; globalRole?: any; activeRole?: any; leads?: any[]; paymentGroups?: any[] } = {}) {
   const calls: Array<{ model: string; where: any }> = []
   const rows = options.leads || [lead(1), lead(2, { sdrId: 5 })]
   const queryRows = (where: any) => rows.filter(row => matches(row, where))
@@ -91,14 +91,20 @@ async function execute(options: { query?: any; user?: any; globalRole?: any; act
     },
     proposal: {
       count: async ({ where }: any) => queryProposals(where).length,
-      aggregate: async ({ where }: any) => ({ _sum: { value: queryProposals(where).reduce((sum, row) => sum + Number(row.value), 0) } }),
+      aggregate: async ({ where, _sum }: any) => {
+        const selected = queryProposals(where)
+        return { _sum: Object.fromEntries(Object.keys(_sum).map(field => [field, selected.reduce((sum, row) => sum + Number(row[field] || 0), 0)])) }
+      },
     },
     sale: {
       count: async ({ where }: any) => querySales(where).length,
       aggregate: async ({ where }: any) => ({ _sum: { amount: querySales(where).reduce((sum, row) => sum + Number(row.amount), 0) } }),
     },
     appointment: { count: async ({ where }: any) => { calls.push({ model: 'appointment', where }); return 0 } },
-    payment: { groupBy: async ({ where }: any) => { calls.push({ model: 'payment', where }); return [] } },
+    payment: { groupBy: async ({ where, by }: any) => {
+      calls.push({ model: 'payment', where })
+      return by.includes('method') ? (options.paymentGroups || []) : []
+    } },
   }
   let status = 200
   let body: any
@@ -137,6 +143,47 @@ describe('dashboard access and metrics', () => {
     assert.equal(body.data.contratos, 2)
     assert.equal(body.data.faturamentoFechado, 800)
     assert.equal(body.data.funil.fechados, 1)
+  })
+  it('sums discounts only from active sales confirmed in the selected period', async () => {
+    const confirmedAt = new Date('2026-09-08T12:00:00Z')
+    const outside = new Date('2025-09-08T12:00:00Z')
+    const rows = [lead(1, {
+      proposals: [
+        { id: 10, value: 300, discountApplied: true, discountValue: 30, createdAt: confirmedAt, sales: [{ confirmedAt, voidedAt: null }] },
+        { id: 11, value: 500, discountApplied: true, discountValue: 50, createdAt: confirmedAt, sales: [{ confirmedAt: outside, voidedAt: null }] },
+        { id: 12, value: 200, discountApplied: true, discountValue: 20, createdAt: confirmedAt, sales: [{ confirmedAt, voidedAt: confirmedAt }] },
+      ],
+      sales: [{ amount: 270, confirmedAt, voidedAt: null }],
+    })]
+    const { body } = await execute({ leads: rows, activeRole: { isManager: true, permissions: [] } })
+    assert.equal(body.data.totalDiscount, 30)
+  })
+  it('calculates closed/proposals from contracts and proposals in their displayed periods', async () => {
+    const createdAt = new Date('2026-09-08T12:00:00Z')
+    const rows = [lead(1, {
+      proposals: [{ id: 10, value: 300, createdAt, sales: [{ voidedAt: null }] }],
+      sales: [
+        { amount: 300, confirmedAt: createdAt, voidedAt: null },
+        { amount: 500, confirmedAt: createdAt, voidedAt: null },
+      ],
+    })]
+    const { body } = await execute({ leads: rows, activeRole: { isManager: true, permissions: [] } })
+    assert.equal(body.data.oportunidades, 1)
+    assert.equal(body.data.contratos, 2)
+    assert.equal(body.data.conversaoPropostas, '200.0')
+  })
+  it('keeps overdue installments in the payment-method totals', async () => {
+    const { body } = await execute({
+      activeRole: { isManager: true, permissions: [] },
+      paymentGroups: [
+        { method: 'transferencia', status: 'atrasado', _sum: { amount: 599 } },
+        { method: 'pix', status: 'pago', _sum: { amount: 400 } },
+        { method: 'cartao', status: 'cancelado', _sum: { amount: 900 } },
+      ],
+    })
+    assert.equal(body.data.metodos.boleto.gerados, 599)
+    assert.equal(body.data.metodos.pix, 400)
+    assert.equal(body.data.metodos.cartao, 0)
   })
   it('never loses leads when expanding a contained period with the same team filters', async () => {
     const timestamps = [

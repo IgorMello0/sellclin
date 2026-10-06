@@ -40,7 +40,9 @@ beforeEach(() => {
     findFirst: vi.fn(async ({ where }: any) => where.id === 11 ? { ...current } : null),
     update: vi.fn(async ({ data }: any) => ({ ...current, ...data })),
     create: vi.fn(),
+    count: vi.fn().mockResolvedValue(0),
   }
+  state.db.lead = { update: vi.fn() }
 })
 
 it('rejects invalid creation periods and statuses before writing', async () => {
@@ -77,4 +79,22 @@ it('allows cancellation without an unnecessary conflict lookup', async () => {
   expect(response.code).toBe(200)
   expect(state.db.appointment.findFirst).toHaveBeenCalledTimes(1)
   expect(state.db.appointment.update).toHaveBeenCalledOnce()
+})
+
+it('records attendance without moving a lead backwards in the funnel', async () => {
+  state.db.appointment.findFirst = vi.fn(async () => ({ ...current, leadId: 44 }))
+  state.db.appointment.update = vi.fn(async ({ data }: any) => ({
+    ...current,
+    ...data,
+    leadId: 44,
+    lead: { status: 'comercial_proposal', attendedAt: null },
+  }))
+
+  const response = await call('put', '/:id', { status: 'concluido' })
+
+  expect(response.code).toBe(200)
+  expect(state.db.lead.update).toHaveBeenCalledOnce()
+  const updateData = state.db.lead.update.mock.calls[0][0].data
+  expect(updateData.attendedAt).toBeInstanceOf(Date)
+  expect(updateData).not.toHaveProperty('status')
 })
