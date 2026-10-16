@@ -1,4 +1,5 @@
 import { integrationHttpClient } from '../services/integration-http.js'
+import { companyProfileSelect, getCompanyProfile } from '../services/company-profile.js'
 import { Router } from 'express'
 import { prisma } from '../prisma.js'
 import { auth, requireCompanyAccess, requireCompanyOwner } from '../middleware/auth.js'
@@ -35,11 +36,11 @@ function sanitizeCompanySecrets(company: any) {
 
   return {
     ...safeCompany,
-    hasApiKey: Boolean(apiKey),
-    hasMetaToken: Boolean(metaToken),
-    hasMetaWebhookVerifyToken: Boolean(metaWebhookVerifyToken),
-    hasMetaTwoStepPin: Boolean(metaTwoStepPin),
-    hasUazapiToken: Boolean(uazapiToken),
+    hasApiKey: company.hasApiKey ?? Boolean(apiKey),
+    hasMetaToken: company.hasMetaToken ?? Boolean(metaToken),
+    hasMetaWebhookVerifyToken: company.hasMetaWebhookVerifyToken ?? Boolean(metaWebhookVerifyToken),
+    hasMetaTwoStepPin: company.hasMetaTwoStepPin ?? Boolean(metaTwoStepPin),
+    hasUazapiToken: company.hasUazapiToken ?? Boolean(uazapiToken),
   }
 }
 
@@ -52,9 +53,7 @@ router.get('/my-company', auth(), async (req, res) => {
       return res.status(404).json(createErrorResponse('Empresa não encontrada', 404))
     }
 
-    const empresa = await prisma.empresa.findUnique({
-      where: { id: companyId }
-    })
+    const empresa = await getCompanyProfile(companyId)
 
     if (!empresa) {
       return res.status(404).json(createErrorResponse('Empresa não encontrada', 404))
@@ -434,9 +433,7 @@ router.get('/my-companies', auth(), async (req, res) => {
 
 router.get('/:id', auth(), requireCompanyAccess('id'), async (req, res) => {
   const id = Number(req.params.id)
-  const item = await prisma.empresa.findUnique({
-    where: { id },
-  })
+  const item = await getCompanyProfile(id)
   if (!item) return res.status(404).json(createErrorResponse('Empresa não encontrada', 404))
   res.json(createSuccessResponse(sanitizeCompanySecrets(item)))
 })
@@ -467,7 +464,8 @@ router.post('/', auth(), requireCompanyOwner(), async (req, res) => {
         openHour, 
         closeHour,
         ownerId: req.user.id // Vincula a empresa ao dono que está criando
-      } 
+      },
+      select: companyProfileSelect,
     })
     await ensureCompanyDefaults(prisma, created.id, req.user.id)
     res.status(201).json(createSuccessResponse(sanitizeCompanySecrets(created)))
@@ -549,7 +547,8 @@ router.put('/:id', auth(), requireCompanyOwner('id'), async (req, res) => {
       data.metaConnectedAt = metaConnectionStatus === 'connected' ? new Date() : null
     }
 
-    const updated = await prisma.empresa.update({ where: { id }, data })
+    await prisma.empresa.update({ where: { id }, data, select: { id: true } })
+    const updated = await getCompanyProfile(id)
     res.json(createSuccessResponse(sanitizeCompanySecrets(updated)))
   } catch (error: any) {
     console.error('[Empresas] Erro ao atualizar empresa:', error)
@@ -559,6 +558,6 @@ router.put('/:id', auth(), requireCompanyOwner('id'), async (req, res) => {
 
 router.delete('/:id', auth(), requireCompanyOwner('id'), async (req, res) => {
   const id = Number(req.params.id)
-  await prisma.empresa.delete({ where: { id } })
+  await prisma.empresa.delete({ where: { id }, select: { id: true } })
   res.json(createSuccessResponse({ id }))
 })

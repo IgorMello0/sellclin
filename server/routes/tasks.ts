@@ -12,6 +12,7 @@ import {
 import { processCadenceTaskCompletion } from '../services/cadence.js'
 
 export const router = Router()
+const taskCompanySelect = { id: true, name: true, whatsappProvider: true, evolutionApiUrl: true, evolutionInstance: true } as const
 router.use(auth(), requireModule('tarefas'))
 router.use(auth(), actionPermissions('tarefas'))
 
@@ -70,16 +71,19 @@ async function fnAlertUrgentTask(task: any, assignee: any, creatorName: string, 
   // Alerta por WhatsApp (Evolution API / Meta API)
   if (assignee.phone) {
     const cleanPhone = assignee.phone.replace(/\D/g, '')
-    if (company && company.whatsapp_provider === 'evolution' && company.evolution_api_url && company.evolution_instance) {
+    if (company && company.whatsappProvider === 'evolution' && company.evolutionApiUrl && company.evolutionInstance) {
       try {
+        const credentials = process.env.EVOLUTION_API_KEY ? null : await prisma.empresa.findUnique({
+          where: { id: company.id }, select: { apiKey: true },
+        })
         console.log(`[Alerts - WhatsApp] Disparando via Evolution API para: ${cleanPhone}`)
-        const baseUrl = company.evolution_api_url.replace(/\/+$/, '')
-        const response = await integrationHttpClient.fetch(`${baseUrl}/message/sendText/${company.evolution_instance}`, {
+        const baseUrl = company.evolutionApiUrl.replace(/\/+$/, '')
+        const response = await integrationHttpClient.fetch(`${baseUrl}/message/sendText/${company.evolutionInstance}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             // Adicione 'apikey' se a Evolution API exigir, geralmente buscada nas configurações da empresa ou .env
-            'apikey': process.env.EVOLUTION_API_KEY || company.apiKey || ''
+            'apikey': process.env.EVOLUTION_API_KEY || credentials?.apiKey || ''
           },
           body: JSON.stringify({
             number: cleanPhone,
@@ -291,7 +295,7 @@ router.post('/', auth(), async (req, res) => {
         assignedToUser: true,
         createdBy: true,
         createdByUser: true,
-        company: true
+        company: { select: taskCompanySelect }
       }
     })
 
@@ -346,7 +350,7 @@ router.put('/:id', auth(), async (req, res) => {
 
     const existingTask = await prisma.task.findFirst({
       where: { id, companyId },
-      include: { assignedTo: true, assignedToUser: true, createdBy: true, createdByUser: true, company: true }
+      include: { assignedTo: true, assignedToUser: true, createdBy: true, createdByUser: true, company: { select: taskCompanySelect } }
     })
 
     if (!existingTask || (!await hasActionPermission(req, 'tarefas', 'verTarefasAlheias') && !ownsTask(req.user!, existingTask))) {
@@ -398,7 +402,7 @@ router.put('/:id', auth(), async (req, res) => {
         assignedToUser: true,
         createdBy: true,
         createdByUser: true,
-        company: true
+        company: { select: taskCompanySelect }
       }
     })
 
@@ -421,7 +425,7 @@ router.put('/:id', auth(), async (req, res) => {
         const recipientsToNotify = new Set<string>();
         
         // 1. O dono da clínica (admin principal)
-        const company = await prisma.empresa.findUnique({ where: { id: updated.companyId } });
+        const company = await prisma.empresa.findUnique({ where: { id: updated.companyId }, select: { ownerId: true } });
         if (company && company.ownerId) {
           recipientsToNotify.add(`prof_${company.ownerId}`);
         }

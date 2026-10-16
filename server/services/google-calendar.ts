@@ -211,12 +211,9 @@ export async function syncAppointmentToGoogle(appointmentId: number) {
 
   if (!appointment?.companyId) return null
 
-  const connection = await getConnection(appointment.companyId)
-  if (!connection || connection.status !== 'connected') {
-    return null
-  }
-
   try {
+    const connection = await getConnection(appointment.companyId)
+    if (!connection || connection.status !== 'connected') return null
     if (appointment.status === 'cancelado') {
       await deleteAppointmentFromGoogle(appointmentId)
       return null
@@ -253,6 +250,7 @@ export async function syncAppointmentToGoogle(appointmentId: number) {
     await prisma.googleCalendarConnection.update({
       where: { id: connection.id },
       data: { lastSyncAt: new Date(), lastError: null, status: 'connected' },
+      select: { id: true },
     })
 
     return updated
@@ -263,8 +261,9 @@ export async function syncAppointmentToGoogle(appointmentId: number) {
       data: { googleSyncStatus: 'error', googleSyncError: message },
     })
     await prisma.googleCalendarConnection.update({
-      where: { id: connection.id },
+      where: { companyId: appointment.companyId },
       data: { lastError: message, status: 'error' },
+      select: { id: true },
     })
     return null
   }
@@ -274,10 +273,9 @@ export async function deleteAppointmentFromGoogle(appointmentId: number) {
   const appointment = await prisma.appointment.findUnique({ where: { id: appointmentId } })
   if (!appointment?.companyId || !appointment.googleEventId) return null
 
-  const connection = await getConnection(appointment.companyId)
-  if (!connection || !connection.refreshToken) return null
-
   try {
+    const connection = await getConnection(appointment.companyId)
+    if (!connection || !connection.refreshToken) return null
     const calendarId = encodeURIComponent(appointment.googleCalendarId || connection.calendarId || 'primary')
     await googleCalendarRequest(
       connection,

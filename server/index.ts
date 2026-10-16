@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import { startFailureAlerts } from './services/failure-alerts.js'
 import express from 'express'
 import cors from 'cors'
 import { refreshResponseMedia, protectStoredMedia } from './middleware/media-access.js'
@@ -165,6 +166,7 @@ async function startServer() {
   }, 60_000).unref()
 
   app.listen(Number(port), '0.0.0.0', () => {
+    startFailureAlerts()
     // eslint-disable-next-line no-console
     console.log(`[server] listening on http://0.0.0.0:${port}`)
   })

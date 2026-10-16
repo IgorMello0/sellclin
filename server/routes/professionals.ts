@@ -157,7 +157,8 @@ router.post('/onboarding/complete', auth(), async (req, res) => {
     if (professional.companyId && companyName) {
       await prisma.empresa.update({
         where: { id: professional.companyId },
-        data: { name: companyName }
+        data: { name: companyName },
+        select: { id: true },
       });
     }
 

@@ -537,7 +537,7 @@ router.put('/:id', auth(), requireModule('agendamentos'), async (req, res) => {
     if (req.user?.type === 'profissional' && current.professionalId === req.user.id) {
       canEdit = true;
     } else if (req.user?.type === 'usuario') {
-      const empresa = await prisma.empresa.findUnique({ where: { id: req.user.companyId! } });
+      const empresa = await prisma.empresa.findUnique({ where: { id: req.user.companyId! }, select: { ownerId: true } });
       if (empresa?.ownerId === current.professionalId) {
         canEdit = true;
       }
@@ -651,7 +651,7 @@ router.delete('/:id', auth(), requireModule('agendamentos'), async (req, res) =>
   if (req.user?.type === 'profissional' && current.professionalId === req.user.id) {
     canEdit = true;
   } else if (req.user?.type === 'usuario') {
-    const empresa = await prisma.empresa.findUnique({ where: { id: req.user.companyId! } });
+    const empresa = await prisma.empresa.findUnique({ where: { id: req.user.companyId! }, select: { ownerId: true } });
     if (empresa?.ownerId === current.professionalId) {
       canEdit = true;
     }

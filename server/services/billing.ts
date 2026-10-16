@@ -144,6 +144,7 @@ export async function ensureCompanySubscription(
   await db.empresa.update({
     where: { id: companyId },
     data: { plan: planCode },
+    select: { id: true },
   })
 
   return created
@@ -849,7 +850,7 @@ export async function createAbacateSubscriptionCheckout(
 
   const company = await prisma.empresa.findUnique({
     where: { id: companyId },
-    include: { subscription: true, owner: true },
+    select: { id: true, subscription: true },
   })
 
   if (!company) {

@@ -139,7 +139,7 @@ async function activatePendingSignup(params: {
 
   const existingProfessional = await prisma.professional.findUnique({
     where: { email: pending.email },
-    include: { company: true },
+    include: { company: { select: { id: true, name: true } } },
   });
 
   if (existingProfessional) {
@@ -190,6 +190,7 @@ async function activatePendingSignup(params: {
     await tx.empresa.update({
       where: { id: company.id },
       data: { ownerId: professional.id },
+      select: { id: true },
     });
 
     await ensureCompanyDefaults(tx, company.id, professional.id);
@@ -380,6 +381,7 @@ router.post('/abacate-pay', async (req, res) => {
         await prisma.empresa.update({
           where: { id: updatedSubscription.companyId },
           data: { plan: resolvedPlanCode },
+          select: { id: true },
         });
       }
 
@@ -487,6 +489,7 @@ router.post('/abacate-pay', async (req, res) => {
       await prisma.empresa.update({
         where: { id: companyId },
         data: { plan: resolvedPlanCode },
+        select: { id: true },
       });
     }
 

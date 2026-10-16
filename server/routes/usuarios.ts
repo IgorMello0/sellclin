@@ -14,6 +14,9 @@ import { passwordSessionStamp } from '../services/session-security.js'
 
 export const router = Router()
 
+// Team operations must not read/decrypt unrelated integration credentials.
+const teamCompanySelect = { id: true, name: true, isActive: true } as const
+
 function withoutSensitiveUserFields<T extends Record<string, any>>(user: T) {
   const { passwordHash: _passwordHash, ...safeUser } = user
 
@@ -36,7 +39,10 @@ function withoutSensitiveUserFields<T extends Record<string, any>>(user: T) {
 async function getOwnedCompanyIds(professionalId: number) {
   const professional = await prisma.professional.findUnique({
     where: { id: professionalId },
-    include: { ownedCompanies: { where: { isActive: true } } },
+    select: {
+      id: true,
+      ownedCompanies: { where: { isActive: true }, select: { id: true } },
+    },
   })
 
   if (!professional) {
@@ -234,9 +240,9 @@ router.post('/', auth(), requireCompanyOwner(), async (req, res) => {
     const existingUser = await prisma.usuario.findUnique({
       where: { email: emailAddress },
       include: {
-        company: true,
+        company: { select: teamCompanySelect },
         role: true,
-        companyAccess: { include: { company: true, role: true } },
+        companyAccess: { include: { company: { select: teamCompanySelect }, role: true } },
       },
     })
     if (existingUser) {
@@ -320,7 +326,7 @@ router.post('/', auth(), requireCompanyOwner(), async (req, res) => {
         emailVerifiedAt: null,
         leadRoutingWeight: req.body.leadRoutingWeight !== undefined ? Number(req.body.leadRoutingWeight) : 1
       },
-      include: { company: true, role: true }
+      include: { company: { select: teamCompanySelect }, role: true }
     })
     
     for (const cId of targetCompanyIds) {
@@ -354,7 +360,7 @@ router.post('/', auth(), requireCompanyOwner(), async (req, res) => {
 
     const createdWithAccess = await prisma.usuario.findUnique({
       where: { id: created.id },
-      include: { company: true, role: true, companyAccess: { include: { company: true, role: true } } },
+      include: { company: { select: teamCompanySelect }, role: true, companyAccess: { include: { company: { select: teamCompanySelect }, role: true } } },
     })
     res.status(201).json(createSuccessResponse(withoutSensitiveUserFields(createdWithAccess || created)))
   } catch (error: any) {
@@ -380,8 +386,8 @@ router.post('/:id/resend-invite', auth(), requireCompanyOwner(), async (req, res
     const usuario = await prisma.usuario.findUnique({
       where: { id },
       include: {
-        company: true,
-        companyAccess: { include: { company: true } },
+        company: { select: teamCompanySelect },
+        companyAccess: { include: { company: { select: teamCompanySelect } } },
       },
     })
 
@@ -614,7 +620,7 @@ router.put('/:id', auth(), requireCompanyOwner(), async (req, res) => {
     const updated = await prisma.usuario.update({ 
       where: { id }, 
       data,
-      include: { company: true, role: true, companyAccess: true }
+      include: { company: { select: teamCompanySelect }, role: true, companyAccess: true }
     })
     
     res.json(createSuccessResponse(withoutSensitiveUserFields(updated)))

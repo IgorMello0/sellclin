@@ -183,6 +183,10 @@ export function AppTopNavbar() {
     setNotificationsOpen(false);
     if (n.taskId) {
       navigate('/tarefas');
+    } else if (n.type?.startsWith('failure:campaign:')) {
+      navigate('/campanhas');
+    } else if (n.type?.startsWith('failure:integration:')) {
+      navigate('/integracoes');
     }
   };
 
@@ -389,6 +393,7 @@ export function AppTopNavbar() {
                             </span>
                           </div>
                           <div className="flex-1 min-w-0">
+                            {n.type?.startsWith('failure:') && <p className="text-xs font-semibold text-orange-700 mb-1">{n.title}</p>}
                             <p className="text-xs text-slate-800 break-words leading-tight">{n.content}</p>
                             <span className="text-[9px] text-slate-400 mt-1 block">
                               {new Date(n.createdAt).toLocaleDateString('pt-BR')} às {new Date(n.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}

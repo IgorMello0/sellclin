@@ -493,6 +493,7 @@ export async function connectMetaWhatsappFromCode(code: string, state: string) {
   await prisma.empresa.update({
     where: { id: payload.companyId },
     data: { metaWebhookVerifyToken: webhookVerifyToken },
+    select: { id: true },
   })
   const requestedWebhookFields = getMetaWebhookFields(payload.officialMode)
   const webhookSubscription = await subscribeWhatsappApp(
@@ -722,6 +723,7 @@ export async function saveManualMetaWhatsappConfig(companyId: number, input: Man
   await prisma.empresa.update({
     where: { id: companyId },
     data: { metaWebhookVerifyToken: webhookVerifyToken },
+    select: { id: true },
   })
   const requestedWebhookFields = getMetaWebhookFields('cloud_api')
   const webhookSubscription = await subscribeWhatsappApp(
@@ -826,6 +828,7 @@ export async function repairMetaWhatsappWebhook(
   await prisma.empresa.update({
     where: { id: companyId },
     data: { metaWebhookVerifyToken: webhookVerifyToken },
+    select: { id: true },
   })
   const officialMode = requestedMode === 'coexistence' || connection?.officialMode === 'coexistence'
     ? 'coexistence'
