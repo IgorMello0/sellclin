@@ -6,6 +6,8 @@ import { prisma } from '../prisma.js';
 import { createErrorResponse, createSuccessResponse } from '../utils/response.js';
 import { ensureCompanyDefaults } from '../bootstrap/defaults.js';
 import { chooseSdrForCompany } from '../services/sdr-routing.js';
+import { verifyAsaasWebhookToken } from '../services/asaas-client.js';
+import { processAsaasPaidCheckout, processAsaasPaymentEvent, processAsaasSubscriptionDeleted } from '../services/asaas-billing.js';
 import {
   activateBillingAddon,
   addDays,
@@ -29,6 +31,27 @@ import {
 } from '../services/whatsapp-integration.js';
 
 export const router = Router();
+
+router.post('/asaas', async (req, res) => {
+  if (!verifyAsaasWebhookToken(req.headers['asaas-access-token'])) {
+    return res.status(401).json(createErrorResponse('Webhook nao autorizado', 401));
+  }
+  const { id, event, payment } = req.body || {};
+  if (typeof id !== 'string' || !id || id.length > 200 || typeof event !== 'string') {
+    return res.status(400).json(createErrorResponse('Evento invalido', 400));
+  }
+  try {
+    const result = event === 'SUBSCRIPTION_DELETED'
+      ? await processAsaasSubscriptionDeleted(id, req.body?.subscription?.id)
+      : event === 'CHECKOUT_PAID'
+      ? await processAsaasPaidCheckout(id, req.body?.checkout?.id)
+      : await processAsaasPaymentEvent(id, event, payment);
+    return res.json(createSuccessResponse({ received: true, ...result }));
+  } catch (error) {
+    console.error('[Webhook/Asaas] Falha ao processar evento:', error);
+    return res.status(500).json(createErrorResponse('Falha ao processar evento', 500));
+  }
+});
 
 function secureStringEquals(left: string | undefined, right: string | undefined) {
   if (!left || !right) return false;

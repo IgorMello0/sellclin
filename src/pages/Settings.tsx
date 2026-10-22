@@ -1697,7 +1697,7 @@ const ClinicasView = () => {
       }
       toast({
         title: 'Alteracao agendada',
-        description: 'A AbacatePay vai aplicar a troca no proximo ciclo de cobranca.',
+        description: 'A troca será aplicada no próximo ciclo de cobrança.',
       });
       loadBillingStatus();
     } catch (e: any) {
@@ -1909,7 +1909,7 @@ const ClinicasView = () => {
                   <Button
                     variant="destructive"
                     onClick={handleCancelSubscription}
-                    disabled={changingPlan || cancelingSubscription || !billingStatus.abacateSubscriptionId}
+                    disabled={changingPlan || cancelingSubscription || !(billingStatus.abacateSubscriptionId || billingStatus.asaasSubscriptionId)}
                   >
                     {cancelingSubscription ? 'Cancelando...' : 'Cancelar assinatura'}
                   </Button>

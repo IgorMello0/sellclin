@@ -16,8 +16,19 @@ import {
   isPlanCode,
 } from '../services/billing.js'
 import { getMessageCreditSummary } from '../services/message-credits.js'
+import { getBillingProvider } from '../services/asaas-client.js'
+import { AsaasSignupConflict, cancelAsaasCompanySubscription, changeAsaasCompanyPlan, createAsaasCompanyCheckout, createAsaasSignupCheckout, reconcileAsaasSignup } from '../services/asaas-billing.js'
+import { ASAAS_PLAN_PRICES_CENTS } from '../services/asaas-pricing.js'
 
 export const router = Router()
+
+router.get('/catalog', (_req, res) => {
+  const provider = getBillingProvider()
+  const prices = provider === 'asaas' ? ASAAS_PLAN_PRICES_CENTS : {
+    start: { monthly: 19700, yearly: 197000 }, pro: { monthly: 29700, yearly: 297000 }, enterprise: { monthly: 49700, yearly: 497000 },
+  }
+  return res.json(createSuccessResponse({ provider, prices }))
+})
 
 router.post('/signup-checkout', async (req, res) => {
   try {
@@ -41,7 +52,8 @@ router.post('/signup-checkout', async (req, res) => {
       return res.status(400).json(createErrorResponse('Ciclo de cobranca invalido', 400))
     }
 
-    const checkout = await createPendingSignupCheckout({
+    const createCheckout = getBillingProvider() === 'asaas' ? createAsaasSignupCheckout : createPendingSignupCheckout
+    const checkout = await createCheckout({
       name,
       email,
       password,
@@ -55,8 +67,28 @@ router.post('/signup-checkout', async (req, res) => {
     return res.status(201).json(createSuccessResponse(checkout))
   } catch (error: any) {
     console.error('[Billing] Erro ao criar checkout de cadastro:', error)
-    const status = error.message?.includes('Email ja cadastrado') ? 400 : 500
+    const status = error instanceof AsaasSignupConflict ? 409 : error.message?.includes('Email ja cadastrado') ? 400 : 500
     return res.status(status).json(createErrorResponse(error.message || 'Erro ao criar checkout de cadastro', status))
+  }
+})
+
+// This is a return-path reconciliation, not a payment confirmation from the
+// browser. The server first verifies the checkout belongs to a pending signup
+// and then reads the payment from Asaas before creating any account.
+router.post('/signup-checkout/:checkoutId/reconcile', async (req, res) => {
+  try {
+    const checkoutId = req.params.checkoutId
+    if (!/^[a-zA-Z0-9-]+$/.test(checkoutId)) {
+      return res.status(400).json(createErrorResponse('Checkout invalido', 400))
+    }
+    const result = await reconcileAsaasSignup(checkoutId)
+    if (result.status === 'not_found') return res.status(404).json(createErrorResponse('Cadastro pendente nao encontrado', 404))
+    if (result.status !== 'completed') return res.status(409).json(createErrorResponse('Cadastro ainda aguarda confirmacao do pagamento', 409))
+    return res.json(createSuccessResponse(result))
+  } catch (error: any) {
+    const message = error.message || 'Nao foi possivel confirmar o pagamento'
+    const status = message.includes('Aguardando cobranca') ? 409 : 500
+    return res.status(status).json(createErrorResponse(message, status))
   }
 })
 
@@ -118,7 +150,9 @@ router.post('/checkout', auth(), requireCompany, requireCompanyOwner(), async (r
       ? requestedBillingCycle
       : currentStatus.billingCycle || 'monthly'
 
-    const checkout = await createAbacateSubscriptionCheckout(companyId, planCode, billingCycle)
+    const checkout = getBillingProvider() === 'asaas'
+      ? await createAsaasCompanyCheckout(companyId, planCode, billingCycle)
+      : await createAbacateSubscriptionCheckout(companyId, planCode, billingCycle)
     return res.json(createSuccessResponse(checkout))
   } catch (error: any) {
     console.error('[Billing] Erro ao criar checkout:', error)
@@ -141,7 +175,10 @@ router.post('/change-plan', auth(), requireCompany, requireCompanyOwner(), async
       return res.status(400).json(createErrorResponse('Ciclo de cobranca invalido', 400))
     }
 
-    const change = await changeCompanyAbacateSubscriptionPlan(companyId, requestedPlanCode, requestedBillingCycle)
+    const existing = await prisma.companySubscription.findUnique({ where: { companyId } })
+    const change = existing?.accessSource === 'asaas'
+      ? await changeAsaasCompanyPlan(companyId, requestedPlanCode, requestedBillingCycle)
+      : await changeCompanyAbacateSubscriptionPlan(companyId, requestedPlanCode, requestedBillingCycle)
     return res.json(createSuccessResponse(change))
   } catch (error: any) {
     console.error('[Billing] Erro ao alterar plano:', error)
@@ -153,7 +190,10 @@ router.post('/change-plan', auth(), requireCompany, requireCompanyOwner(), async
 router.post('/cancel-subscription', auth(), requireCompany, requireCompanyOwner(), async (req, res) => {
   try {
     const companyId = req.user!.companyId!
-    const result = await cancelCompanyAbacateSubscription(companyId)
+    const existing = await prisma.companySubscription.findUnique({ where: { companyId } })
+    const result = existing?.accessSource === 'asaas'
+      ? await cancelAsaasCompanySubscription(companyId)
+      : await cancelCompanyAbacateSubscription(companyId)
     return res.json(createSuccessResponse(result))
   } catch (error: any) {
     console.error('[Billing] Erro ao cancelar assinatura:', error)
@@ -166,6 +206,10 @@ router.post('/addon-checkout', auth(), requireCompany, requireCompanyOwner(), as
   try {
     if (req.user?.type !== 'profissional') {
       return res.status(403).json(createErrorResponse('Apenas profissionais podem contratar extras', 403))
+    }
+
+    if (getBillingProvider() === 'asaas') {
+      return res.status(503).json(createErrorResponse('Contratacao de adicionais pelo Asaas ainda nao esta disponivel.', 503))
     }
 
     const requestedAddonCode = req.body?.addonCode

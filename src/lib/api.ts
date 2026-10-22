@@ -42,6 +42,8 @@ export interface BillingStatus {
   modules: Array<{ code: string; name: string; icon?: string | null }>
   abacateSubscriptionId?: string | null
   abacateCheckoutId?: string | null
+  asaasSubscriptionId?: string | null
+  asaasCheckoutId?: string | null
   checkoutUrl?: string | null
   pendingPlanCode?: string | null
   pendingBillingCycle?: 'monthly' | 'yearly' | null
@@ -818,6 +820,7 @@ export const permissionsApi = {
 }
 
 export const billingApi = {
+  getCatalog: async () => apiRequest<{ provider: 'asaas' | 'abacatepay'; prices: Record<PublicPlanCode, Record<BillingCycle, number>> }>('/billing/catalog'),
   getStatus: async () => apiRequest<BillingStatus>('/billing/status'),
   getUsage: async (companyId?: number) => apiRequest<BillingUsage>(
     `/billing/usage${companyId ? `?companyId=${companyId}` : ''}`,
@@ -852,6 +855,10 @@ export const billingApi = {
     apiRequest<{ pendingSignupId: number; checkoutId?: string | null; checkoutUrl: string }>('/billing/signup-checkout', {
       method: 'POST',
       body: JSON.stringify(payload),
+    }),
+  reconcileSignupCheckout: async (checkoutId: string) =>
+    apiRequest<{ status: 'completed' }>(`/billing/signup-checkout/${encodeURIComponent(checkoutId)}/reconcile`, {
+      method: 'POST',
     }),
   createAddonCheckout: async (payload: {
     addonCode: BillingAddonCode

@@ -8,6 +8,11 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+
+# Atalhos locais para a homologacao; nao fazem parte do produto.
+/Abrir-SellClin-Homologacao.cmd
+/scripts/start-homologation.ps1
+/scripts/asaas-webhook-proxy.mjs
 dist
 dist-ssr
 dist-server

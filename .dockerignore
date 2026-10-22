@@ -48,4 +48,7 @@ skills
 bun.lockb
 uploads/*
 .npmrc
+/Abrir-SellClin-Homologacao.cmd
+/scripts/start-homologation.ps1
+/scripts/asaas-webhook-proxy.mjs
 vite.config.ts.timestamp-*

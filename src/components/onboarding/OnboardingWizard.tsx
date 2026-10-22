@@ -82,18 +82,18 @@ export const OnboardingWizard = () => {
   const sideMeta: Record<number, { icon: React.ReactNode; title: string; desc: string }> = {
     1: {
       icon: <Building2 className="w-10 h-10" />,
-      title: 'Sua ClÃ­nica',
-      desc: 'Configure a identidade do seu negÃ³cio para personalizar toda a sua experiÃªncia.',
+      title: 'Sua Clínica',
+      desc: 'Configure a identidade do seu negócio para personalizar toda a sua experiência.',
     },
     2: {
       icon: <TrendingUp className="w-10 h-10" />,
-      title: 'Sobre o NegÃ³cio',
-      desc: 'Entender o seu contexto nos ajuda a sugerir as melhores configuraÃ§Ãµes do CRM.',
+      title: 'Sobre o Negócio',
+      desc: 'Entender o seu contexto nos ajuda a sugerir as melhores configurações do CRM.',
     },
     3: {
       icon: <Sparkles className="w-10 h-10" />,
       title: 'Tudo Pronto!',
-      desc: 'Seu ambiente estÃ¡ configurado e pronto para uso.',
+      desc: 'Seu ambiente está configurado e pronto para uso.',
     },
   };
 
@@ -103,7 +103,7 @@ export const OnboardingWizard = () => {
 
   /* â”€â”€â”€ Step content â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   const renderStep = () => {
-    /* STEP 1 â€” Nome da ClÃ­nica (owners only) */
+    /* STEP 1 — Nome da Clínica (owners only) */
     if (effectiveStep === 1) {
       return (
         <motion.div
@@ -119,20 +119,20 @@ export const OnboardingWizard = () => {
               Bem-vindo(a) ao SellClin!
             </h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Vamos comeÃ§ar pelo essencial â€” qual Ã© o nome da sua clÃ­nica ou empresa?
+              Vamos começar pelo essencial — qual é o nome da sua clínica ou empresa?
             </p>
           </div>
 
           <div>
             <label htmlFor="company-name" className={labelCls}>
-              Nome da ClÃ­nica / Empresa
+              Nome da Clínica / Empresa
             </label>
             <input
               id="company-name"
               type="text"
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
-              placeholder="Ex: ClÃ­nica Sorriso"
+              placeholder="Ex: Clínica Sorriso"
               className={
                 'w-full h-12 rounded-xl border border-border bg-background px-4 text-sm text-foreground ' +
                 'placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/60 ' +
@@ -144,7 +144,7 @@ export const OnboardingWizard = () => {
       );
     }
 
-    /* STEP 2 â€” Dados do NegÃ³cio (owners only) */
+    /* STEP 2 — Dados do Negócio (owners only) */
     if (effectiveStep === 2 && isOwner) {
       return (
         <motion.div
@@ -157,21 +157,21 @@ export const OnboardingWizard = () => {
         >
           <div>
             <h2 className="text-2xl font-bold text-foreground font-headline mb-1">
-              Sobre o seu NegÃ³cio
+              Sobre o seu Negócio
             </h2>
             <p className="text-sm text-muted-foreground">
-              Essas informaÃ§Ãµes nos ajudam a personalizar sua experiÃªncia no CRM.
+              Essas informações nos ajudam a personalizar sua experiência no CRM.
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="MÃ©dia de Faturamento">
+            <Field label="Média de Faturamento">
               <CustomSelect
                 value={faturamento}
                 onChange={setFaturamento}
                 icon={<TrendingUp className="w-4 h-4" />}
                 options={[
-                  { value: 'AtÃ© 10k', label: 'AtÃ© R$ 10.000' },
+                  { value: 'Até 10k', label: 'Até R$ 10.000' },
                   { value: '10k a 50k', label: 'R$ 10k a R$ 50k' },
                   { value: '50k a 100k', label: 'R$ 50k a R$ 100k' },
                   { value: '100k a 500k', label: 'R$ 100k a R$ 500k' },
@@ -180,7 +180,7 @@ export const OnboardingWizard = () => {
               />
             </Field>
 
-            <Field label="Quantidade de FuncionÃ¡rios">
+            <Field label="Quantidade de Funcionários">
               <CustomSelect
                 value={funcionarios}
                 onChange={setFuncionarios}
@@ -194,7 +194,7 @@ export const OnboardingWizard = () => {
               />
             </Field>
 
-            <Field label="ClÃ­nicas / Unidades">
+            <Field label="Clínicas / Unidades">
               <CustomSelect
                 value={clinicas}
                 onChange={setClinicas}
@@ -215,7 +215,7 @@ export const OnboardingWizard = () => {
                 options={[
                   { value: 'Aumentar Vendas', label: 'Aumentar Vendas' },
                   { value: 'Organizar Processos', label: 'Organizar Processos' },
-                  { value: 'Analisar MÃ©tricas', label: 'Analisar MÃ©tricas' },
+                  { value: 'Analisar Métricas', label: 'Analisar Métricas' },
                   { value: 'Centralizar Atendimento', label: 'Centralizar Atendimento' },
                 ]}
               />
@@ -231,7 +231,7 @@ export const OnboardingWizard = () => {
                     { value: 'Instagram', label: 'Instagram' },
                     { value: 'Google', label: 'Google' },
                     { value: 'Youtube', label: 'YouTube' },
-                    { value: 'IndicaÃ§Ã£o', label: 'IndicaÃ§Ã£o de um amigo' },
+                    { value: 'Indicação', label: 'Indicação de um amigo' },
                     { value: 'Outro', label: 'Outro' },
                   ]}
                 />
@@ -242,8 +242,7 @@ export const OnboardingWizard = () => {
       );
     }
 
-    /* STEP 3 - Conclusao */
-    /* STEP 4 â€” ConclusÃ£o */
+    /* STEP 3 — Conclusão */
     if (effectiveStep === 3) {
       return (
         <motion.div
@@ -259,9 +258,9 @@ export const OnboardingWizard = () => {
               <CheckCircle2 className="w-10 h-10 text-secondary" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-foreground font-headline mb-1">Tudo pronto! ðŸŽ‰</h2>
+              <h2 className="text-2xl font-bold text-foreground font-headline mb-1">Tudo pronto! 🎉</h2>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Seu ambiente estÃ¡ configurado com sucesso e pronto para uso.
+                Seu ambiente está configurado com sucesso e pronto para uso.
               </p>
             </div>
           </div>
@@ -269,10 +268,10 @@ export const OnboardingWizard = () => {
           <div className="rounded-xl border border-border bg-muted/40 p-4">
             <div className="flex flex-col gap-2 w-full">
               {[
-                'Dashboard de vendas e mÃ©tricas',
+                'Dashboard de vendas e métricas',
                 'Funil de leads e pipeline',
                 'Agenda e agendamentos',
-                'RelatÃ³rios e metas',
+                'Relatórios e metas',
               ].map((item) => (
                 <div key={item} className="flex items-center gap-2 text-sm text-muted-foreground">
                   <CheckCircle2 className="w-4 h-4 text-secondary flex-shrink-0" />
@@ -358,18 +357,18 @@ export const OnboardingWizard = () => {
                   <div key={i} className={`w-6 h-6 rounded-full ${c} ring-2 ring-primary`} />
                 ))}
               </div>
-              <span className="text-xs font-semibold text-primary-foreground/80">+240 clÃ­nicas ativas</span>
+              <span className="text-xs font-semibold text-primary-foreground/80">+240 clínicas ativas</span>
             </div>
             <p className="text-xs text-primary-foreground/60 leading-relaxed italic">
-              "O SellClin transformou nossa gestÃ£o de pacientes e duplicou nossas conversÃµes."
+              "O SellClin transformou nossa gestão de pacientes e duplicou nossas conversões."
             </p>
-            <p className="text-xs text-secondary font-semibold">â€” ClÃ­nica Dr. Alves, SP</p>
+            <p className="text-xs text-secondary font-semibold">— Clínica Dr. Alves, SP</p>
           </div>
         </div>
 
         {/* Footer */}
         <p className="relative z-10 text-xs text-primary-foreground/40">
-          Â© 2026 SellClin. Todos os direitos reservados.
+          © 2026 SellClin. Todos os direitos reservados.
         </p>
       </motion.aside>
 
@@ -442,7 +441,7 @@ export const OnboardingWizard = () => {
               </>
             ) : (
               <>
-                {step === totalSteps ? 'Iniciar Tour ðŸš€' : 'PrÃ³ximo'}
+                {step === totalSteps ? 'Iniciar Tour 🚀' : 'Próximo'}
                 {step !== totalSteps && <ChevronRight className="w-4 h-4" />}
               </>
             )}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { GoogleLogin, type CredentialResponse } from '@react-oauth/google';
 import { motion } from 'framer-motion';
 import {
@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { authApi } from '@/lib/api';
+import { authApi, billingApi } from '@/lib/api';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -29,6 +29,7 @@ const Login = () => {
   const [retryAfterSeconds, setRetryAfterSeconds] = useState(0);
   const { login, loginWithGoogle, isLoading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -38,6 +39,29 @@ const Login = () => {
     }, 1000);
     return () => window.clearInterval(timer);
   }, [retryAfterSeconds]);
+
+  useEffect(() => {
+    if (searchParams.get('signup') !== 'success') return;
+    const checkoutId = sessionStorage.getItem('sellclin.pendingSignupCheckoutId');
+    if (!checkoutId) return;
+    let cancelled = false;
+    const reconcile = async () => {
+      const result = await billingApi.reconcileSignupCheckout(checkoutId);
+      if (cancelled) return;
+      if (result.success) {
+        sessionStorage.removeItem('sellclin.pendingSignupCheckoutId');
+        toast({ title: 'Conta ativada', description: 'Pagamento confirmado. Agora entre com o e-mail e a senha cadastrados.' });
+        return;
+      }
+      if (result.error?.code === 409) {
+        toast({ title: 'Confirmando pagamento', description: 'O Asaas ainda esta confirmando a cobranca. Aguarde alguns segundos e atualize esta pagina.' });
+        return;
+      }
+      toast({ title: 'Nao foi possivel confirmar o pagamento', description: result.error?.message || 'Tente atualizar a pagina em instantes.', variant: 'destructive' });
+    };
+    void reconcile();
+    return () => { cancelled = true; };
+  }, [searchParams, toast]);
 
   const formatWaitTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);

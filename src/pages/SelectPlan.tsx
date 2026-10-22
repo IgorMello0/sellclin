@@ -20,6 +20,7 @@ const SelectPlan = () => {
     searchParams.get('cycle') === 'yearly' ? 'yearly' : 'monthly'
   );
   const [isActivating, setIsActivating] = useState(false);
+  const [catalog, setCatalog] = useState<Awaited<ReturnType<typeof billingApi.getCatalog>>['data']>(null);
   const [activationStep, setActivationStep] = useState(0);
   
   const navigate = useNavigate();
@@ -27,6 +28,7 @@ const SelectPlan = () => {
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    void billingApi.getCatalog().then((result) => { if (result.success && result.data) setCatalog(result.data); });
   }, []);
 
   const activationTexts = [
@@ -80,6 +82,7 @@ const SelectPlan = () => {
   }, [isActivating]);
 
   const handleActivate = async () => {
+    if (!catalog) return;
     if (!localStorage.getItem('token')) {
       navigate(`/cadastro?plan=${selectedPlan}&cycle=${billingCycle}`);
       return;
@@ -101,8 +104,8 @@ const SelectPlan = () => {
       }
 
       toast({
-        title: 'Checkout indisponÃ­vel',
-        description: 'A AbacatePay nÃ£o retornou o link de pagamento.',
+        title: 'Checkout indisponível',
+        description: 'O provedor de pagamento não retornou o link de pagamento.',
         variant: 'destructive',
       });
       return;
@@ -170,11 +173,7 @@ const SelectPlan = () => {
   ];
 
   const selectedPlanData = plans.find((plan) => plan.id === selectedPlan);
-  const selectedPrice = selectedPlanData
-    ? billingCycle === 'yearly'
-      ? selectedPlanData.yearly
-      : selectedPlanData.monthly
-    : null;
+  const selectedPrice = selectedPlanData && catalog ? catalog.prices[selectedPlan][billingCycle] / 100 : null;
   const cycleLabel = billingCycle === 'yearly' ? 'Anual' : 'Mensal';
   const cycleSuffix = billingCycle === 'yearly' ? '/ano' : '/mês';
 
@@ -317,7 +316,7 @@ const SelectPlan = () => {
                       <>
                         <span className="text-sm font-bold text-slate-400">R$</span>
                         <span className="text-5xl font-black text-[#0F172A] tracking-tighter tabular-nums">
-                          {(billingCycle === 'yearly' ? p.yearly : p.monthly)?.toLocaleString('pt-BR')}
+                          {catalog ? (catalog.prices[p.id as keyof typeof catalog.prices][billingCycle] / 100).toLocaleString('pt-BR') : '...'}
                         </span>
                         <span className="text-xs font-bold text-slate-400">{cycleSuffix}</span>
                       </>
@@ -384,7 +383,7 @@ const SelectPlan = () => {
               <div className="space-y-1">
                 <span className="text-slate-400 text-xs font-bold uppercase tracking-wider block">Valor da Licença</span>
                 <span className="text-[#0F172A] font-black">
-                  {selectedPrice === null ? 'Sob Consulta' : `R$ ${selectedPrice.toLocaleString('pt-BR')},00${cycleSuffix}`}
+                  {selectedPrice === null ? 'Carregando...' : `R$ ${selectedPrice.toLocaleString('pt-BR')},00${cycleSuffix}`}
                 </span>
               </div>
             </div>
@@ -393,6 +392,7 @@ const SelectPlan = () => {
             <div className="pt-4 space-y-4">
               <button
                 onClick={handleActivate}
+                disabled={!catalog}
                 className="w-full py-5 bg-[#0F172A] hover:bg-[#F97316] text-white rounded-full font-black text-xs uppercase tracking-[0.25em] shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer duration-300 border-none"
               >
                 {plans.find(p => p.id === selectedPlan)?.cta} <ArrowRight size={13} />

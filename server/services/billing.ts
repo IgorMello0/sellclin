@@ -77,6 +77,7 @@ export function getEffectiveSubscriptionStatus(subscription: {
   currentPeriodEndsAt?: Date | null
   manualAccessEndsAt?: Date | null
   abacateSubscriptionId?: string | null
+  asaasSubscriptionId?: string | null
 }) {
   if (subscription.status === 'trialing' && subscription.trialEndsAt.getTime() < Date.now()) {
     return 'expired'
@@ -91,6 +92,14 @@ export function getEffectiveSubscriptionStatus(subscription: {
 
     if (subscription.accessSource === 'abacatepay') {
       return subscription.abacateSubscriptionId
+        && subscription.currentPeriodEndsAt
+        && subscription.currentPeriodEndsAt.getTime() >= Date.now()
+        ? 'active'
+        : 'payment_pending'
+    }
+
+    if (subscription.accessSource === 'asaas') {
+      return subscription.asaasSubscriptionId
         && subscription.currentPeriodEndsAt
         && subscription.currentPeriodEndsAt.getTime() >= Date.now()
         ? 'active'
@@ -215,6 +224,8 @@ export async function getCompanyBillingStatus(companyId: number) {
     modules,
     abacateSubscriptionId: subscription.abacateSubscriptionId,
     abacateCheckoutId: subscription.abacateCheckoutId,
+    asaasSubscriptionId: subscription.asaasSubscriptionId,
+    asaasCheckoutId: subscription.asaasCheckoutId,
     checkoutUrl: subscription.checkoutUrl,
     pendingPlanCode: subscription.pendingPlanCode,
     pendingBillingCycle: subscription.pendingBillingCycle,
@@ -568,7 +579,7 @@ export async function expirePastDueBillingRecords() {
     prisma.companySubscription.updateMany({
       where: {
         status: 'active',
-        accessSource: 'abacatepay',
+        accessSource: { in: ['abacatepay', 'asaas'] },
         currentPeriodEndsAt: { lt: now },
       },
       data: { status: 'expired' },

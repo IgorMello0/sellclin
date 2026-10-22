@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
@@ -69,6 +69,9 @@ const Signup = () => {
   const [selectedPlan, setSelectedPlan] = useState<PublicPlanCode>(initialPlan);
   const [billingCycle, setBillingCycle] = useState<BillingCycle>(initialBillingCycle);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [catalog, setCatalog] = useState<Awaited<ReturnType<typeof billingApi.getCatalog>>['data']>(null);
+
+  useEffect(() => { void billingApi.getCatalog().then((result) => { if (result.success && result.data) setCatalog(result.data); }); }, []);
 
   const { toast } = useToast();
 
@@ -110,6 +113,11 @@ const Signup = () => {
       });
 
       if (result.success && result.data?.checkoutUrl) {
+        if (catalog?.provider === 'asaas' && result.data.checkoutId) {
+          sessionStorage.setItem('sellclin.pendingSignupCheckoutId', result.data.checkoutId);
+        } else {
+          sessionStorage.removeItem('sellclin.pendingSignupCheckoutId');
+        }
         window.location.href = result.data.checkoutUrl;
         return;
       }
@@ -125,7 +133,7 @@ const Signup = () => {
   };
 
   const activePlan = PLAN_OPTIONS.find((plan) => plan.code === selectedPlan) || PLAN_OPTIONS[1];
-  const activePrice = billingCycle === 'yearly' ? activePlan.yearly : activePlan.monthly;
+  const activePrice = catalog ? catalog.prices[activePlan.code][billingCycle] / 100 : null;
 
   return (
     <div className="min-h-screen bg-white text-[#0F172A] font-body selection:bg-[#F97316]/20 overflow-x-hidden relative flex flex-col justify-between">
@@ -227,7 +235,7 @@ const Signup = () => {
                         Escolha seu plano e ative seu teste
                       </h2>
                       <p className="text-xs text-slate-400 font-medium">
-                        Sua conta será criada após a confirmação segura pelo AbacatePay.
+                        Sua conta será criada após a confirmação segura do pagamento.
                       </p>
                     </div>
 
@@ -286,11 +294,11 @@ const Signup = () => {
                           <div className="text-[10px] font-black uppercase tracking-widest text-[#F97316]">
                             {activePlan.name} {billingCycle === 'yearly' ? 'Anual' : 'Mensal'}
                           </div>
-                          <div className="text-xs text-slate-500">Teste com cartão pelo AbacatePay</div>
+                          <div className="text-xs text-slate-500">Pagamento recorrente com cartão</div>
                         </div>
                         <div className="text-right">
                           <div className="text-lg font-black text-slate-950">
-                            R$ {activePrice.toLocaleString('pt-BR')}
+                            {activePrice === null ? 'Carregando...' : `R$ ${activePrice.toLocaleString('pt-BR')}`}
                           </div>
                           <div className="text-[10px] font-bold text-slate-400">
                             {billingCycle === 'yearly' ? 'por ano' : 'por mês'}
@@ -395,7 +403,7 @@ const Signup = () => {
 
                       <button
                         type="submit"
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || !catalog}
                         className="bg-[#F97316] text-white px-10 py-4 rounded-full font-black text-xs uppercase tracking-[0.2em] shadow-2xl shadow-orange-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:hover:scale-100 transition-all flex items-center justify-center gap-2 cursor-pointer w-full mt-6"
                       >
                         {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
