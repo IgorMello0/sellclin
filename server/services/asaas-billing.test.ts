@@ -36,6 +36,18 @@ it('resumes the existing checkout only with the original credentials and plan', 
   expect(state.checkout).not.toHaveBeenCalled()
   expect(state.db.pendingSignup.update).not.toHaveBeenCalled()
 })
+it('retries an authenticated reservation that has no provider checkout after a local setup failure', async () => {
+  pending = { ...pending, asaasCheckoutId: null, abacateCheckoutId: null, checkoutUrl: null, companyId: null, professionalId: null }
+  state.checkout.mockResolvedValue({ checkoutId: 'checkout-recovered', checkoutUrl: 'https://asaas.com/checkoutSession/show?id=checkout-recovered' })
+  const result = await createAsaasSignupCheckout(input)
+  expect(result.checkoutId).toBe('checkout-recovered')
+  expect(state.checkout).toHaveBeenCalledTimes(1)
+  expect(state.db.pendingSignup.create).not.toHaveBeenCalled()
+  expect(state.db.pendingSignup.update).toHaveBeenCalledWith(expect.objectContaining({
+    where: { id: pending.id },
+    data: { asaasCheckoutId: 'checkout-recovered', checkoutUrl: 'https://asaas.com/checkoutSession/show?id=checkout-recovered' },
+  }))
+})
 it('never replaces an expired checkout which may already have been paid', async () => {
   pending.createdAt = new Date(0)
   await expect(createAsaasSignupCheckout(input)).rejects.toThrow('aguarda confirmacao')

@@ -65,6 +65,7 @@ export async function createAsaasSignupCheckout(input: SignupInput) {
   if (await prisma.professional.findUnique({ where: { email } })) throw new Error('Email ja cadastrado.')
   if (!isValidNewPassword(input.password)) throw new Error(PASSWORD_POLICY_MESSAGE)
   const existing = await prisma.pendingSignup.findUnique({ where: { email } })
+  let pending = existing
   if (existing) {
     // Never replace a pending checkout: it may already be paid while its webhook
     // is delayed. Preserve both the payment linkage and the original credentials.
@@ -77,14 +78,20 @@ export async function createAsaasSignupCheckout(input: SignupInput) {
     if (existing.asaasCheckoutId && existing.checkoutUrl && Date.now() < existing.createdAt.getTime() + 60 * 60 * 1000) {
       return { pendingSignupId: existing.id, checkoutId: existing.asaasCheckoutId, checkoutUrl: existing.checkoutUrl, planCode: input.planCode, billingCycle: input.billingCycle }
     }
-    throw new AsaasSignupConflict('O cadastro anterior aguarda confirmacao. Se ja pagou, aguarde a ativacao; caso contrario, contate o suporte para retomar o checkout.')
+    // A prior local failure (for example a missing API key) creates no provider
+    // checkout at all. It is safe to reuse that authenticated reservation. A
+    // record with either provider ID may represent a real payment and remains
+    // deliberately protected from replacement.
+    if (existing.asaasCheckoutId || existing.abacateCheckoutId || existing.companyId || existing.professionalId) {
+      throw new AsaasSignupConflict('O cadastro anterior aguarda confirmacao. Se ja pagou, aguarde a ativacao; caso contrario, contate o suporte para retomar o checkout.')
+    }
   }
   const data = {
     name: input.name.trim(), email, passwordHash: await bcrypt.hash(input.password, 10),
     phone: input.phone || null, specialization: input.specialization || null, companyName: input.companyName || null,
     planCode: input.planCode, billingCycle: input.billingCycle, status: 'pending',
   } as const
-  const pending = await prisma.pendingSignup.create({ data })
+  if (!pending) pending = await prisma.pendingSignup.create({ data })
   const appUrl = appBaseUrl()
   const checkout = await createAsaasRecurringCheckout({
     reference: `sellclin-signup-${pending.id}`, name: `SellClin ${input.planCode}`,
