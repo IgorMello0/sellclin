@@ -47,12 +47,6 @@ describe('production security configuration', () => {
 })
 
 describe('billing entitlement status', () => {
-  it('requires an Asaas subscription and an unexpired paid period', () => {
-    const base = { status: 'active', accessSource: 'asaas', trialEndsAt: past }
-    assert.equal(getEffectiveSubscriptionStatus({ ...base, asaasSubscriptionId: 'sub_test', currentPeriodEndsAt: future }), 'active')
-    assert.equal(getEffectiveSubscriptionStatus({ ...base, asaasSubscriptionId: null, currentPeriodEndsAt: future }), 'payment_pending')
-    assert.equal(getEffectiveSubscriptionStatus({ ...base, asaasSubscriptionId: 'sub_test', currentPeriodEndsAt: past }), 'payment_pending')
-  })
   it('expires trials using the trial deadline', () => {
     assert.equal(getEffectiveSubscriptionStatus({
       status: 'trialing',

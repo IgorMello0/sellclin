@@ -113,11 +113,7 @@ const Signup = () => {
       });
 
       if (result.success && result.data?.checkoutUrl) {
-        if (catalog?.provider === 'asaas' && result.data.checkoutId) {
-          sessionStorage.setItem('sellclin.pendingSignupCheckoutId', result.data.checkoutId);
-        } else {
-          sessionStorage.removeItem('sellclin.pendingSignupCheckoutId');
-        }
+        sessionStorage.removeItem('sellclin.pendingSignupCheckoutId');
         window.location.href = result.data.checkoutUrl;
         return;
       }

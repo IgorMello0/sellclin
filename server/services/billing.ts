@@ -19,6 +19,10 @@ export type AddonCode = typeof ADDON_CODES[number]
 export const OPERATIONAL_SUBSCRIPTION_STATUSES = new Set(['trialing', 'active'])
 export const ALWAYS_ALLOWED_MODULES = new Set(['dashboard'])
 
+export class SignupCheckoutConflict extends Error {
+  status = 409
+}
+
 export class BillingLimitError extends Error {
   status = 402
   limitType: 'clinics' | 'users'
@@ -77,7 +81,6 @@ export function getEffectiveSubscriptionStatus(subscription: {
   currentPeriodEndsAt?: Date | null
   manualAccessEndsAt?: Date | null
   abacateSubscriptionId?: string | null
-  asaasSubscriptionId?: string | null
 }) {
   if (subscription.status === 'trialing' && subscription.trialEndsAt.getTime() < Date.now()) {
     return 'expired'
@@ -92,14 +95,6 @@ export function getEffectiveSubscriptionStatus(subscription: {
 
     if (subscription.accessSource === 'abacatepay') {
       return subscription.abacateSubscriptionId
-        && subscription.currentPeriodEndsAt
-        && subscription.currentPeriodEndsAt.getTime() >= Date.now()
-        ? 'active'
-        : 'payment_pending'
-    }
-
-    if (subscription.accessSource === 'asaas') {
-      return subscription.asaasSubscriptionId
         && subscription.currentPeriodEndsAt
         && subscription.currentPeriodEndsAt.getTime() >= Date.now()
         ? 'active'
@@ -224,8 +219,6 @@ export async function getCompanyBillingStatus(companyId: number) {
     modules,
     abacateSubscriptionId: subscription.abacateSubscriptionId,
     abacateCheckoutId: subscription.abacateCheckoutId,
-    asaasSubscriptionId: subscription.asaasSubscriptionId,
-    asaasCheckoutId: subscription.asaasCheckoutId,
     checkoutUrl: subscription.checkoutUrl,
     pendingPlanCode: subscription.pendingPlanCode,
     pendingBillingCycle: subscription.pendingBillingCycle,
@@ -330,8 +323,8 @@ async function createAbacateBilling(path: string, payload: Record<string, unknow
   const checkoutId = data?.id || data?.checkoutId || null
   const checkoutUrl = data?.url || data?.checkoutUrl || data?.paymentUrl || null
 
-  if (!checkoutUrl) {
-    throw new Error('A Abacate Pay nao retornou a URL do checkout.')
+  if (typeof checkoutId !== 'string' || !checkoutId || typeof checkoutUrl !== 'string' || !checkoutUrl) {
+    throw new Error('A Abacate Pay nao retornou o identificador e a URL do checkout.')
   }
 
   return { checkoutId, checkoutUrl }
@@ -579,7 +572,7 @@ export async function expirePastDueBillingRecords() {
     prisma.companySubscription.updateMany({
       where: {
         status: 'active',
-        accessSource: { in: ['abacatepay', 'asaas'] },
+        accessSource: 'abacatepay',
         currentPeriodEndsAt: { lt: now },
       },
       data: { status: 'expired' },
@@ -1021,6 +1014,9 @@ export async function createPendingSignupCheckout(input: {
   const productId = getProductIdForPlan(input.planCode, input.billingCycle)
 
   const abacateConfig = assertPlanCheckoutConfig('criar checkout', input.planCode, input.billingCycle, apiKey, productId)
+  if (!process.env.ABACATEPAY_WEBHOOK_SECRET?.trim()) {
+    throw new Error('Configure ABACATEPAY_WEBHOOK_SECRET antes de iniciar cadastros.')
+  }
 
   const email = input.email.trim().toLowerCase()
   const existingProfessional = await prisma.professional.findUnique({ where: { email } })
@@ -1029,34 +1025,58 @@ export async function createPendingSignupCheckout(input: {
   }
 
   if (!isValidNewPassword(input.password)) throw new Error(PASSWORD_POLICY_MESSAGE)
-  const passwordHash = await bcrypt.hash(input.password, 10)
-  const pending = await prisma.pendingSignup.upsert({
-    where: { email },
-    update: {
-      name: input.name.trim(),
-      passwordHash,
-      phone: input.phone || null,
-      specialization: input.specialization || null,
-      companyName: input.companyName || null,
-      planCode: input.planCode,
-      billingCycle: input.billingCycle,
-      status: 'pending',
-      abacateCheckoutId: null,
-      checkoutUrl: null,
-      completedAt: null,
-    },
-    create: {
-      name: input.name.trim(),
-      email,
-      passwordHash,
-      phone: input.phone || null,
-      specialization: input.specialization || null,
-      companyName: input.companyName || null,
-      planCode: input.planCode,
-      billingCycle: input.billingCycle,
-      status: 'pending',
-    },
-  })
+  let pending = await prisma.pendingSignup.findUnique({ where: { email } })
+  if (pending) {
+    if (!await bcrypt.compare(input.password, pending.passwordHash)) {
+      throw new SignupCheckoutConflict('Ja existe um cadastro com esse email. Use a senha original para retomar o pagamento ou recupere o acesso.')
+    }
+    if (pending.companyId || pending.professionalId || pending.status === 'completed') {
+      throw new SignupCheckoutConflict('Cadastro ja concluido. Entre com o email e a senha cadastrados.')
+    }
+    if (pending.planCode !== input.planCode || pending.billingCycle !== input.billingCycle) {
+      throw new SignupCheckoutConflict('O cadastro foi iniciado com outro plano ou ciclo. Selecione o plano e ciclo originais para retomar o checkout.')
+    }
+    if (['pending', 'payment_pending'].includes(pending.status) && pending.abacateCheckoutId && pending.checkoutUrl) {
+      return {
+        pendingSignupId: pending.id,
+        checkoutId: pending.abacateCheckoutId,
+        checkoutUrl: pending.checkoutUrl,
+        planCode: input.planCode,
+        billingCycle: input.billingCycle,
+        productId: abacateConfig.productId,
+      }
+    }
+    // Claim only a reservation that has never been sent to AbacatePay. Another
+    // request must not create a second checkout or overwrite the original login.
+    const claimed = await prisma.pendingSignup.updateMany({
+      where: {
+        id: pending.id, status: 'pending', abacateCheckoutId: null,
+        companyId: null, professionalId: null,
+      },
+      data: { status: 'creating_checkout', checkoutUrl: null },
+    })
+    if (!claimed.count) {
+      throw new SignupCheckoutConflict('O checkout esta em processamento ou aguarda verificacao. Se ja pagou, aguarde a ativacao; caso contrario, contate o suporte.')
+    }
+  } else {
+    try {
+      pending = await prisma.pendingSignup.create({
+        data: {
+          name: input.name.trim(), email,
+          passwordHash: await bcrypt.hash(input.password, 10),
+          phone: input.phone || null,
+          specialization: input.specialization || null,
+          companyName: input.companyName || null,
+          planCode: input.planCode,
+          billingCycle: input.billingCycle,
+          status: 'creating_checkout',
+        },
+      })
+    } catch (error: any) {
+      if (error.code === 'P2002') throw new SignupCheckoutConflict('Cadastro em processamento. Aguarde alguns instantes e tente novamente com os mesmos dados.')
+      throw error
+    }
+  }
 
   const appUrl = getPublicAppUrl()
   const externalId = `sellclin-signup-${pending.id}-${Date.now()}`
@@ -1084,23 +1104,27 @@ export async function createPendingSignupCheckout(input: {
     productId: abacateConfig.productId,
   })
 
-  const { checkoutId, checkoutUrl } = await createAbacateSubscriptionBilling(payload, abacateConfig.apiKey)
-
-  await prisma.pendingSignup.update({
-    where: { id: pending.id },
-    data: {
-      abacateCheckoutId: checkoutId,
-      checkoutUrl,
-    },
-  })
-
-  return {
-    pendingSignupId: pending.id,
-    checkoutId,
-    checkoutUrl,
-    planCode: input.planCode,
-    billingCycle: input.billingCycle,
-    productId: abacateConfig.productId,
+  try {
+    const { checkoutId, checkoutUrl } = await createAbacateSubscriptionBilling(payload, abacateConfig.apiKey)
+    // A webhook can complete the account before the checkout response arrives.
+    await prisma.pendingSignup.updateMany({
+      where: { id: pending.id, status: 'creating_checkout' },
+      data: { status: 'pending', abacateCheckoutId: checkoutId, checkoutUrl },
+    })
+    return {
+      pendingSignupId: pending.id, checkoutId, checkoutUrl,
+      planCode: input.planCode, billingCycle: input.billingCycle,
+      productId: abacateConfig.productId,
+    }
+  } catch (error: any) {
+    // Only explicit rejections are safe to retry. A lost response may already
+    // have created a checkout, so do not issue another charge automatically.
+    const rejected = [400, 401, 403, 404, 422, 429].includes(error.status)
+    await prisma.pendingSignup.updateMany({
+      where: { id: pending.id, status: 'creating_checkout', abacateCheckoutId: null },
+      data: { status: rejected ? 'pending' : 'checkout_unknown' },
+    }).catch(() => console.error('[Billing] Nao foi possivel registrar a falha do checkout', { pendingSignupId: pending.id }))
+    throw error
   }
 }
 

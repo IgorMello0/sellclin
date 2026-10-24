@@ -1909,7 +1909,7 @@ const ClinicasView = () => {
                   <Button
                     variant="destructive"
                     onClick={handleCancelSubscription}
-                    disabled={changingPlan || cancelingSubscription || !(billingStatus.abacateSubscriptionId || billingStatus.asaasSubscriptionId)}
+                    disabled={changingPlan || cancelingSubscription || !billingStatus.abacateSubscriptionId}
                   >
                     {cancelingSubscription ? 'Cancelando...' : 'Cancelar assinatura'}
                   </Button>

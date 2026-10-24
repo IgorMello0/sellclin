@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { authApi, billingApi } from '@/lib/api';
+import { authApi } from '@/lib/api';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -42,25 +42,8 @@ const Login = () => {
 
   useEffect(() => {
     if (searchParams.get('signup') !== 'success') return;
-    const checkoutId = sessionStorage.getItem('sellclin.pendingSignupCheckoutId');
-    if (!checkoutId) return;
-    let cancelled = false;
-    const reconcile = async () => {
-      const result = await billingApi.reconcileSignupCheckout(checkoutId);
-      if (cancelled) return;
-      if (result.success) {
-        sessionStorage.removeItem('sellclin.pendingSignupCheckoutId');
-        toast({ title: 'Conta ativada', description: 'Pagamento confirmado. Agora entre com o e-mail e a senha cadastrados.' });
-        return;
-      }
-      if (result.error?.code === 409) {
-        toast({ title: 'Confirmando pagamento', description: 'O Asaas ainda esta confirmando a cobranca. Aguarde alguns segundos e atualize esta pagina.' });
-        return;
-      }
-      toast({ title: 'Nao foi possivel confirmar o pagamento', description: result.error?.message || 'Tente atualizar a pagina em instantes.', variant: 'destructive' });
-    };
-    void reconcile();
-    return () => { cancelled = true; };
+    sessionStorage.removeItem('sellclin.pendingSignupCheckoutId');
+    toast({ title: 'Retorno do pagamento', description: 'Após a confirmação do AbacatePay, entre com o e-mail e a senha usados no cadastro. A confirmação pode levar alguns instantes.' });
   }, [searchParams, toast]);
 
   const formatWaitTime = (seconds: number) => {
