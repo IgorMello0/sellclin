@@ -18,14 +18,29 @@ let pending: any
 
 beforeEach(() => {
   vi.clearAllMocks()
-  state.fetch.mockReset().mockImplementation(async (url: string) => new Response(JSON.stringify({
-    success: true,
-    data: url.includes('/subscriptions/checkouts/get') ? { ...checkout, id: 'bill_previous', status: 'PENDING' } : checkout,
-  })))
+  let checkoutDeleted = false
+  state.fetch.mockReset().mockImplementation(async (url: string) => {
+    if (url.includes('/subscriptions/checkouts/get') && checkoutDeleted) {
+      return new Response(JSON.stringify({ success: false, error: 'Billing not found' }), { status: 404 })
+    }
+    if (url.includes('/subscriptions/checkouts/delete')) checkoutDeleted = true
+    return new Response(JSON.stringify({
+      success: true,
+      data: url.includes('/subscriptions/checkouts/get')
+        ? { ...checkout, id: 'bill_previous', status: 'PENDING' }
+        : url.includes('/subscriptions/list')
+          ? []
+          : url.includes('/subscriptions/checkouts/delete')
+            ? { id: 'bill_previous', status: 'PENDING', paidAmount: null }
+            : checkout,
+    }))
+  })
   vi.stubEnv('ABACATEPAY_API_KEY', 'test-only-key')
   vi.stubEnv('ABACATEPAY_WEBHOOK_SECRET', 'test-only-webhook-secret')
   vi.stubEnv('ABACATEPAY_API_BASE_URL', 'https://api.abacatepay.com/v2')
   vi.stubEnv('ABACATEPAY_START_MONTHLY_PRODUCT_ID', 'prod_test_start')
+  vi.stubEnv('ABACATEPAY_START_YEARLY_PRODUCT_ID', 'prod_test_start_yearly')
+  vi.stubEnv('ABACATEPAY_PRO_MONTHLY_PRODUCT_ID', 'prod_test_pro')
   vi.stubEnv('PUBLIC_APP_URL', 'http://127.0.0.1:8081')
   pending = {
     id: 1, ...input, passwordHash: bcrypt.hashSync(input.password, 4),
@@ -130,10 +145,74 @@ it('does not replace credentials or disclose a checkout to a different password'
   expect(state.fetch).not.toHaveBeenCalled()
 })
 
-it('does not return a checkout for a different plan', async () => {
-  pending.planCode = 'pro'
-  await expect(createPendingSignupCheckout(input)).rejects.toThrow('outro plano')
-  expect(state.fetch).not.toHaveBeenCalled()
+it('changes the plan and price of an unpaid signup before opening the new checkout', async () => {
+  pending.abacateCheckoutId = 'bill_previous'
+  pending.checkoutUrl = 'https://app.abacatepay.com/pay/bill_previous'
+  const originalHash = pending.passwordHash
+  const result = await createPendingSignupCheckout({ ...input, planCode: 'pro' })
+  expect(result.checkoutId).toBe(checkout.id)
+  expect(pending).toMatchObject({ planCode: 'pro', billingCycle: 'monthly', passwordHash: originalHash, abacateCheckoutId: checkout.id })
+  expect(state.fetch.mock.calls.map(call => call[0])).toEqual([
+    expect.stringContaining('/subscriptions/checkouts/get?id=bill_previous'),
+    expect.stringContaining('/subscriptions/list?checkoutId=bill_previous'),
+    expect.stringContaining('/subscriptions/checkouts/delete?id=bill_previous'),
+    expect.stringContaining('/subscriptions/checkouts/get?id=bill_previous'),
+    expect.stringContaining('/subscriptions/list?checkoutId=bill_previous'),
+    expect.stringContaining('/subscriptions/create'),
+  ])
+  expect(JSON.parse(state.fetch.mock.calls[5][1].body)).toMatchObject({
+    productId: 'prod_test_pro', items: [{ id: 'prod_test_pro', quantity: 1 }],
+    metadata: { planCode: 'pro', billingCycle: 'monthly' },
+  })
+})
+
+it('changes from monthly to yearly when the old checkout has expired', async () => {
+  pending.abacateCheckoutId = 'bill_previous'
+  state.fetch.mockImplementation(async (url: string) => new Response(JSON.stringify({
+    success: true,
+    data: url.includes('/subscriptions/checkouts/get')
+      ? { id: 'bill_previous', status: 'EXPIRED', paidAmount: null }
+      : checkout,
+  })))
+  await createPendingSignupCheckout({ ...input, billingCycle: 'yearly' })
+  expect(pending.billingCycle).toBe('yearly')
+  expect(JSON.parse(state.fetch.mock.calls[1][1].body)).toMatchObject({
+    productId: 'prod_test_start_yearly', metadata: { billingCycle: 'yearly' },
+  })
+  expect(state.fetch.mock.calls.some(call => call[0].includes('/subscriptions/checkouts/delete'))).toBe(false)
+})
+
+it('lets a pending signup without provider checkout select a different plan', async () => {
+  const result = await createPendingSignupCheckout({ ...input, planCode: 'pro' })
+  expect(result.planCode).toBe('pro')
+  expect(pending.planCode).toBe('pro')
+  expect(JSON.parse(state.fetch.mock.calls[0][1].body)).toMatchObject({ productId: 'prod_test_pro' })
+})
+
+it('does not change plan or create another checkout when a subscription already exists', async () => {
+  pending.abacateCheckoutId = 'bill_previous'
+  state.fetch.mockImplementation(async (url: string) => new Response(JSON.stringify({
+    success: true,
+    data: url.includes('/subscriptions/checkouts/get')
+      ? { id: 'bill_previous', status: 'PENDING' }
+      : [{ id: 'subs_paid', checkoutId: 'bill_previous', status: 'ACTIVE' }],
+  })))
+  await expect(createPendingSignupCheckout({ ...input, planCode: 'pro' })).rejects.toThrow('gerou uma assinatura')
+  expect(pending.planCode).toBe('start')
+  expect(state.fetch).toHaveBeenCalledTimes(2)
+})
+
+it('does not change plan when checkout cancellation fails', async () => {
+  pending.abacateCheckoutId = 'bill_previous'
+  state.fetch.mockImplementation(async (url: string) => new Response(JSON.stringify({
+    success: !url.includes('/subscriptions/checkouts/delete'),
+    data: url.includes('/subscriptions/checkouts/get') ? { id: 'bill_previous', status: 'PENDING' } : [],
+    error: 'Not permitted',
+  }), { status: url.includes('/subscriptions/checkouts/delete') ? 403 : 200 }))
+  await expect(createPendingSignupCheckout({ ...input, planCode: 'pro' })).rejects.toThrow('encerrar o checkout anterior')
+  expect(pending.planCode).toBe('start')
+  expect(pending.abacateCheckoutId).toBe('bill_previous')
+  expect(state.fetch).toHaveBeenCalledTimes(3)
 })
 
 it('does not recreate an existing account', async () => {

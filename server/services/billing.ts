@@ -329,6 +329,9 @@ async function getAbacateSignupCheckout(checkoutId: string, apiKey: string): Pro
     { headers: { Authorization: `Bearer ${apiKey}` } }
   )
   const body = await response.json().catch(() => ({}))
+  if (response.status === 404) {
+    return { id: checkoutId, status: 'MISSING' }
+  }
   if (!response.ok || body?.success === false) {
     throw new SignupCheckoutConflict('Não foi possível consultar o pagamento anterior. Tente novamente em instantes.')
   }
@@ -337,6 +340,41 @@ async function getAbacateSignupCheckout(checkoutId: string, apiKey: string): Pro
     throw new SignupCheckoutConflict('Não foi possível confirmar o estado do pagamento anterior. Tente novamente em instantes.')
   }
   return checkout
+}
+
+async function assertNoAbacateSubscriptionForCheckout(checkoutId: string, apiKey: string) {
+  const response = await integrationHttpClient.fetch(
+    `${getAbacateApiBaseUrl()}/subscriptions/list?checkoutId=${encodeURIComponent(checkoutId)}&limit=1`,
+    { headers: { Authorization: `Bearer ${apiKey}` } }
+  )
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok || body?.success === false || !Array.isArray(body?.data)) {
+    throw new SignupCheckoutConflict('Não foi possível verificar se o pagamento anterior foi concluído. Tente novamente em instantes.')
+  }
+  if (body.data.length > 0) {
+    throw new SignupCheckoutConflict('O pagamento anterior gerou uma assinatura. Aguarde a ativação da conta antes de contratar outro plano.')
+  }
+}
+
+async function removeUnpaidAbacateSignupCheckout(checkoutId: string, apiKey: string) {
+  await assertNoAbacateSubscriptionForCheckout(checkoutId, apiKey)
+  let deleted: any
+  try {
+    deleted = await postAbacate(`/subscriptions/checkouts/delete?id=${encodeURIComponent(checkoutId)}`, {}, apiKey)
+  } catch {
+    throw new SignupCheckoutConflict('Não foi possível encerrar o checkout anterior. Tente novamente em instantes.')
+  }
+  if (deleted?.id !== checkoutId || typeof deleted?.status !== 'string') {
+    throw new SignupCheckoutConflict('Não foi possível confirmar o encerramento do checkout anterior. Tente novamente em instantes.')
+  }
+  if (deleted.status.toUpperCase() === 'PAID' || deleted.paidAmount) {
+    throw new SignupCheckoutConflict('O pagamento anterior foi confirmado. Aguarde a ativação da conta antes de contratar outro plano.')
+  }
+  const afterDeletion = await getAbacateSignupCheckout(checkoutId, apiKey)
+  if (!['MISSING', 'EXPIRED', 'CANCELLED'].includes(afterDeletion.status.toUpperCase())) {
+    throw new SignupCheckoutConflict('O checkout anterior ainda está aberto. Tente novamente em instantes.')
+  }
+  await assertNoAbacateSubscriptionForCheckout(checkoutId, apiKey)
 }
 
 async function createAbacateBilling(path: string, payload: Record<string, unknown>, apiKey: string) {
@@ -1054,13 +1092,11 @@ export async function createPendingSignupCheckout(input: {
     if (pending.companyId || pending.professionalId || pending.status === 'completed') {
       throw new SignupCheckoutConflict('Cadastro ja concluido. Entre com o email e a senha cadastrados.')
     }
-    if (pending.planCode !== input.planCode || pending.billingCycle !== input.billingCycle) {
-      throw new SignupCheckoutConflict('O cadastro foi iniciado com outro plano ou ciclo. Selecione o plano e ciclo originais para retomar o checkout.')
-    }
+    const changingPlan = pending.planCode !== input.planCode || pending.billingCycle !== input.billingCycle
     if (['pending', 'payment_pending', 'expired', 'canceled'].includes(pending.status) && pending.abacateCheckoutId) {
       const checkout = await getAbacateSignupCheckout(pending.abacateCheckoutId, abacateConfig.apiKey)
       const checkoutStatus = checkout.status.toUpperCase()
-      if (checkoutStatus === 'PENDING') {
+      if (checkoutStatus === 'PENDING' && !changingPlan) {
         const checkoutUrl = checkout.url || pending.checkoutUrl
         if (!checkoutUrl) throw new SignupCheckoutConflict('O link do pagamento não está disponível. Tente novamente em instantes.')
         return {
@@ -1075,7 +1111,11 @@ export async function createPendingSignupCheckout(input: {
       if (checkoutStatus === 'PAID' || checkout.paidAmount) {
         throw new SignupCheckoutConflict('Pagamento recebido. Aguarde a ativação da conta e entre com a senha cadastrada.')
       }
-      if (!['EXPIRED', 'CANCELLED'].includes(checkoutStatus)) {
+      if (checkoutStatus === 'PENDING' && changingPlan) {
+        await removeUnpaidAbacateSignupCheckout(pending.abacateCheckoutId, abacateConfig.apiKey)
+      } else if (checkoutStatus === 'MISSING') {
+        await assertNoAbacateSubscriptionForCheckout(pending.abacateCheckoutId, abacateConfig.apiKey)
+      } else if (!['EXPIRED', 'CANCELLED'].includes(checkoutStatus)) {
         throw new SignupCheckoutConflict('Não foi possível confirmar que o pagamento anterior terminou sem cobrança. Tente novamente em instantes.')
       }
     }
@@ -1088,7 +1128,10 @@ export async function createPendingSignupCheckout(input: {
         abacateCheckoutId: pending.abacateCheckoutId,
         companyId: null, professionalId: null,
       },
-      data: { status: 'creating_checkout', abacateCheckoutId: null, checkoutUrl: null },
+      data: {
+        status: 'creating_checkout', abacateCheckoutId: null, checkoutUrl: null,
+        planCode: input.planCode, billingCycle: input.billingCycle,
+      },
     })
     if (!claimed.count) {
       throw new SignupCheckoutConflict('O checkout esta em processamento ou aguarda verificacao. Se ja pagou, aguarde a ativacao; caso contrario, contate o suporte.')

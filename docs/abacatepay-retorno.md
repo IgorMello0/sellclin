@@ -79,6 +79,10 @@ construída sem esse argumento caso utilize o login com Google.
 - Com checkout expirado ou cancelado sem pagamento: abre outro checkout para o
   mesmo cadastro, após confirmar o estado no AbacatePay. O e-mail permanece
   disponível para concluir a assinatura.
+- Se a pessoa escolher outro plano ou mudar entre mensal e anual antes de pagar,
+  o sistema confere que não há assinatura, exclui o checkout pendente anterior
+  e abre um novo com o produto e preço da escolha atual. A chave precisa das
+  permissões `SUBSCRIPTION:READ`, `SUBSCRIPTION:DELETE` e `SUBSCRIPTION:CREATE`.
 - Com pagamento confirmado: aguarde a ativação e entre com a senha cadastrada;
   não inicie outra cobrança.
 - Conta já criada: entrar pelo login; não criar outro cadastro.
