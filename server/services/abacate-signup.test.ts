@@ -18,7 +18,10 @@ let pending: any
 
 beforeEach(() => {
   vi.clearAllMocks()
-  state.fetch.mockReset().mockImplementation(async () => new Response(JSON.stringify({ success: true, data: checkout })))
+  state.fetch.mockReset().mockImplementation(async (url: string) => new Response(JSON.stringify({
+    success: true,
+    data: url.includes('/subscriptions/checkouts/get') ? { ...checkout, id: 'bill_previous', status: 'PENDING' } : checkout,
+  })))
   vi.stubEnv('ABACATEPAY_API_KEY', 'test-only-key')
   vi.stubEnv('ABACATEPAY_WEBHOOK_SECRET', 'test-only-webhook-secret')
   vi.stubEnv('ABACATEPAY_API_BASE_URL', 'https://api.abacatepay.com/v2')
@@ -35,7 +38,11 @@ beforeEach(() => {
       findUnique: vi.fn(async () => pending ? { ...pending } : null),
       create: vi.fn(async ({ data }) => (pending = { ...data, id: 1, abacateCheckoutId: null, companyId: null, professionalId: null })),
       updateMany: vi.fn(async ({ where, data }) => {
-        const matches = pending && Object.entries(where).every(([key, value]) => pending[key] === value)
+        const matches = pending && Object.entries(where).every(([key, value]) =>
+          key === 'status' && value && typeof value === 'object' && 'in' in value
+            ? (value.in as string[]).includes(pending.status)
+            : pending[key] === value
+        )
         if (!matches) return { count: 0 }
         Object.assign(pending, data)
         return { count: 1 }
@@ -72,12 +79,48 @@ it('resumes a reservation with no AbacatePay checkout, replacing only the stale 
 })
 
 it('returns the original checkout instead of creating another charge', async () => {
-  pending.abacateCheckoutId = checkout.id
-  pending.checkoutUrl = checkout.url
+  pending.abacateCheckoutId = 'bill_previous'
+  pending.checkoutUrl = 'https://app.abacatepay.com/pay/bill_previous'
+  const result = await createPendingSignupCheckout(input)
+  expect(result.checkoutId).toBe('bill_previous')
+  expect(state.fetch).toHaveBeenCalledTimes(1)
+  expect(state.fetch.mock.calls[0][0]).toContain('/subscriptions/checkouts/get?id=bill_previous')
+  expect(state.db.pendingSignup.updateMany).not.toHaveBeenCalled()
+})
+
+it('creates a new checkout with the same email after the provider confirms expiry', async () => {
+  pending.abacateCheckoutId = 'bill_previous'
+  pending.checkoutUrl = 'https://app.abacatepay.com/pay/bill_previous'
+  const hash = pending.passwordHash
+  state.fetch.mockImplementation(async (url: string) => new Response(JSON.stringify({
+    success: true,
+    data: url.includes('/subscriptions/checkouts/get')
+      ? { id: 'bill_previous', status: 'EXPIRED', paidAmount: null }
+      : checkout,
+  })))
   const result = await createPendingSignupCheckout(input)
   expect(result.checkoutId).toBe(checkout.id)
-  expect(state.fetch).not.toHaveBeenCalled()
+  expect(pending).toMatchObject({ status: 'pending', abacateCheckoutId: checkout.id, checkoutUrl: checkout.url, passwordHash: hash })
+  expect(state.fetch).toHaveBeenCalledTimes(2)
+  expect(state.db.pendingSignup.create).not.toHaveBeenCalled()
+})
+
+it('never creates another checkout for a paid one while activation is pending', async () => {
+  pending.abacateCheckoutId = 'bill_previous'
+  state.fetch.mockImplementation(async () => new Response(JSON.stringify({
+    success: true, data: { id: 'bill_previous', status: 'PAID', paidAmount: 19700 },
+  })))
+  await expect(createPendingSignupCheckout(input)).rejects.toThrow('Pagamento recebido')
+  expect(state.fetch).toHaveBeenCalledTimes(1)
   expect(state.db.pendingSignup.updateMany).not.toHaveBeenCalled()
+})
+
+it('keeps the original checkout when the provider cannot verify its status', async () => {
+  pending.abacateCheckoutId = 'bill_previous'
+  state.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ success: false }), { status: 503 }))
+  await expect(createPendingSignupCheckout(input)).rejects.toThrow('consultar o pagamento anterior')
+  expect(pending.abacateCheckoutId).toBe('bill_previous')
+  expect(state.fetch).toHaveBeenCalledTimes(1)
 })
 
 it('does not replace credentials or disclose a checkout to a different password', async () => {
@@ -222,6 +265,17 @@ it('does not create an account from an unsigned payment', async () => {
   const res = await deliverWebhook(paidEvent, false)
   expect(res.status).toHaveBeenCalledWith(401)
   expect(state.db.professional.create).not.toHaveBeenCalled()
+})
+
+it('ignores a delayed event from an older checkout after the customer resumes', async () => {
+  setupActivationDatabase()
+  pending.abacateCheckoutId = 'bill_new'
+  const res = await deliverWebhook({ ...paidEvent, data: {
+    ...paidEvent.data, checkout: { ...paidEvent.data.checkout, id: 'bill_previous' },
+  } })
+  expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ ignored: true }) }))
+  expect(state.db.professional.create).not.toHaveBeenCalled()
+  expect(pending.status).toBe('pending')
 })
 
 it('does not activate a different product or a pending payment', async () => {

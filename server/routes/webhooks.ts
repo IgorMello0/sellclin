@@ -394,6 +394,15 @@ router.post('/abacate-pay', async (req, res) => {
       if (!pending) {
         return res.status(404).json(createErrorResponse('Cadastro pendente nao encontrado', 404));
       }
+      // An expired checkout may have been replaced. Its delayed events must
+      // never change the new reservation or activate the wrong checkout.
+      if (
+        (pending.abacateCheckoutId && checkoutId && pending.abacateCheckoutId !== checkoutId)
+        || (!isOperationalEvent && pending.status === 'creating_checkout')
+      ) {
+        await markWebhookEventProcessed(eventId, eventName, body);
+        return res.json(createSuccessResponse({ received: true, ignored: true }));
+      }
       if (
         isOperationalEvent &&
         (pending.planCode !== resolvedPlanCode || pending.billingCycle !== resolvedBillingCycle)

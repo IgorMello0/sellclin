@@ -318,6 +318,27 @@ async function postAbacate(path: string, payload: Record<string, unknown>, apiKe
   return body?.data || body
 }
 
+async function getAbacateSignupCheckout(checkoutId: string, apiKey: string): Promise<{
+  id: string
+  status: string
+  url?: string | null
+  paidAmount?: number | null
+}> {
+  const response = await integrationHttpClient.fetch(
+    `${getAbacateApiBaseUrl()}/subscriptions/checkouts/get?id=${encodeURIComponent(checkoutId)}`,
+    { headers: { Authorization: `Bearer ${apiKey}` } }
+  )
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok || body?.success === false) {
+    throw new SignupCheckoutConflict('Não foi possível consultar o pagamento anterior. Tente novamente em instantes.')
+  }
+  const checkout = body?.data
+  if (!checkout || checkout.id !== checkoutId || typeof checkout.status !== 'string') {
+    throw new SignupCheckoutConflict('Não foi possível confirmar o estado do pagamento anterior. Tente novamente em instantes.')
+  }
+  return checkout
+}
+
 async function createAbacateBilling(path: string, payload: Record<string, unknown>, apiKey: string) {
   const data = await postAbacate(path, payload, apiKey)
   const checkoutId = data?.id || data?.checkoutId || null
@@ -1036,24 +1057,38 @@ export async function createPendingSignupCheckout(input: {
     if (pending.planCode !== input.planCode || pending.billingCycle !== input.billingCycle) {
       throw new SignupCheckoutConflict('O cadastro foi iniciado com outro plano ou ciclo. Selecione o plano e ciclo originais para retomar o checkout.')
     }
-    if (['pending', 'payment_pending'].includes(pending.status) && pending.abacateCheckoutId && pending.checkoutUrl) {
-      return {
-        pendingSignupId: pending.id,
-        checkoutId: pending.abacateCheckoutId,
-        checkoutUrl: pending.checkoutUrl,
-        planCode: input.planCode,
-        billingCycle: input.billingCycle,
-        productId: abacateConfig.productId,
+    if (['pending', 'payment_pending', 'expired', 'canceled'].includes(pending.status) && pending.abacateCheckoutId) {
+      const checkout = await getAbacateSignupCheckout(pending.abacateCheckoutId, abacateConfig.apiKey)
+      const checkoutStatus = checkout.status.toUpperCase()
+      if (checkoutStatus === 'PENDING') {
+        const checkoutUrl = checkout.url || pending.checkoutUrl
+        if (!checkoutUrl) throw new SignupCheckoutConflict('O link do pagamento não está disponível. Tente novamente em instantes.')
+        return {
+          pendingSignupId: pending.id,
+          checkoutId: pending.abacateCheckoutId,
+          checkoutUrl,
+          planCode: input.planCode,
+          billingCycle: input.billingCycle,
+          productId: abacateConfig.productId,
+        }
+      }
+      if (checkoutStatus === 'PAID' || checkout.paidAmount) {
+        throw new SignupCheckoutConflict('Pagamento recebido. Aguarde a ativação da conta e entre com a senha cadastrada.')
+      }
+      if (!['EXPIRED', 'CANCELLED'].includes(checkoutStatus)) {
+        throw new SignupCheckoutConflict('Não foi possível confirmar que o pagamento anterior terminou sem cobrança. Tente novamente em instantes.')
       }
     }
-    // Claim only a reservation that has never been sent to AbacatePay. Another
-    // request must not create a second checkout or overwrite the original login.
+    // A previous provider checkout can be replaced only after the provider
+    // confirms it expired or was canceled without payment.
     const claimed = await prisma.pendingSignup.updateMany({
       where: {
-        id: pending.id, status: 'pending', abacateCheckoutId: null,
+        id: pending.id,
+        status: { in: ['pending', 'payment_pending', 'expired', 'canceled'] },
+        abacateCheckoutId: pending.abacateCheckoutId,
         companyId: null, professionalId: null,
       },
-      data: { status: 'creating_checkout', checkoutUrl: null },
+      data: { status: 'creating_checkout', abacateCheckoutId: null, checkoutUrl: null },
     })
     if (!claimed.count) {
       throw new SignupCheckoutConflict('O checkout esta em processamento ou aguarda verificacao. Se ja pagou, aguarde a ativacao; caso contrario, contate o suporte.')

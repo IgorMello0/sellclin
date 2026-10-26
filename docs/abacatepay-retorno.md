@@ -75,7 +75,12 @@ construída sem esse argumento caso utilize o login com Google.
 
 - Sem checkout AbacatePay: repetir o formulário com a senha, plano e ciclo
   originais cria o checkout e preserva o cadastro.
-- Com checkout AbacatePay: retorna o mesmo link, sem criar outra cobrança.
+- Com checkout AbacatePay ainda pendente: consulta o provedor e retorna o mesmo link.
+- Com checkout expirado ou cancelado sem pagamento: abre outro checkout para o
+  mesmo cadastro, após confirmar o estado no AbacatePay. O e-mail permanece
+  disponível para concluir a assinatura.
+- Com pagamento confirmado: aguarde a ativação e entre com a senha cadastrada;
+  não inicie outra cobrança.
 - Conta já criada: entrar pelo login; não criar outro cadastro.
 - Falha explícita de configuração ou rejeição da API: corrigir e repetir.
 - Resposta perdida ou timeout: verificar o provedor antes de repetir uma cobrança.
