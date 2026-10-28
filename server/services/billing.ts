@@ -292,7 +292,7 @@ function getAbacateApiBaseUrl() {
   return (process.env.ABACATEPAY_API_BASE_URL || 'https://api.abacatepay.com/v2').replace(/\/$/, '')
 }
 
-async function postAbacate(path: string, payload: Record<string, unknown>, apiKey: string) {
+async function postAbacate(path: string, payload: Record<string, unknown>, apiKey: string, signal?: AbortSignal) {
   const response = await integrationHttpClient.fetch(`${getAbacateApiBaseUrl()}${path}`, {
     method: 'POST',
     headers: {
@@ -300,6 +300,7 @@ async function postAbacate(path: string, payload: Record<string, unknown>, apiKe
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),
+    ...(signal ? { signal } : {}),
   })
 
   const body = await response.json().catch(() => ({}))
@@ -307,8 +308,13 @@ async function postAbacate(path: string, payload: Record<string, unknown>, apiKe
   if (!response.ok || body?.success === false) {
     const rawMessage = body?.error?.message || body?.error || 'Nao foi possivel concluir a operacao na Abacate Pay.'
     const message = typeof rawMessage === 'string' ? rawMessage : JSON.stringify(rawMessage)
-    const friendlyMessage = response.status === 401
-      ? 'Chave da Abacate Pay invalida, inativa ou sem permissao para esta operacao.'
+    const permission = path.includes('/subscriptions/checkouts/delete')
+      ? 'SUBSCRIPTION:DELETE'
+      : path.includes('/subscriptions/create')
+        ? 'SUBSCRIPTION:CREATE'
+        : null
+    const friendlyMessage = response.status === 401 || response.status === 403
+      ? `A chave da AbacatePay está inválida ou sem permissão${permission ? ` ${permission}` : ''}. Confira as permissões da chave no painel e tente novamente.`
       : message
     const error = new Error(friendlyMessage) as Error & { status?: number }
     error.status = response.status
@@ -318,67 +324,133 @@ async function postAbacate(path: string, payload: Record<string, unknown>, apiKe
   return body?.data || body
 }
 
-async function getAbacateSignupCheckout(checkoutId: string, apiKey: string): Promise<{
+async function getAbacateSignupCheckout(checkoutId: string | null, apiKey: string, externalId?: string, signal?: AbortSignal): Promise<{
   id: string
   status: string
   url?: string | null
   paidAmount?: number | null
-}> {
-  const response = await integrationHttpClient.fetch(
-    `${getAbacateApiBaseUrl()}/subscriptions/checkouts/get?id=${encodeURIComponent(checkoutId)}`,
-    { headers: { Authorization: `Bearer ${apiKey}` } }
-  )
+  externalId?: string | null
+  metadata?: Record<string, unknown> | null
+} | null> {
+  if (!checkoutId && !externalId) return null
+  const params = checkoutId ? `id=${encodeURIComponent(checkoutId)}` : `externalId=${encodeURIComponent(externalId!)}`
+  let response: Response
+  try {
+    response = await integrationHttpClient.fetch(
+      `${getAbacateApiBaseUrl()}/subscriptions/checkouts/get?${params}`,
+      { headers: { Authorization: `Bearer ${apiKey}` }, ...(signal ? { signal } : {}) }
+    )
+  } catch {
+    throw new SignupCheckoutConflict('A AbacatePay não respondeu para confirmar o pagamento anterior. Nenhuma nova cobrança foi criada; você pode tentar novamente agora.')
+  }
   const body = await response.json().catch(() => ({}))
   if (response.status === 404) {
-    return { id: checkoutId, status: 'MISSING' }
+    return checkoutId ? { id: checkoutId, status: 'MISSING' } : null
   }
   if (!response.ok || body?.success === false) {
-    throw new SignupCheckoutConflict('Não foi possível consultar o pagamento anterior. Tente novamente em instantes.')
+    if (response.status === 401 || response.status === 403) {
+      throw new SignupCheckoutConflict('A chave da AbacatePay precisa da permissão SUBSCRIPTION:READ para verificar o pagamento anterior. Corrija a permissão e tente novamente.')
+    }
+    throw new SignupCheckoutConflict('A AbacatePay não confirmou o estado do pagamento anterior. Nenhuma nova cobrança foi criada; você pode tentar novamente agora.')
   }
   const checkout = body?.data
-  if (!checkout || checkout.id !== checkoutId || typeof checkout.status !== 'string') {
-    throw new SignupCheckoutConflict('Não foi possível confirmar o estado do pagamento anterior. Tente novamente em instantes.')
+  if (!checkout || typeof checkout.id !== 'string' || typeof checkout.status !== 'string'
+    || (checkoutId && checkout.id !== checkoutId)
+    || (externalId && checkout.externalId !== externalId)) {
+    throw new SignupCheckoutConflict('A AbacatePay retornou dados incompletos do pagamento anterior. Nenhuma nova cobrança foi criada; tente novamente agora.')
   }
   return checkout
 }
 
-async function assertNoAbacateSubscriptionForCheckout(checkoutId: string, apiKey: string) {
-  const response = await integrationHttpClient.fetch(
-    `${getAbacateApiBaseUrl()}/subscriptions/list?checkoutId=${encodeURIComponent(checkoutId)}&limit=1`,
-    { headers: { Authorization: `Bearer ${apiKey}` } }
-  )
+async function findAbacateSignupCheckouts(pendingSignupId: number, apiKey: string, signal?: AbortSignal) {
+  const matches: Array<{ id: string; status: string; url?: string | null; paidAmount?: number | null }> = []
+  let cursor: string | null = null
+  // Older builds used a timestamped externalId that was not stored locally.
+  // Scan a bounded recent window and match the stable signup metadata.
+  for (let page = 0; page < 20; page += 1) {
+    const query = new URLSearchParams({ limit: '100' })
+    if (cursor) query.set('after', cursor)
+    let response: Response
+    try {
+      response = await integrationHttpClient.fetch(
+        `${getAbacateApiBaseUrl()}/subscriptions/checkouts/list?${query}`,
+        { headers: { Authorization: `Bearer ${apiKey}` }, ...(signal ? { signal } : {}) }
+      )
+    } catch {
+      throw new SignupCheckoutConflict('A AbacatePay não respondeu para localizar o checkout anterior. Nenhuma nova cobrança foi criada; tente novamente agora.')
+    }
+    const body = await response.json().catch(() => ({}))
+    if (!response.ok || body?.success === false || !Array.isArray(body?.data)) {
+      if (response.status === 401 || response.status === 403) {
+        throw new SignupCheckoutConflict('A chave da AbacatePay precisa da permissão SUBSCRIPTION:READ para localizar o checkout anterior. Corrija a permissão e tente novamente.')
+      }
+      throw new SignupCheckoutConflict('A AbacatePay não conseguiu localizar o checkout anterior. Nenhuma nova cobrança foi criada; você pode tentar novamente agora.')
+    }
+    for (const checkout of body.data) {
+      if (checkout?.metadata?.pendingSignupId === String(pendingSignupId)
+        && typeof checkout.id === 'string' && typeof checkout.status === 'string') {
+        matches.push(checkout)
+      }
+    }
+    const next = body?.pagination?.next
+    if (!body?.pagination?.hasMore || typeof next !== 'string' || !next) return matches
+    cursor = next
+  }
+  throw new SignupCheckoutConflict('Ainda estamos localizando uma tentativa anterior na AbacatePay. Nenhuma nova cobrança foi criada; tente novamente agora.')
+}
+
+async function assertNoAbacateSubscriptionForCheckout(checkoutId: string, apiKey: string, signal?: AbortSignal) {
+  let response: Response
+  try {
+    response = await integrationHttpClient.fetch(
+      `${getAbacateApiBaseUrl()}/subscriptions/list?checkoutId=${encodeURIComponent(checkoutId)}&limit=1`,
+      { headers: { Authorization: `Bearer ${apiKey}` }, ...(signal ? { signal } : {}) }
+    )
+  } catch {
+    throw new SignupCheckoutConflict('A AbacatePay não respondeu para confirmar o pagamento anterior. Nenhuma nova cobrança foi criada; você pode tentar novamente agora.')
+  }
   const body = await response.json().catch(() => ({}))
   if (!response.ok || body?.success === false || !Array.isArray(body?.data)) {
-    throw new SignupCheckoutConflict('Não foi possível verificar se o pagamento anterior foi concluído. Tente novamente em instantes.')
+    if (response.status === 401 || response.status === 403) {
+      throw new SignupCheckoutConflict('A chave da AbacatePay precisa da permissão SUBSCRIPTION:READ para confirmar o pagamento anterior. Corrija a permissão e tente novamente.')
+    }
+    throw new SignupCheckoutConflict('A AbacatePay não confirmou se o pagamento anterior foi concluído. Nenhuma nova cobrança foi criada; você pode tentar novamente agora.')
   }
   if (body.data.length > 0) {
     throw new SignupCheckoutConflict('O pagamento anterior gerou uma assinatura. Aguarde a ativação da conta antes de contratar outro plano.')
   }
 }
 
-async function removeUnpaidAbacateSignupCheckout(checkoutId: string, apiKey: string) {
-  await assertNoAbacateSubscriptionForCheckout(checkoutId, apiKey)
+async function removeUnpaidAbacateSignupCheckout(checkoutId: string, apiKey: string, signal?: AbortSignal) {
+  await assertNoAbacateSubscriptionForCheckout(checkoutId, apiKey, signal)
   let deleted: any
   try {
-    deleted = await postAbacate(`/subscriptions/checkouts/delete?id=${encodeURIComponent(checkoutId)}`, {}, apiKey)
-  } catch {
-    throw new SignupCheckoutConflict('Não foi possível encerrar o checkout anterior. Tente novamente em instantes.')
+    deleted = await postAbacate(`/subscriptions/checkouts/delete?id=${encodeURIComponent(checkoutId)}`, {}, apiKey, signal)
+  } catch (error: any) {
+    if (error instanceof SignupCheckoutConflict) throw error
+    if (error?.status === 401 || error?.status === 403) {
+      throw new SignupCheckoutConflict(String(error.message || 'A chave da AbacatePay precisa da permissão SUBSCRIPTION:DELETE. Corrija a permissão e tente novamente.'))
+    }
+    throw new SignupCheckoutConflict('A AbacatePay não confirmou o encerramento do checkout anterior. Nenhuma nova cobrança foi criada; tente novamente agora.')
   }
   if (deleted?.id !== checkoutId || typeof deleted?.status !== 'string') {
-    throw new SignupCheckoutConflict('Não foi possível confirmar o encerramento do checkout anterior. Tente novamente em instantes.')
+    throw new SignupCheckoutConflict('A AbacatePay não confirmou o encerramento do checkout anterior. Nenhuma nova cobrança foi criada; tente novamente agora.')
   }
   if (deleted.status.toUpperCase() === 'PAID' || deleted.paidAmount) {
     throw new SignupCheckoutConflict('O pagamento anterior foi confirmado. Aguarde a ativação da conta antes de contratar outro plano.')
   }
-  const afterDeletion = await getAbacateSignupCheckout(checkoutId, apiKey)
-  if (!['MISSING', 'EXPIRED', 'CANCELLED'].includes(afterDeletion.status.toUpperCase())) {
-    throw new SignupCheckoutConflict('O checkout anterior ainda está aberto. Tente novamente em instantes.')
+  const afterDeletion = await getAbacateSignupCheckout(checkoutId, apiKey, undefined, signal)
+  if (afterDeletion && !['MISSING', 'EXPIRED', 'CANCELLED'].includes(afterDeletion.status.toUpperCase())) {
+    if (afterDeletion.status.toUpperCase() === 'PAID' || afterDeletion.paidAmount) {
+      throw new SignupCheckoutConflict('O pagamento anterior foi confirmado. Entre com o email e a senha cadastrados; não inicie outra cobrança.')
+    }
+    throw new SignupCheckoutConflict('O checkout anterior continua ativo na AbacatePay. Nenhuma nova cobrança foi criada; tente novamente agora.')
   }
-  await assertNoAbacateSubscriptionForCheckout(checkoutId, apiKey)
+  await assertNoAbacateSubscriptionForCheckout(checkoutId, apiKey, signal)
 }
 
-async function createAbacateBilling(path: string, payload: Record<string, unknown>, apiKey: string) {
-  const data = await postAbacate(path, payload, apiKey)
+async function createAbacateBilling(path: string, payload: Record<string, unknown>, apiKey: string, signal?: AbortSignal) {
+  const data = await postAbacate(path, payload, apiKey, signal)
   const checkoutId = data?.id || data?.checkoutId || null
   const checkoutUrl = data?.url || data?.checkoutUrl || data?.paymentUrl || null
 
@@ -393,8 +465,8 @@ async function createAbacateCheckout(payload: Record<string, unknown>, apiKey: s
   return createAbacateBilling('/checkouts/create', payload, apiKey)
 }
 
-async function createAbacateSubscriptionBilling(payload: Record<string, unknown>, apiKey: string) {
-  return createAbacateBilling('/subscriptions/create', payload, apiKey)
+async function createAbacateSubscriptionBilling(payload: Record<string, unknown>, apiKey: string, signal?: AbortSignal) {
+  return createAbacateBilling('/subscriptions/create', payload, apiKey, signal)
 }
 
 async function cancelAbacateSubscription(subscriptionId: string, apiKey: string) {
@@ -1076,6 +1148,9 @@ export async function createPendingSignupCheckout(input: {
   if (!process.env.ABACATEPAY_WEBHOOK_SECRET?.trim()) {
     throw new Error('Configure ABACATEPAY_WEBHOOK_SECRET antes de iniciar cadastros.')
   }
+  // Bound the full provider reconciliation + replacement flow. A timeout is
+  // treated as ambiguous, so the next click reconciles by the stable externalId.
+  const providerSignal = AbortSignal.timeout(15_000)
 
   const email = input.email.trim().toLowerCase()
   const existingProfessional = await prisma.professional.findUnique({ where: { email } })
@@ -1092,39 +1167,45 @@ export async function createPendingSignupCheckout(input: {
     if (pending.companyId || pending.professionalId || pending.status === 'completed') {
       throw new SignupCheckoutConflict('Cadastro ja concluido. Entre com o email e a senha cadastrados.')
     }
-    const changingPlan = pending.planCode !== input.planCode || pending.billingCycle !== input.billingCycle
-    if (['pending', 'payment_pending', 'expired', 'canceled'].includes(pending.status) && pending.abacateCheckoutId) {
-      const checkout = await getAbacateSignupCheckout(pending.abacateCheckoutId, abacateConfig.apiKey)
+    const recoverableStatuses = ['pending', 'payment_pending', 'expired', 'canceled', 'checkout_unknown']
+    if (!recoverableStatuses.includes(pending.status)) {
+      throw new SignupCheckoutConflict('Este cadastro ainda está sendo processado. Nenhuma nova cobrança foi criada; envie novamente o formulário agora.')
+    }
+
+    let previousCheckouts: Array<{ id: string; status: string; url?: string | null; paidAmount?: number | null }> = []
+    if (pending.abacateCheckoutId) {
+      const checkout = await getAbacateSignupCheckout(pending.abacateCheckoutId, abacateConfig.apiKey, undefined, providerSignal)
+      if (checkout) previousCheckouts.push(checkout)
+    } else if (pending.status === 'checkout_unknown') {
+      const stableExternalId = `sellclin-signup-${pending.id}`
+      const checkout = await getAbacateSignupCheckout(null, abacateConfig.apiKey, stableExternalId, providerSignal)
+      previousCheckouts = checkout
+        ? [checkout]
+        : await findAbacateSignupCheckouts(pending.id, abacateConfig.apiKey, providerSignal)
+    }
+
+    for (const checkout of previousCheckouts) {
       const checkoutStatus = checkout.status.toUpperCase()
-      if (checkoutStatus === 'PENDING' && !changingPlan) {
-        const checkoutUrl = checkout.url || pending.checkoutUrl
-        if (!checkoutUrl) throw new SignupCheckoutConflict('O link do pagamento não está disponível. Tente novamente em instantes.')
-        return {
-          pendingSignupId: pending.id,
-          checkoutId: pending.abacateCheckoutId,
-          checkoutUrl,
-          planCode: input.planCode,
-          billingCycle: input.billingCycle,
-          productId: abacateConfig.productId,
-        }
-      }
       if (checkoutStatus === 'PAID' || checkout.paidAmount) {
-        throw new SignupCheckoutConflict('Pagamento recebido. Aguarde a ativação da conta e entre com a senha cadastrada.')
+        throw new SignupCheckoutConflict('Pagamento recebido. Entre com o email e a senha cadastrados; não inicie outra cobrança.')
       }
-      if (checkoutStatus === 'PENDING' && changingPlan) {
-        await removeUnpaidAbacateSignupCheckout(pending.abacateCheckoutId, abacateConfig.apiKey)
-      } else if (checkoutStatus === 'MISSING') {
-        await assertNoAbacateSubscriptionForCheckout(pending.abacateCheckoutId, abacateConfig.apiKey)
-      } else if (!['EXPIRED', 'CANCELLED'].includes(checkoutStatus)) {
-        throw new SignupCheckoutConflict('Não foi possível confirmar que o pagamento anterior terminou sem cobrança. Tente novamente em instantes.')
+      if (checkoutStatus === 'PENDING') {
+        // Always rotate a pending link on form resubmission. The hosted page
+        // can already be expired even when the provider still reports PENDING.
+        await removeUnpaidAbacateSignupCheckout(checkout.id, abacateConfig.apiKey, providerSignal)
+      } else if (['MISSING', 'EXPIRED', 'CANCELLED'].includes(checkoutStatus)) {
+        await assertNoAbacateSubscriptionForCheckout(checkout.id, abacateConfig.apiKey, providerSignal)
+      } else {
+        throw new SignupCheckoutConflict('A AbacatePay não confirmou que o pagamento anterior terminou sem cobrança. Nenhuma nova cobrança foi criada; tente novamente agora.')
       }
     }
-    // A previous provider checkout can be replaced only after the provider
-    // confirms it expired or was canceled without payment.
+
+    // The provider must confirm every previous checkout is unpaid and closed
+    // before the same email can receive a replacement checkout.
     const claimed = await prisma.pendingSignup.updateMany({
       where: {
         id: pending.id,
-        status: { in: ['pending', 'payment_pending', 'expired', 'canceled'] },
+        status: { in: recoverableStatuses },
         abacateCheckoutId: pending.abacateCheckoutId,
         companyId: null, professionalId: null,
       },
@@ -1134,7 +1215,7 @@ export async function createPendingSignupCheckout(input: {
       },
     })
     if (!claimed.count) {
-      throw new SignupCheckoutConflict('O checkout esta em processamento ou aguarda verificacao. Se ja pagou, aguarde a ativacao; caso contrario, contate o suporte.')
+      throw new SignupCheckoutConflict('Outra tentativa deste cadastro está em andamento. Nenhuma cobrança duplicada foi criada; envie o formulário novamente agora.')
     }
   } else {
     try {
@@ -1151,13 +1232,15 @@ export async function createPendingSignupCheckout(input: {
         },
       })
     } catch (error: any) {
-      if (error.code === 'P2002') throw new SignupCheckoutConflict('Cadastro em processamento. Aguarde alguns instantes e tente novamente com os mesmos dados.')
+      if (error.code === 'P2002') throw new SignupCheckoutConflict('Outra tentativa deste cadastro está em andamento. Envie o formulário novamente agora com os mesmos dados.')
       throw error
     }
   }
 
   const appUrl = getPublicAppUrl()
-  const externalId = `sellclin-signup-${pending.id}-${Date.now()}`
+  // A stable reference lets the next request recover a checkout if AbacatePay
+  // accepted the create request but its response was lost in transit.
+  const externalId = `sellclin-signup-${pending.id}`
 
   const payload = {
     productId: abacateConfig.productId,
@@ -1183,7 +1266,7 @@ export async function createPendingSignupCheckout(input: {
   })
 
   try {
-    const { checkoutId, checkoutUrl } = await createAbacateSubscriptionBilling(payload, abacateConfig.apiKey)
+    const { checkoutId, checkoutUrl } = await createAbacateSubscriptionBilling(payload, abacateConfig.apiKey, providerSignal)
     // A webhook can complete the account before the checkout response arrives.
     await prisma.pendingSignup.updateMany({
       where: { id: pending.id, status: 'creating_checkout' },
@@ -1195,14 +1278,15 @@ export async function createPendingSignupCheckout(input: {
       productId: abacateConfig.productId,
     }
   } catch (error: any) {
-    // Only explicit rejections are safe to retry. A lost response may already
-    // have created a checkout, so do not issue another charge automatically.
+    // A lost response may already have created a checkout. Keep the signup
+    // recoverable; the next attempt reconciles the stable externalId first.
     const rejected = [400, 401, 403, 404, 422, 429].includes(error.status)
     await prisma.pendingSignup.updateMany({
       where: { id: pending.id, status: 'creating_checkout', abacateCheckoutId: null },
       data: { status: rejected ? 'pending' : 'checkout_unknown' },
     }).catch(() => console.error('[Billing] Nao foi possivel registrar a falha do checkout', { pendingSignupId: pending.id }))
-    throw error
+    if (rejected) throw error
+    throw new SignupCheckoutConflict('Não conseguimos confirmar se a AbacatePay criou o checkout. Reenvie o formulário agora; vamos conferir a tentativa antes de cobrar novamente.')
   }
 }
 

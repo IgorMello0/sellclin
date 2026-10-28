@@ -93,14 +93,15 @@ it('resumes a reservation with no AbacatePay checkout, replacing only the stale 
   expect(state.db.pendingSignup.create).not.toHaveBeenCalled()
 })
 
-it('returns the original checkout instead of creating another charge', async () => {
+it('replaces a pending checkout on retry instead of returning a possibly expired link', async () => {
   pending.abacateCheckoutId = 'bill_previous'
   pending.checkoutUrl = 'https://app.abacatepay.com/pay/bill_previous'
   const result = await createPendingSignupCheckout(input)
-  expect(result.checkoutId).toBe('bill_previous')
-  expect(state.fetch).toHaveBeenCalledTimes(1)
+  expect(result.checkoutId).toBe(checkout.id)
+  expect(state.fetch).toHaveBeenCalledTimes(6)
   expect(state.fetch.mock.calls[0][0]).toContain('/subscriptions/checkouts/get?id=bill_previous')
-  expect(state.db.pendingSignup.updateMany).not.toHaveBeenCalled()
+  expect(state.fetch.mock.calls[2][0]).toContain('/subscriptions/checkouts/delete?id=bill_previous')
+  expect(pending.abacateCheckoutId).toBe(checkout.id)
 })
 
 it('creates a new checkout with the same email after the provider confirms expiry', async () => {
@@ -111,13 +112,32 @@ it('creates a new checkout with the same email after the provider confirms expir
     success: true,
     data: url.includes('/subscriptions/checkouts/get')
       ? { id: 'bill_previous', status: 'EXPIRED', paidAmount: null }
-      : checkout,
+      : url.includes('/subscriptions/list') ? [] : checkout,
   })))
   const result = await createPendingSignupCheckout(input)
   expect(result.checkoutId).toBe(checkout.id)
   expect(pending).toMatchObject({ status: 'pending', abacateCheckoutId: checkout.id, checkoutUrl: checkout.url, passwordHash: hash })
-  expect(state.fetch).toHaveBeenCalledTimes(2)
+  expect(state.fetch).toHaveBeenCalledTimes(3)
   expect(state.db.pendingSignup.create).not.toHaveBeenCalled()
+})
+
+it.each(['CANCELLED', 'MISSING'])('creates a fresh checkout after the previous checkout is %s', async (status) => {
+  pending.abacateCheckoutId = 'bill_previous'
+  state.fetch.mockImplementation(async (url: string) => {
+    if (url.includes('/subscriptions/checkouts/get') && status === 'MISSING') {
+      return new Response(JSON.stringify({ error: 'Billing not found' }), { status: 404 })
+    }
+    return new Response(JSON.stringify({
+      success: true,
+      data: url.includes('/subscriptions/checkouts/get')
+        ? { id: 'bill_previous', status, paidAmount: null }
+        : url.includes('/subscriptions/list') ? [] : checkout,
+    }))
+  })
+  const result = await createPendingSignupCheckout(input)
+  expect(result.checkoutId).toBe(checkout.id)
+  expect(pending.abacateCheckoutId).toBe(checkout.id)
+  expect(state.fetch.mock.calls.some(call => call[0].includes('/subscriptions/checkouts/delete'))).toBe(false)
 })
 
 it('never creates another checkout for a paid one while activation is pending', async () => {
@@ -133,8 +153,16 @@ it('never creates another checkout for a paid one while activation is pending', 
 it('keeps the original checkout when the provider cannot verify its status', async () => {
   pending.abacateCheckoutId = 'bill_previous'
   state.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ success: false }), { status: 503 }))
-  await expect(createPendingSignupCheckout(input)).rejects.toThrow('consultar o pagamento anterior')
+  await expect(createPendingSignupCheckout(input)).rejects.toThrow('Nenhuma nova cobrança foi criada')
   expect(pending.abacateCheckoutId).toBe('bill_previous')
+  expect(state.fetch).toHaveBeenCalledTimes(1)
+})
+
+it('shows the required read permission when the provider rejects status lookup', async () => {
+  pending.abacateCheckoutId = 'bill_previous'
+  state.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 }))
+  await expect(createPendingSignupCheckout(input)).rejects.toThrow('SUBSCRIPTION:READ')
+  expect(state.db.pendingSignup.updateMany).not.toHaveBeenCalled()
   expect(state.fetch).toHaveBeenCalledTimes(1)
 })
 
@@ -172,11 +200,11 @@ it('changes from monthly to yearly when the old checkout has expired', async () 
     success: true,
     data: url.includes('/subscriptions/checkouts/get')
       ? { id: 'bill_previous', status: 'EXPIRED', paidAmount: null }
-      : checkout,
+      : url.includes('/subscriptions/list') ? [] : checkout,
   })))
   await createPendingSignupCheckout({ ...input, billingCycle: 'yearly' })
   expect(pending.billingCycle).toBe('yearly')
-  expect(JSON.parse(state.fetch.mock.calls[1][1].body)).toMatchObject({
+  expect(JSON.parse(state.fetch.mock.calls[2][1].body)).toMatchObject({
     productId: 'prod_test_start_yearly', metadata: { billingCycle: 'yearly' },
   })
   expect(state.fetch.mock.calls.some(call => call[0].includes('/subscriptions/checkouts/delete'))).toBe(false)
@@ -202,14 +230,14 @@ it('does not change plan or create another checkout when a subscription already 
   expect(state.fetch).toHaveBeenCalledTimes(2)
 })
 
-it('does not change plan when checkout cancellation fails', async () => {
+it('explains missing delete permission and preserves the previous checkout', async () => {
   pending.abacateCheckoutId = 'bill_previous'
   state.fetch.mockImplementation(async (url: string) => new Response(JSON.stringify({
     success: !url.includes('/subscriptions/checkouts/delete'),
     data: url.includes('/subscriptions/checkouts/get') ? { id: 'bill_previous', status: 'PENDING' } : [],
     error: 'Not permitted',
   }), { status: url.includes('/subscriptions/checkouts/delete') ? 403 : 200 }))
-  await expect(createPendingSignupCheckout({ ...input, planCode: 'pro' })).rejects.toThrow('encerrar o checkout anterior')
+  await expect(createPendingSignupCheckout({ ...input, planCode: 'pro' })).rejects.toThrow('SUBSCRIPTION:DELETE')
   expect(pending.planCode).toBe('start')
   expect(pending.abacateCheckoutId).toBe('bill_previous')
   expect(state.fetch).toHaveBeenCalledTimes(3)
@@ -232,22 +260,34 @@ it.each(['ABACATEPAY_API_KEY', 'ABACATEPAY_START_MONTHLY_PRODUCT_ID', 'ABACATEPA
 
 it('releases a rejected request so the same email can retry after fixing configuration', async () => {
   state.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ success: false, error: 'invalid key' }), { status: 401 }))
-  await expect(createPendingSignupCheckout(input)).rejects.toThrow('Chave da Abacate Pay invalida')
+  await expect(createPendingSignupCheckout(input)).rejects.toThrow('SUBSCRIPTION:CREATE')
   expect(pending.status).toBe('pending')
   expect((await createPendingSignupCheckout(input)).checkoutId).toBe(checkout.id)
 })
 
-it('does not repeat an ambiguous request which could already have created a charge', async () => {
+it('reconciles an ambiguous request by externalId before creating a replacement', async () => {
   state.fetch.mockRejectedValueOnce(new Error('Connection lost'))
-  await expect(createPendingSignupCheckout(input)).rejects.toThrow('Connection lost')
+  await expect(createPendingSignupCheckout(input)).rejects.toThrow('Reenvie o formulário agora')
   expect(pending.status).toBe('checkout_unknown')
-  await expect(createPendingSignupCheckout(input)).rejects.toThrow('aguarda verificacao')
-  expect(state.fetch).toHaveBeenCalledTimes(1)
+  state.fetch.mockImplementation(async (url: string) => new Response(JSON.stringify({
+    success: true,
+    data: url.includes('/subscriptions/checkouts/get?externalId=')
+      ? { ...checkout, id: 'bill_recovered', status: 'PENDING', externalId: 'sellclin-signup-1' }
+      : url.includes('/subscriptions/checkouts/get')
+        ? { id: 'bill_recovered', status: 'EXPIRED' }
+        : url.includes('/subscriptions/checkouts/delete')
+          ? { id: 'bill_recovered', status: 'PENDING', paidAmount: null }
+          : url.includes('/subscriptions/list') ? [] : checkout,
+  }), { status: url.includes('after=') ? 404 : 200 }))
+  const result = await createPendingSignupCheckout(input)
+  expect(result.checkoutId).toBe(checkout.id)
+  expect(state.fetch.mock.calls.some(call => call[0].includes('externalId=sellclin-signup-1'))).toBe(true)
+  expect(state.fetch.mock.calls.some(call => call[0].includes('/subscriptions/checkouts/delete?id=bill_recovered'))).toBe(true)
 })
 
 it('treats a malformed successful response as ambiguous', async () => {
   state.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ success: true, data: { url: checkout.url } })))
-  await expect(createPendingSignupCheckout(input)).rejects.toThrow('identificador')
+  await expect(createPendingSignupCheckout(input)).rejects.toThrow('vamos conferir a tentativa')
   expect(pending.status).toBe('checkout_unknown')
 })
 
@@ -260,7 +300,7 @@ it('creates at most one checkout when two requests resume the same reservation',
 it('handles a concurrent first registration without another provider request', async () => {
   pending = null
   state.db.pendingSignup.create.mockRejectedValueOnce(Object.assign(new Error('Unique email'), { code: 'P2002' }))
-  await expect(createPendingSignupCheckout(input)).rejects.toThrow('Cadastro em processamento')
+  await expect(createPendingSignupCheckout(input)).rejects.toThrow('Outra tentativa deste cadastro está em andamento')
   expect(state.fetch).not.toHaveBeenCalled()
 })
 

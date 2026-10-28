@@ -75,7 +75,10 @@ construída sem esse argumento caso utilize o login com Google.
 
 - Sem checkout AbacatePay: repetir o formulário com a senha, plano e ciclo
   originais cria o checkout e preserva o cadastro.
-- Com checkout AbacatePay ainda pendente: consulta o provedor e retorna o mesmo link.
+- Ao reenviar o formulário com checkout ainda pendente: consulta o provedor,
+  confirma que não houve pagamento, encerra o checkout antigo e gera um link novo.
+  Isso também vale ao repetir o mesmo plano, pois a página hospedada pode estar
+  expirada mesmo que a API ainda informe `PENDING`.
 - Com checkout expirado ou cancelado sem pagamento: abre outro checkout para o
   mesmo cadastro, após confirmar o estado no AbacatePay. O e-mail permanece
   disponível para concluir a assinatura.
@@ -89,7 +92,9 @@ construída sem esse argumento caso utilize o login com Google.
 - Falha explícita de configuração ou rejeição da API: corrigir e repetir.
 - Resposta perdida ou timeout: verificar o provedor antes de repetir uma cobrança.
   O estado `checkout_unknown` exige conferir se o checkout foi criado; não limpar
-  esse estado nem apagar o cadastro sem essa conferência.
+  esse estado nem apagar o cadastro sem essa conferência. A reconciliação e a
+  criação têm um limite total de 15 segundos. Em falha, o formulário pode ser
+  reenviado imediatamente; nenhuma nova cobrança é feita sem confirmação segura.
 
 ## Banco e validação
 
