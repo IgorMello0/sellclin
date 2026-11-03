@@ -40,7 +40,9 @@ export async function leadTransferPreview(db: Db, companyId: number, sourceId: n
 export async function transferMemberLeads(db: PrismaClient, companyId: number, sourceId: number, targetId: number, expectedTotal: number) {
   if (sourceId === targetId) throw new LeadTransferError('Selecione outro membro para receber os leads.')
   return db.$transaction(async tx => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${companyId}, 724020)`
+    // Prisma binds JS integers as int8; the two-argument PostgreSQL overload
+    // requires int4, int4. Explicit casts avoid SQLSTATE 42883 in production.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${companyId}::int4, 724020::int4)`
     const preview = await leadTransferPreview(tx, companyId, sourceId)
     if (!preview.targets.some(member => member.id === targetId)) {
       throw new LeadTransferError('O destino precisa estar ativo nesta clínica e ter as funções necessárias para receber estes leads.')

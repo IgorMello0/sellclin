@@ -4,7 +4,7 @@ import { prisma } from '../prisma.js'
 // incidents while two Swarm tasks overlap during a deployment.
 export async function notifyFailure(companyId: number, key: string, title: string, content: string) {
   await prisma.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${companyId}, 724019)`
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${companyId}::int4, 724019::int4)`
     const type = `failure:${key}`
     if (await tx.notification.findFirst({ where: { companyId, type } })) return
     const company = await tx.empresa.findUnique({ where: { id: companyId }, select: { ownerId: true } })

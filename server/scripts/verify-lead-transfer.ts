@@ -61,7 +61,11 @@ async function main() {
 
 main().catch((error: unknown) => {
   // Raw Prisma errors may contain data and connection details. Never print them.
+  const cause = error instanceof assert.AssertionError ? error.actual : error
+  const safe = cause && typeof cause === 'object' ? cause as { code?: unknown; meta?: { code?: unknown } } : {}
   console.error('FALHOU: teste não concluído; a transação foi revertida. Código:',
     error && typeof error === 'object' && 'code' in error ? String(error.code) : error instanceof assert.AssertionError ? 'ASSERTION' : 'TEST_ERROR')
+  if (typeof safe.code === 'string') console.error('Código original:', safe.code)
+  if (typeof safe.meta?.code === 'string') console.error('Código PostgreSQL:', safe.meta.code)
   process.exitCode = 1
 }).finally(() => db.$disconnect())

@@ -59,6 +59,9 @@ it('counts unique leads, includes every operational role and uses the active cli
 })
 it('transfers current assignments and matching conversation ownership only in the current clinic', async () => {
   expect(await transferMemberLeads(db, 4, 10, 20, 2)).toEqual({ transferred: 2 })
+  const [sql, companyId] = db.$executeRaw.mock.calls[0]
+  expect(sql.join('?')).toBe('SELECT pg_advisory_xact_lock(?::int4, 724020::int4)')
+  expect(companyId).toBe(4)
   expect(leads[0]).toMatchObject({ sdrId: 20, closerId: 20, especialistaId: 3 })
   expect(leads[1]).toMatchObject({ sdrId: 20, closerId: 7 })
   expect(leads[2].sdrId).toBe(10)
