@@ -11,6 +11,7 @@ import { assertCanAddUserToCompany, BillingLimitError } from '../services/billin
 import { sendTeamInviteEmail } from '../services/email-verification.js'
 import { getJwtSecret } from '../config/security.js'
 import { passwordSessionStamp } from '../services/session-security.js'
+import { leadTransferPreview, transferMemberLeads, LeadTransferError } from '../services/lead-transfer.js'
 
 export const router = Router()
 
@@ -630,6 +631,37 @@ router.put('/:id', auth(), requireCompanyOwner(), async (req, res) => {
       return res.status(404).json(createErrorResponse('Usuário não encontrado', 404))
     }
     res.status(500).json(createErrorResponse(error.message || 'Erro ao atualizar usuário', 500))
+  }
+})
+
+router.get('/:id/lead-transfer', auth(), requireCompanyOwner(), async (req, res) => {
+  try {
+    const id = Number(req.params.id)
+    if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json(createErrorResponse('Membro inválido.', 400))
+    res.json(createSuccessResponse(await leadTransferPreview(prisma, req.user!.companyId!, id)))
+  } catch (error) {
+    if (error instanceof LeadTransferError) return res.status(error.status).json(createErrorResponse(error.message, error.status))
+    console.error('[Usuarios] Erro ao consultar transferência de leads:', error)
+    res.status(500).json(createErrorResponse('Erro ao consultar transferência.', 500))
+  }
+})
+
+router.post('/:id/lead-transfer', auth(), requireCompanyOwner(), async (req, res) => {
+  try {
+    const id = Number(req.params.id)
+    const { targetId, expectedTotal, expectedCompanyId } = req.body || {}
+    if (expectedCompanyId !== req.user!.companyId) {
+      return res.status(409).json(createErrorResponse('A clínica ativa mudou. Reabra o membro da equipe e confirme novamente.', 409))
+    }
+    if (![id, targetId].every(value => Number.isSafeInteger(value) && value > 0) || !Number.isSafeInteger(expectedTotal) || expectedTotal < 0) {
+      return res.status(400).json(createErrorResponse('Informe um membro de destino e atualize a prévia dos leads.', 400))
+    }
+    res.json(createSuccessResponse(await transferMemberLeads(prisma, req.user!.companyId!, id, targetId, expectedTotal)))
+  } catch (error: any) {
+    if (error instanceof LeadTransferError) return res.status(error.status).json(createErrorResponse(error.message, error.status))
+    if (error.code === 'P2034') return res.status(409).json(createErrorResponse('Os dados foram alterados durante a transferência. Atualize a prévia e tente novamente.', 409))
+    console.error('[Usuarios] Erro ao transferir leads:', error)
+    res.status(500).json(createErrorResponse('Erro ao transferir leads.', 500))
   }
 })
 
