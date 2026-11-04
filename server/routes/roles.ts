@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { prisma } from '../prisma.js'
 import { auth, requireCompanyOwner } from '../middleware/auth.js'
 import { createErrorResponse, createSuccessResponse } from '../utils/response.js'
+import { isDefaultRole } from '../bootstrap/default-roles.js'
 
 export const router = Router()
 
@@ -166,9 +167,12 @@ router.delete('/:id', auth(), requireCompanyOwner(), async (req, res) => {
 
     const role = await prisma.role.findFirst({
       where: { id, companyId: req.user?.companyId || -1 },
-      select: { id: true },
+      select: { id: true, value: true },
     })
     if (!role) return res.status(404).json(createErrorResponse('Cargo nao encontrado', 404))
+    if (isDefaultRole(role.value)) {
+      return res.status(400).json(createErrorResponse('Este é um cargo padrão do sistema e não pode ser excluído. Você pode ajustar suas permissões.', 400))
+    }
     
     // Verificar se há usuários vinculados
     const usersCount = await prisma.usuario.count({

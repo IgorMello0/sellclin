@@ -1,5 +1,6 @@
 import { Prisma, PrismaClient } from '@prisma/client'
 import { ensureCompanySubscription } from '../services/billing.js'
+import { ensureDefaultRoles } from './default-roles.js'
 
 type PrismaExecutor = PrismaClient | Prisma.TransactionClient
 
@@ -82,11 +83,6 @@ export const DEFAULT_MODULES = [
     description: 'Configuracao de canais, agendas e automacoes',
     icon: 'Plug',
   },
-]
-
-const DEFAULT_ROLES = [
-  { name: 'Administrador', value: 'admin' },
-  { name: 'Comercial', value: 'comercial' },
 ]
 
 export const DEFAULT_PLANS = [
@@ -190,45 +186,7 @@ export async function ensureCompanyDefaults(
   const ownerId = professionalId ?? await resolveCompanyOwnerId(prisma, companyId)
   if (!ownerId) return
 
-  const modules = await prisma.module.findMany({ where: { isActive: true } })
-
-  for (const roleTemplate of DEFAULT_ROLES) {
-    const role = await prisma.role.upsert({
-      where: {
-        companyId_value: {
-          companyId,
-          value: roleTemplate.value,
-        },
-      },
-      update: {
-        name: roleTemplate.name,
-        professionalId: ownerId,
-      },
-      create: {
-        companyId,
-        professionalId: ownerId,
-        name: roleTemplate.name,
-        value: roleTemplate.value,
-      },
-    })
-
-    for (const module of modules) {
-      await prisma.rolePermission.upsert({
-        where: {
-          roleId_moduleId: {
-            roleId: role.id,
-            moduleId: module.id,
-          },
-        },
-        update: { hasAccess: true },
-        create: {
-          roleId: role.id,
-          moduleId: module.id,
-          hasAccess: true,
-        },
-      })
-    }
-  }
+  await ensureDefaultRoles(prisma, companyId, ownerId)
 
   await ensureUsersHaveRole(prisma, companyId)
 }
