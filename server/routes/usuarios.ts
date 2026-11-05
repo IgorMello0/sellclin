@@ -1,7 +1,7 @@
 import { isValidNewPassword, PASSWORD_POLICY_MESSAGE } from '../services/password-policy.js'
 import { Router } from 'express'
 import { prisma } from '../prisma.js'
-import { auth, requireCompanyOwner } from '../middleware/auth.js'
+import { auth, requireCompanyOwner, requireIdentity } from '../middleware/auth.js'
 import { createErrorResponse, createSuccessResponse, parsePagination } from '../utils/response.js'
 import bcrypt from 'bcryptjs'
 import { matchesLoginPassword } from '../services/password-policy.js'
@@ -118,7 +118,7 @@ router.post('/login', async (req, res) => {
 })
 
 // Completar o Onboarding para Usuário
-router.post('/onboarding/complete', auth(), async (req, res) => {
+router.post('/onboarding/complete', auth(), requireIdentity('usuario'), async (req, res) => {
   try {
     await prisma.usuario.update({
       where: { id: req.user!.id },
@@ -193,6 +193,7 @@ router.get('/', auth(), async (req, res) => {
           company: { select: { id: true, name: true } },
           role: true,
           companyAccess: {
+            where: { companyId: { in: ownedCompanyIds }, isActive: true },
             include: {
               company: { select: { id: true, name: true } },
               role: true,
@@ -203,7 +204,12 @@ router.get('/', auth(), async (req, res) => {
       prisma.usuario.count({ where })
     ])
     
-    res.json(createSuccessResponse(items.map(withoutSensitiveUserFields), { page, pageSize, total }))
+    const visibleUsers = items.map(user => ({
+      ...withoutSensitiveUserFields(user),
+      company: user.companyId && ownedCompanyIds.includes(user.companyId) ? user.company : null,
+      role: user.role && ownedCompanyIds.includes(user.role.companyId) ? user.role : null,
+    }))
+    res.json(createSuccessResponse(visibleUsers, { page, pageSize, total }))
   } catch (error: any) {
     console.error('[Usuarios] Erro ao buscar usuários:', error)
     res.status(500).json(createErrorResponse(error.message || 'Erro ao buscar usuários', 500))

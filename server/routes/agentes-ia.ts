@@ -1,3 +1,4 @@
+import { conversationScope } from '../services/conversation-access.js'
 import { Router } from 'express'
 import { prisma } from '../prisma.js'
 import { auth, requireModule } from '../middleware/auth.js'
@@ -23,7 +24,7 @@ router.get('/', auth(), requireModule('conversas'), async (req, res) => {
       take,
       where,
       orderBy: { id: 'desc' },
-      include: { company: { select: { id: true, name: true } }, conversas: true },
+      include: { company: { select: { id: true, name: true } }, conversas: { where: (await conversationScope(req.user!)).where } },
     }),
     prisma.agenteIa.count({ where })
   ])
@@ -43,7 +44,7 @@ router.get('/:id', auth(), requireModule('conversas'), async (req, res) => {
 
   const item = await prisma.agenteIa.findFirst({
     where: { id, companyId: Number(companyId) },
-    include: { company: { select: { id: true, name: true } }, conversas: true },
+    include: { company: { select: { id: true, name: true } }, conversas: { where: (await conversationScope(req.user!)).where } },
   })
   if (!item) return res.status(404).json(createErrorResponse('Agente IA não encontrado', 404))
   
@@ -77,14 +78,14 @@ router.put('/:id', auth(), requireModule('conversas'), async (req, res) => {
     companyId = prof?.companyId || undefined;
   }
 
-  const existing = await prisma.agenteIa.findUnique({ where: { id } });
+  const existing = await prisma.agenteIa.findFirst({ where: { id, companyId: companyId || -1 } });
   if (!existing) return res.status(404).json(createErrorResponse('Agente IA não encontrado', 404));
   
   if (companyId && existing.companyId !== companyId) {
     return res.status(403).json(createErrorResponse('Acesso negado', 403));
   }
 
-  const updated = await prisma.agenteIa.update({ where: { id }, data: { name, basePrompt, temperature, mode, isActive } })
+  const updated = await prisma.agenteIa.update({ where: { id, companyId: companyId || -1 }, data: { name, basePrompt, temperature, mode, isActive } })
   res.json(createSuccessResponse(updated))
 })
 
@@ -97,13 +98,13 @@ router.delete('/:id', auth(), requireModule('conversas'), async (req, res) => {
     companyId = prof?.companyId || undefined;
   }
 
-  const existing = await prisma.agenteIa.findUnique({ where: { id } });
+  const existing = await prisma.agenteIa.findFirst({ where: { id, companyId: companyId || -1 } });
   if (!existing) return res.status(404).json(createErrorResponse('Agente IA não encontrado', 404));
   
   if (companyId && existing.companyId !== companyId) {
     return res.status(403).json(createErrorResponse('Acesso negado', 403));
   }
 
-  await prisma.agenteIa.delete({ where: { id } })
+  await prisma.agenteIa.delete({ where: { id, companyId: companyId || -1 } })
   res.json(createSuccessResponse({ id }))
 })

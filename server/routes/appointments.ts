@@ -92,13 +92,12 @@ router.get('/', auth(), requireModule('agendamentos'), async (req, res) => {
 
     let restrictedRole: any = null;
     if (req.user?.type === 'usuario') {
-      const dbUser = await prisma.usuario.findUnique({
-        where: { id: req.user.id },
-        include: { role: true }
-      });
-      if (dbUser?.role && !dbUser.role.isAdmin && !dbUser.role.isManager) {
-        restrictedRole = dbUser.role;
-      }
+      const [dbUser, access] = await Promise.all([
+        prisma.usuario.findUnique({ where: { id: req.user.id }, include: { role: true } }),
+        prisma.userCompanyAccess.findUnique({ where: { userId_companyId: { userId: req.user.id, companyId: req.user.companyId! } }, include: { role: true } }),
+      ]);
+      const role = access?.role || (dbUser?.companyId === req.user.companyId ? dbUser.role : null);
+      if (!role?.isAdmin && !role?.isManager) restrictedRole = role || {};
     }
 
     const maskedItems = items.map(item => {
@@ -112,9 +111,9 @@ router.get('/', auth(), requireModule('agendamentos'), async (req, res) => {
         }
         if (!isMine) {
           return {
-            ...item,
-            client: { ...item.client, name: 'Horário Reservado (Ocupado)', phone: '', email: '' },
-            lead: { ...item.lead, name: 'Horário Reservado', phone: '', email: '' },
+            id: item.id, startTime: item.startTime, endTime: item.endTime, status: item.status,
+            professionalId: item.professionalId,
+            client: { name: 'Horário Reservado (Ocupado)' }, lead: null,
             notes: 'Reservado por outro membro da equipe',
           };
         }
@@ -290,13 +289,12 @@ router.get('/:id', auth(), requireModule('agendamentos'), async (req, res) => {
   if (!item) return res.status(404).json(createErrorResponse('Agendamento não encontrado', 404))
     let restrictedRole: any = null;
     if (req.user?.type === 'usuario') {
-      const dbUser = await prisma.usuario.findUnique({
-        where: { id: req.user.id },
-        include: { role: true }
-      });
-      if (dbUser?.role && !dbUser.role.isAdmin && !dbUser.role.isManager) {
-        restrictedRole = dbUser.role;
-      }
+      const [dbUser, access] = await Promise.all([
+        prisma.usuario.findUnique({ where: { id: req.user.id }, include: { role: true } }),
+        prisma.userCompanyAccess.findUnique({ where: { userId_companyId: { userId: req.user.id, companyId: req.user.companyId! } }, include: { role: true } }),
+      ]);
+      const role = access?.role || (dbUser?.companyId === req.user.companyId ? dbUser.role : null);
+      if (!role?.isAdmin && !role?.isManager) restrictedRole = role || {};
     }
 
     if (restrictedRole) {
@@ -309,9 +307,9 @@ router.get('/:id', auth(), requireModule('agendamentos'), async (req, res) => {
       }
       if (!isMine) {
         return res.json(createSuccessResponse({
-          ...item,
-          client: { ...item.client, name: 'Horário Reservado (Ocupado)', phone: '', email: '' },
-          lead: { ...item.lead, name: 'Horário Reservado', phone: '', email: '' },
+          id: item.id, startTime: item.startTime, endTime: item.endTime, status: item.status,
+          professionalId: item.professionalId,
+          client: { name: 'Horário Reservado (Ocupado)' }, lead: null,
           notes: 'Reservado por outro membro da equipe',
         }));
       }
@@ -368,7 +366,7 @@ router.post('/', auth(), requireModule('agendamentos'), async (req, res) => {
     }
     if (serviceId) {
       const service = await prisma.catalogItem.findFirst({
-        where: { id: Number(serviceId), professionalId },
+        where: { id: Number(serviceId), companyId: req.user!.companyId! },
         select: { id: true },
       })
       if (!service) return res.status(400).json(createErrorResponse('Serviço inválido para esta clínica', 400))
@@ -524,7 +522,7 @@ router.put('/:id', auth(), requireModule('agendamentos'), async (req, res) => {
     if (clientId) await assertClientBelongsToCompany(Number(clientId), req.user?.companyId)
     if (serviceId) {
       const service = await prisma.catalogItem.findFirst({
-        where: { id: Number(serviceId), professionalId },
+        where: { id: Number(serviceId), companyId: req.user!.companyId! },
         select: { id: true },
       })
       if (!service) return res.status(400).json(createErrorResponse('Serviço inválido para esta clínica', 400))

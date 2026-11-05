@@ -220,11 +220,11 @@ export async function ensureCompanyDefaults(
             moduleId: module.id,
           },
         },
-        update: { hasAccess: true },
+        update: {},
         create: {
           roleId: role.id,
           moduleId: module.id,
-          hasAccess: true,
+          hasAccess: false,
         },
       })
     }

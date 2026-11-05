@@ -46,6 +46,7 @@ import { bootstrapSystemDefaults } from './bootstrap/defaults.js'
 import { expirePastDueBillingRecords } from './services/billing.js'
 import path from 'path'
 import rateLimit from 'express-rate-limit'
+import { routePolicy } from './middleware/route-policy.js'
 
 assertProductionSecurityConfig()
 
@@ -84,6 +85,7 @@ app.use(urlencoded({ limit: '20mb', extended: true }))
 installAuthLimits(app)
 app.use(protectIntegrationOutput)
 app.use(refreshResponseMedia)
+app.use(routePolicy)
 
 
 app.get('/api/health', async (_req, res) => {

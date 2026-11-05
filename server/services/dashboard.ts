@@ -64,9 +64,9 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
           include: { role: roleInclude },
         }),
       ]);
-      const activeRole = companyAccess?.role || dbUser?.role;
+      const activeRole = companyAccess?.role || (dbUser?.companyId === companyId ? dbUser?.role : null);
       const subPermissions = activeRole?.permissions[0]?.subPermissions as Record<string, boolean> | null;
-      hasBillingPermission = activeRole?.value === 'admin' || subPermissions?.verFaturamento !== false;
+      hasBillingPermission = subPermissions?.verFaturamento === true;
       if (!activeRole?.isAdmin && !activeRole?.isManager) {
         // Se não for Admin nem Gestor Comercial, só vê leads atribuídos a si mesmo (como SDR ou Closer) ou propostas vinculadas a si
         leadExtraFilters.OR = [

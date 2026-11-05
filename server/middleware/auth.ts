@@ -20,8 +20,11 @@ declare module 'express-serve-static-core' {
   }
 }
 
+// Authentication is reusable within the same HTTP request only, never across requests.
+const authenticatedRequests = new WeakSet<Request>()
 export function auth(required = true) {
   return async (req: Request, res: Response, next: NextFunction) => {
+    if (authenticatedRequests.has(req) && req.user) return next()
     const header = req.headers.authorization
     const token = header?.startsWith('Bearer ') ? header.substring(7) : undefined
 
@@ -90,7 +93,7 @@ export function auth(required = true) {
         return res.status(403).json(createErrorResponse('Nenhuma clinica ativa disponivel para esta conta', 403))
       }
 
-      if (payload.companyId && !payload.allowedCompanies?.includes(payload.companyId)) {
+      if (!payload.companyId || !payload.allowedCompanies?.includes(payload.companyId)) {
         payload.companyId = payload.allowedCompanies?.[0] || null
       }
       
@@ -101,11 +104,9 @@ export function auth(required = true) {
         // Verifica se o usuário tem permissão para acessar esta clínica
         if (payload.allowedCompanies && payload.allowedCompanies.includes(id)) {
           payload.companyId = id
-        } else if ((payload.type as string) !== 'admin') {
-          // Bloqueia a troca se a clínica não estiver na lista (a menos que seja super admin)
-          return res.status(403).json(createErrorResponse('Acesso negado a esta clínica', 403))
         } else {
-          payload.companyId = id
+          // Nunca confiar em privilégios do token para ampliar o conjunto de clínicas.
+          return res.status(403).json(createErrorResponse('Acesso negado a esta clínica', 403))
         }
       }
 
@@ -124,7 +125,7 @@ export function auth(required = true) {
           }),
           prisma.usuario.findUnique({
             where: { id: payload.id },
-            select: { role: { select: { value: true } } },
+            select: { companyId: true, role: { select: { value: true } } },
           }),
         ])
 
@@ -132,11 +133,12 @@ export function auth(required = true) {
           return res.status(403).json(createErrorResponse('Acesso inativo nesta clinica', 403))
         }
 
-        payload.role = companyAccess?.role?.value || user?.role?.value || null
+        payload.role = companyAccess?.role?.value || (user?.companyId === payload.companyId ? user?.role?.value : null) || null
       }
       
       payload.isCompanyOwner = payload.type === 'profissional' && ownedCompanyIds.includes(payload.companyId || 0)
       req.user = payload
+      authenticatedRequests.add(req)
       return next()
     } catch {
       return res.status(401).json(createErrorResponse('Token inválido', 401))
@@ -147,6 +149,13 @@ export function auth(required = true) {
 export function requireCompany(req: Request, res: Response, next: NextFunction) {
   if (!req.user?.companyId) return res.status(400).json(createErrorResponse('Empresa não definida', 400))
   return next()
+}
+
+export function requireIdentity(type: AuthUser['type']) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (req.user?.type !== type) return res.status(403).json(createErrorResponse('Tipo de conta sem acesso a esta ação', 403))
+    return next()
+  }
 }
 
 export function requireCompanyAccess(paramName?: string) {
@@ -218,7 +227,7 @@ export function requireModule(moduleCode: string) {
         where: { code: moduleCode },
       })
 
-      if (!module) {
+      if (!module || module.isActive === false) {
         return res.status(503).json(createErrorResponse('Modulo nao configurado', 503))
       }
 
@@ -229,8 +238,8 @@ export function requireModule(moduleCode: string) {
         )
       }
 
-      // Admin tem acesso a todos os modulos liberados pelo plano
-      if (req.user.role === 'admin') {
+      // Somente o proprietário verificado tem acesso aos módulos liberados pelo plano.
+      if (req.user.isCompanyOwner === true) {
         return next()
       }
 
@@ -246,9 +255,8 @@ export function requireModule(moduleCode: string) {
           },
         })
 
-        // Se não há permissão definida, por padrão tem acesso
-        // Se há permissão, verificar se hasAccess é true
-        if (permission && !permission.hasAccess) {
+        // Profissionais que não são donos também precisam de concessão explícita.
+        if (permission?.hasAccess !== true) {
           return res.status(403).json(createErrorResponse('Acesso negado a este módulo', 403))
         }
 
@@ -291,7 +299,7 @@ export function requireModule(moduleCode: string) {
           return res.status(403).json(createErrorResponse('Usuário não encontrado', 403))
         }
 
-        const activeRole = companyAccess?.role || userWithRole.role
+        const activeRole = companyAccess?.role || (userWithRole.companyId === req.user.companyId ? userWithRole.role : null)
         const rolePermission = activeRole?.permissions[0]
 
         // Buscar permissão individual (override)
@@ -310,8 +318,8 @@ export function requireModule(moduleCode: string) {
         // Segue a mesma hierarquia de prioridade do frontend/permissions API:
         // 1. Permissão Individual (se existir)
         // 2. Permissão do Cargo (se existir)
-        // 3. Padrão: Permitido (true)
-        const hasAccess = individualPermission?.hasAccess ?? rolePermission?.hasAccess ?? true
+        // 3. Padrão: bloqueado
+        const hasAccess = individualPermission?.hasAccess ?? rolePermission?.hasAccess ?? false
 
         if (!hasAccess) {
           return res.status(403).json(createErrorResponse('Acesso negado a este módulo', 403))
@@ -344,7 +352,7 @@ export function requirePermission(moduleCode: string, permissionKey: string) {
         where: { code: moduleCode },
       })
 
-      if (!module) {
+      if (!module || module.isActive === false) {
         return res.status(503).json(createErrorResponse('Modulo nao configurado', 503))
       }
 
@@ -356,11 +364,11 @@ export function requirePermission(moduleCode: string, permissionKey: string) {
       }
 
       // Team administrators still obey explicit granular restrictions.
-      if (req.user.type === 'profissional' && req.user.role === 'admin') {
+      if (req.user.isCompanyOwner === true) {
         return next()
       }
 
-      // Profissional tem acesso a tudo por padrão
+      // Profissionais que não são donos seguem as permissões explícitas.
       if (req.user.type === 'profissional') {
         const permission = await prisma.professionalPermission.findUnique({
           where: {
@@ -371,12 +379,12 @@ export function requirePermission(moduleCode: string, permissionKey: string) {
           },
         })
 
-        if (permission && !permission.hasAccess) {
+        if (permission?.hasAccess !== true) {
           return res.status(403).json(createErrorResponse('Acesso negado a este módulo', 403))
         }
 
         const subPerms = permission?.subPermissions as Record<string, boolean> | null
-        const hasSubAccess = subPerms && subPerms[permissionKey] !== undefined ? subPerms[permissionKey] : true
+        const hasSubAccess = subPerms?.[permissionKey] === true
 
         if (!hasSubAccess) {
           return res.status(403).json(createErrorResponse('Acesso negado a esta funcionalidade', 403))
@@ -421,7 +429,7 @@ export function requirePermission(moduleCode: string, permissionKey: string) {
           return res.status(403).json(createErrorResponse('Usuário não encontrado', 403))
         }
 
-        const activeRole = companyAccess?.role || userWithRole.role
+        const activeRole = companyAccess?.role || (userWithRole.companyId === req.user.companyId ? userWithRole.role : null)
         const rolePermission = activeRole?.permissions[0]
 
         // Buscar permissão individual (override)
@@ -437,7 +445,7 @@ export function requirePermission(moduleCode: string, permissionKey: string) {
             })
           : null
 
-        const hasAccess = individualPermission?.hasAccess ?? rolePermission?.hasAccess ?? true
+        const hasAccess = individualPermission?.hasAccess ?? rolePermission?.hasAccess ?? false
 
         if (!hasAccess) {
           return res.status(403).json(createErrorResponse('Acesso negado a este módulo', 403))
@@ -445,7 +453,7 @@ export function requirePermission(moduleCode: string, permissionKey: string) {
 
         // Se tem acesso ao módulo principal, verifica a sub-permissão granular
         const subPerms = rolePermission?.subPermissions as Record<string, boolean> | null
-        const hasSubAccess = subPerms && subPerms[permissionKey] !== undefined ? subPerms[permissionKey] : true
+        const hasSubAccess = subPerms?.[permissionKey] === true
 
         if (!hasSubAccess) {
           return res.status(403).json(createErrorResponse('Acesso negado a esta funcionalidade', 403))

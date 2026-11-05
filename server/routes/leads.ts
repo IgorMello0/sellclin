@@ -65,7 +65,7 @@ async function canManageProposals(reqUser: any, companyId: number) {
     }),
   ])
   if (!account?.isActive || access?.isActive === false || (!access && account.companyId !== companyId)) return false
-  const role = access?.role || account.role
+  const role = access?.role || (account.companyId === companyId ? account.role : null)
   return Boolean(role?.isAdmin || role?.isManager)
 }
 
@@ -1069,7 +1069,7 @@ router.delete('/bulk', auth(), async (req, res) => {
       if (access.error) return res.status(access.status).json(createErrorResponse(`Acesso negado ao lead ${leadId}`, access.status));
     }
 
-    await prisma.lead.deleteMany({ where: { id: { in: numericIds } } });
+    await prisma.lead.deleteMany({ where: { id: { in: numericIds }, companyId: req.user!.companyId } });
 
     logAudit(req.user!, 'BULK_DELETAR_LEADS', 'Lead', 0);
     res.json(createSuccessResponse({ deleted: numericIds.length }));
@@ -1173,7 +1173,7 @@ router.patch('/:id/assignment', auth(), async (req, res) => {
     const { id } = req.params;
     const { sdrId, closerId, especialistaId } = req.body;
 
-    const leadId = parseInt(id);
+    const leadId = Number(id);
     const access = await assertLeadAccess(leadId, req.user);
     if (access.error) return res.status(access.status).json(createErrorResponse(access.message, access.status));
     const lead = access.lead;

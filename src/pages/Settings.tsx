@@ -406,7 +406,7 @@ const EquipeView = ({ isSpecialistMode = false }: { isSpecialistMode?: boolean }
     try {
       const res = await permissionsApi.getUserPermissions(userId);
       if (res.success && res.data) {
-        const officialModuleCodes = ['dashboard', 'agendamentos', 'clientes', 'funnel', 'metas', 'tarefas', 'campanhas'];
+        const officialModuleCodes = ['dashboard', 'agendamentos', 'clientes', 'funnel', 'metas', 'tarefas', 'campanhas', 'conversas', 'catalogos', 'pagamentos', 'relatorios', 'contratos', 'integrations'];
         const filtered = res.data.filter((p: any) => officialModuleCodes.includes(p.moduleCode));
         setUserPermissions(filtered);
       }
@@ -1133,7 +1133,7 @@ const CargosView = () => {
     try {
       const res = await modulesApi.getAll();
       if (res.success) {
-        const officialModuleCodes = ['dashboard', 'agendamentos', 'clientes', 'funnel', 'metas', 'tarefas', 'campanhas'];
+        const officialModuleCodes = ['dashboard', 'agendamentos', 'clientes', 'funnel', 'metas', 'tarefas', 'campanhas', 'conversas', 'catalogos', 'pagamentos', 'relatorios', 'contratos', 'integrations'];
         const filtered = (res.data || []).filter((m: any) => officialModuleCodes.includes(m.code));
         setModules(filtered);
       } else {
@@ -1173,7 +1173,7 @@ const CargosView = () => {
       const res = await rolesApi.create({ 
         name: trimmed, 
         value,
-        permissions: modules.map(m => ({ moduleId: m.id, hasAccess: true })),
+        permissions: modules.map(m => ({ moduleId: m.id, hasAccess: false })),
         isSpecialist: isSpecialistRole,
         isAdmin: isAdminRole,
         isManager: isManagerRole,
@@ -1198,7 +1198,7 @@ const CargosView = () => {
             moduleId: m.id,
             moduleName: m.name,
             moduleCode: m.code,
-            hasAccess: true,
+            hasAccess: false,
             subPermissions: {}
           }));
           setRolePermissions(currentPermissions);
@@ -1231,7 +1231,7 @@ const CargosView = () => {
         moduleId: m.id,
         moduleName: m.name,
         moduleCode: m.code,
-        hasAccess: existing ? existing.hasAccess : true,
+        hasAccess: existing ? existing.hasAccess : false,
         subPermissions: existing ? (existing.subPermissions || {}) : {}
       };
     });
@@ -1248,7 +1248,7 @@ const CargosView = () => {
     setRolePermissions(prev => prev.map(p => {
       if (p.moduleId === moduleId) {
         const subPerms = { ...(p.subPermissions || {}) };
-        const currentVal = subPerms[key] !== undefined ? subPerms[key] : true;
+        const currentVal = subPerms[key] === true;
         subPerms[key] = !currentVal;
         return { ...p, subPermissions: subPerms };
       }
@@ -1552,9 +1552,7 @@ const CargosView = () => {
                             <h5 className="text-[11px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1.5">Permissões Granulares</h5>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                               {subPermsList.map(sub => {
-                                const isChecked = p.subPermissions?.[sub.key] !== undefined 
-                                  ? p.subPermissions[sub.key] 
-                                  : true;
+                                const isChecked = p.subPermissions?.[sub.key] === true;
                                 return (
                                   <div key={sub.key} className="flex items-center justify-between p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800/80 shadow-xs hover:border-green-200/50 transition-colors">
                                     <span className="text-xs text-slate-600 dark:text-slate-300 font-medium pr-2">{sub.label}</span>

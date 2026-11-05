@@ -262,6 +262,8 @@ model Sale {
 }
 
 model Category {
+  company        Empresa        @relation(fields: [companyId], references: [id])
+  companyId      Int            @map("company_id")
   id             Int            @id @default(autoincrement())
   professionalId Int            @map("professional_id")
   name           String
@@ -272,10 +274,13 @@ model Category {
   catalogItems   CatalogItem[]
   professional   Professional   @relation(fields: [professionalId], references: [id])
 
+  @@index([companyId])
   @@map("categories")
 }
 
 model CatalogItem {
+  company         Empresa           @relation(fields: [companyId], references: [id])
+  companyId       Int               @map("company_id")
   id              Int               @id @default(autoincrement())
   professionalId  Int               @map("professional_id")
   categoryId      Int?              @map("category_id")
@@ -291,6 +296,7 @@ model CatalogItem {
   category        Category?         @relation(fields: [categoryId], references: [id])
   professional    Professional      @relation(fields: [professionalId], references: [id])
 
+  @@index([companyId])
   @@map("catalog_items")
 }
 
@@ -374,6 +380,8 @@ model Payment {
 }
 
 model FichaTemplate {
+  company     Empresa      @relation(fields: [companyId], references: [id])
+  companyId   Int          @map("company_id")
   id          Int          @id @default(autoincrement())
   name        String
   description String?
@@ -385,6 +393,7 @@ model FichaTemplate {
   creator     Professional @relation(fields: [createdBy], references: [id])
   fichas      Ficha[]
 
+  @@index([companyId])
   @@map("ficha_templates")
 }
 
@@ -464,6 +473,9 @@ model Contract {
 }
 
 model Empresa {
+  categories             Category[]
+  catalogItems           CatalogItem[]
+  fichaTemplates         FichaTemplate[]
   id                     Int       @id @default(autoincrement())
   ownerId                Int?      @map("owner_id")
   name                   String
@@ -1023,7 +1035,7 @@ model ProfessionalPermission {
   id             Int          @id @default(autoincrement())
   professionalId Int          @map("professional_id")
   moduleId       Int          @map("module_id")
-  hasAccess      Boolean      @default(true) @map("has_access")
+  hasAccess      Boolean      @default(false) @map("has_access")
   subPermissions Json?        @map("sub_permissions")
   createdAt      DateTime     @default(now()) @map("created_at")
   updatedAt      DateTime     @updatedAt @map("updated_at")
@@ -1038,7 +1050,7 @@ model UserPermission {
   id        Int      @id @default(autoincrement())
   userId    Int      @map("user_id")
   moduleId  Int      @map("module_id")
-  hasAccess Boolean  @default(true) @map("has_access")
+  hasAccess Boolean  @default(false) @map("has_access")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   module    Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
@@ -1052,7 +1064,7 @@ model UserCompanyPermission {
   userId    Int      @map("user_id")
   companyId Int      @map("company_id")
   moduleId  Int      @map("module_id")
-  hasAccess Boolean  @default(true) @map("has_access")
+  hasAccess Boolean  @default(false) @map("has_access")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   company   Empresa  @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -1109,7 +1121,7 @@ model RolePermission {
   id             Int      @id @default(autoincrement())
   roleId         Int      @map("role_id")
   moduleId       Int      @map("module_id")
-  hasAccess      Boolean  @default(true) @map("has_access")
+  hasAccess      Boolean  @default(false) @map("has_access")
   subPermissions Json?    @map("sub_permissions")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")

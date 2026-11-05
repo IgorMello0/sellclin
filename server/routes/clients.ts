@@ -36,11 +36,6 @@ router.get('/', auth(), requireModule('clientes'), async (req, res) => {
       ]
     }
     
-    // TEMPORARY DEBUG:
-    if (req.query.debug === 'true') {
-      return res.json({ success: true, debug: { user: req.user, where } });
-    }
-
     if (status === 'inadimplente') {
       where.payments = {
         some: {

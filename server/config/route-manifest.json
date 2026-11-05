@@ -1,0 +1,2154 @@
+[
+  {
+    "method": "GET",
+    "path": "/api/agendamentos",
+    "source": "server/routes/appointments.ts",
+    "guards": [
+      "auth()",
+      "actionPermissions('agendamentos')",
+      "auth()",
+      "requireModule('agendamentos')"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/agendamentos",
+    "source": "server/routes/appointments.ts",
+    "guards": [
+      "auth()",
+      "actionPermissions('agendamentos')",
+      "auth()",
+      "requireModule('agendamentos')"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/agendamentos/:id",
+    "source": "server/routes/appointments.ts",
+    "guards": [
+      "auth()",
+      "actionPermissions('agendamentos')",
+      "auth()",
+      "requireModule('agendamentos')"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/agendamentos/:id",
+    "source": "server/routes/appointments.ts",
+    "guards": [
+      "auth()",
+      "actionPermissions('agendamentos')",
+      "auth()",
+      "requireModule('agendamentos')"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/agendamentos/:id",
+    "source": "server/routes/appointments.ts",
+    "guards": [
+      "auth()",
+      "actionPermissions('agendamentos')",
+      "auth()",
+      "requireModule('agendamentos')"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/agendamentos/available-slots",
+    "source": "server/routes/appointments.ts",
+    "guards": [
+      "auth()",
+      "actionPermissions('agendamentos')",
+      "auth()",
+      "requireModule('agendamentos')"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/agendamentos/check-availability",
+    "source": "server/routes/appointments.ts",
+    "guards": [
+      "auth()",
+      "actionPermissions('agendamentos')",
+      "auth()",
+      "requireModule('agendamentos')"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/agentes-ia",
+    "source": "server/routes/agentes-ia.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/agentes-ia",
+    "source": "server/routes/agentes-ia.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/agentes-ia/:id",
+    "source": "server/routes/agentes-ia.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/agentes-ia/:id",
+    "source": "server/routes/agentes-ia.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/agentes-ia/:id",
+    "source": "server/routes/agentes-ia.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/auth/change-password",
+    "source": "server/routes/auth.ts",
+    "guards": [
+      "auth()",
+      "rateLimit({\n  windowMs: 15 * 60 * 1000,\n  limit: 10,\n  keyGenerator: req => `${req.user!.type}:${req.user!.id}`,\n  standardHeaders: true,\n  legacyHeaders: false,\n  handler: (_req, res) => { res.status(429).json(createErrorResponse('Muitas tentativas. Aguarde antes de tentar novamente.', 429)) },\n})",
+      "changePassword"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/auth/forgot-password",
+    "source": "server/routes/auth.ts",
+    "guards": []
+  },
+  {
+    "method": "POST",
+    "path": "/api/auth/google",
+    "source": "server/routes/auth.ts",
+    "guards": []
+  },
+  {
+    "method": "POST",
+    "path": "/api/auth/resend-verification",
+    "source": "server/routes/auth.ts",
+    "guards": []
+  },
+  {
+    "method": "POST",
+    "path": "/api/auth/reset-password",
+    "source": "server/routes/auth.ts",
+    "guards": []
+  },
+  {
+    "method": "POST",
+    "path": "/api/auth/team-invite/accept",
+    "source": "server/routes/auth.ts",
+    "guards": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/auth/verify-email",
+    "source": "server/routes/auth.ts",
+    "guards": []
+  },
+  {
+    "method": "POST",
+    "path": "/api/billing/addon-checkout",
+    "source": "server/routes/billing.ts",
+    "guards": [
+      "auth()",
+      "requireCompany",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/billing/cancel-subscription",
+    "source": "server/routes/billing.ts",
+    "guards": [
+      "auth()",
+      "requireCompany",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/billing/cancel-trial",
+    "source": "server/routes/billing.ts",
+    "guards": [
+      "auth()",
+      "requireCompany",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/billing/catalog",
+    "source": "server/routes/billing.ts",
+    "guards": []
+  },
+  {
+    "method": "POST",
+    "path": "/api/billing/change-plan",
+    "source": "server/routes/billing.ts",
+    "guards": [
+      "auth()",
+      "requireCompany",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/billing/checkout",
+    "source": "server/routes/billing.ts",
+    "guards": [
+      "auth()",
+      "requireCompany",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/billing/message-credits",
+    "source": "server/routes/billing.ts",
+    "guards": [
+      "auth()",
+      "requireCompany"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/billing/select-plan",
+    "source": "server/routes/billing.ts",
+    "guards": [
+      "auth()",
+      "requireCompany",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/billing/signup-checkout",
+    "source": "server/routes/billing.ts",
+    "guards": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/billing/status",
+    "source": "server/routes/billing.ts",
+    "guards": [
+      "auth()",
+      "requireCompany"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/billing/usage",
+    "source": "server/routes/billing.ts",
+    "guards": [
+      "auth()",
+      "requireCompany",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/cadence/:stageCode",
+    "source": "server/routes/cadence.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/cadence/:stageCode",
+    "source": "server/routes/cadence.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/campaigns",
+    "source": "server/routes/campaigns.ts",
+    "guards": [
+      "auth()",
+      "requireModule('campanhas')",
+      "auth()",
+      "actionPermissions('campanhas')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/campaigns",
+    "source": "server/routes/campaigns.ts",
+    "guards": [
+      "auth()",
+      "requireModule('campanhas')",
+      "auth()",
+      "actionPermissions('campanhas')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/campaigns/:id",
+    "source": "server/routes/campaigns.ts",
+    "guards": [
+      "auth()",
+      "requireModule('campanhas')",
+      "auth()",
+      "actionPermissions('campanhas')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/campaigns/:id",
+    "source": "server/routes/campaigns.ts",
+    "guards": [
+      "auth()",
+      "requireModule('campanhas')",
+      "auth()",
+      "actionPermissions('campanhas')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/campaigns/:id",
+    "source": "server/routes/campaigns.ts",
+    "guards": [
+      "auth()",
+      "requireModule('campanhas')",
+      "auth()",
+      "actionPermissions('campanhas')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/campaigns/:id/progress",
+    "source": "server/routes/campaigns.ts",
+    "guards": [
+      "auth()",
+      "requireModule('campanhas')",
+      "auth()",
+      "actionPermissions('campanhas')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/campaigns/:id/send",
+    "source": "server/routes/campaigns.ts",
+    "guards": [
+      "auth()",
+      "requireModule('campanhas')",
+      "auth()",
+      "actionPermissions('campanhas')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/campaigns/audience-options",
+    "source": "server/routes/campaigns.ts",
+    "guards": [
+      "auth()",
+      "requireModule('campanhas')",
+      "auth()",
+      "actionPermissions('campanhas')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/campaigns/audience-preview",
+    "source": "server/routes/campaigns.ts",
+    "guards": [
+      "auth()",
+      "requireModule('campanhas')",
+      "auth()",
+      "actionPermissions('campanhas')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/campaigns/media/:campaignId/:index",
+    "source": "server/routes/campaigns.ts",
+    "guards": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/catalogo",
+    "source": "server/routes/catalog-items.ts",
+    "guards": [
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/catalogo",
+    "source": "server/routes/catalog-items.ts",
+    "guards": [
+      "auth()",
+      "requireModule('catalogos')"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/catalogo/:id",
+    "source": "server/routes/catalog-items.ts",
+    "guards": [
+      "auth()",
+      "requireModule('catalogos')"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/catalogo/:id",
+    "source": "server/routes/catalog-items.ts",
+    "guards": [
+      "auth()"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/catalogo/:id",
+    "source": "server/routes/catalog-items.ts",
+    "guards": [
+      "auth()",
+      "requireModule('catalogos')"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/categorias",
+    "source": "server/routes/categories.ts",
+    "guards": [
+      "auth()",
+      "requireModule('catalogos')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/categorias",
+    "source": "server/routes/categories.ts",
+    "guards": [
+      "auth()",
+      "requireModule('catalogos')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/categorias/:id",
+    "source": "server/routes/categories.ts",
+    "guards": [
+      "auth()",
+      "requireModule('catalogos')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/categorias/:id",
+    "source": "server/routes/categories.ts",
+    "guards": [
+      "auth()",
+      "requireModule('catalogos')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/categorias/:id",
+    "source": "server/routes/categories.ts",
+    "guards": [
+      "auth()",
+      "requireModule('catalogos')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/clientes",
+    "source": "server/routes/clients.ts",
+    "guards": [
+      "auth()",
+      "actionPermissions('clientes')",
+      "auth()",
+      "requireModule('clientes')"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/clientes",
+    "source": "server/routes/clients.ts",
+    "guards": [
+      "auth()",
+      "actionPermissions('clientes')",
+      "auth()",
+      "requireModule('clientes')"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/clientes/:id",
+    "source": "server/routes/clients.ts",
+    "guards": [
+      "auth()",
+      "actionPermissions('clientes')",
+      "auth()",
+      "requireModule('clientes')"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/clientes/:id",
+    "source": "server/routes/clients.ts",
+    "guards": [
+      "auth()",
+      "actionPermissions('clientes')",
+      "auth()",
+      "requireModule('clientes')"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/clientes/:id",
+    "source": "server/routes/clients.ts",
+    "guards": [
+      "auth()",
+      "actionPermissions('clientes')",
+      "auth()",
+      "requireModule('clientes')"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/clientes/:id/dossier",
+    "source": "server/routes/clients.ts",
+    "guards": [
+      "auth()",
+      "actionPermissions('clientes')",
+      "auth()",
+      "requireModule('clientes')"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/clientes/:id/proposals",
+    "source": "server/routes/clients.ts",
+    "guards": [
+      "auth()",
+      "actionPermissions('clientes')",
+      "auth()",
+      "requireModule('clientes')"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/clientes/:id/send-to-funnel",
+    "source": "server/routes/clients.ts",
+    "guards": [
+      "auth()",
+      "actionPermissions('clientes')",
+      "auth()",
+      "requireModule('clientes')"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/conversas",
+    "source": "server/routes/conversas.ts",
+    "guards": [
+      "auth()",
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/conversas",
+    "source": "server/routes/conversas.ts",
+    "guards": [
+      "auth()",
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/conversas/:id",
+    "source": "server/routes/conversas.ts",
+    "guards": [
+      "auth()",
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/conversas/:id",
+    "source": "server/routes/conversas.ts",
+    "guards": [
+      "auth()",
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/conversas/:id",
+    "source": "server/routes/conversas.ts",
+    "guards": [
+      "auth()",
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/conversas/:id/assign",
+    "source": "server/routes/conversas.ts",
+    "guards": [
+      "auth()",
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/conversas/:id/labels",
+    "source": "server/routes/conversas.ts",
+    "guards": [
+      "auth()",
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/conversas/:id/labels/:labelId",
+    "source": "server/routes/conversas.ts",
+    "guards": [
+      "auth()",
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/conversas/:id/messages",
+    "source": "server/routes/conversas.ts",
+    "guards": [
+      "auth()",
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/conversas/:id/notes",
+    "source": "server/routes/conversas.ts",
+    "guards": [
+      "auth()",
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/conversas/:id/notes",
+    "source": "server/routes/conversas.ts",
+    "guards": [
+      "auth()",
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/conversas/:id/read",
+    "source": "server/routes/conversas.ts",
+    "guards": [
+      "auth()",
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/conversas/:id/status",
+    "source": "server/routes/conversas.ts",
+    "guards": [
+      "auth()",
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/conversas/:id/templates",
+    "source": "server/routes/conversas.ts",
+    "guards": [
+      "auth()",
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/conversas/labels",
+    "source": "server/routes/conversas.ts",
+    "guards": [
+      "auth()",
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/conversas/open-lead",
+    "source": "server/routes/conversas.ts",
+    "guards": [
+      "auth()",
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/conversas/workspace",
+    "source": "server/routes/conversas.ts",
+    "guards": [
+      "auth()",
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/dashboard/metrics",
+    "source": "server/routes/dashboard.ts",
+    "guards": [
+      "auth()",
+      "requireModule('dashboard')",
+      "createDashboardMetricsHandler(prisma)"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/empresas",
+    "source": "server/routes/empresas.ts",
+    "guards": [
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/empresas",
+    "source": "server/routes/empresas.ts",
+    "guards": [
+      "auth()",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/empresas/:id",
+    "source": "server/routes/empresas.ts",
+    "guards": [
+      "auth()",
+      "requireCompanyOwner('id')"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/empresas/:id",
+    "source": "server/routes/empresas.ts",
+    "guards": [
+      "auth()",
+      "requireCompanyAccess('id')"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/empresas/:id",
+    "source": "server/routes/empresas.ts",
+    "guards": [
+      "auth()",
+      "requireCompanyOwner('id')"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/empresas/my-companies",
+    "source": "server/routes/empresas.ts",
+    "guards": [
+      "auth()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/empresas/my-company",
+    "source": "server/routes/empresas.ts",
+    "guards": [
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/empresas/my-company/whatsapp/connect/pairing-code",
+    "source": "server/routes/empresas.ts",
+    "guards": [
+      "auth()",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/empresas/my-company/whatsapp/connect/start",
+    "source": "server/routes/empresas.ts",
+    "guards": [
+      "auth()",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/empresas/my-company/whatsapp/diagnostics",
+    "source": "server/routes/empresas.ts",
+    "guards": [
+      "auth()",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/empresas/my-company/whatsapp/disconnect",
+    "source": "server/routes/empresas.ts",
+    "guards": [
+      "auth()",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/empresas/my-company/whatsapp/legacy-disconnect",
+    "source": "server/routes/empresas.ts",
+    "guards": [
+      "auth()",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/empresas/my-company/whatsapp/legacy-restart",
+    "source": "server/routes/empresas.ts",
+    "guards": [
+      "auth()",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/empresas/my-company/whatsapp/legacy-status",
+    "source": "server/routes/empresas.ts",
+    "guards": [
+      "auth()",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/empresas/my-company/whatsapp/restart",
+    "source": "server/routes/empresas.ts",
+    "guards": [
+      "auth()",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/empresas/my-company/whatsapp/status",
+    "source": "server/routes/empresas.ts",
+    "guards": [
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/empresas/my-company/whatsapp/webhook/setup",
+    "source": "server/routes/empresas.ts",
+    "guards": [
+      "auth()",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/ficha-templates",
+    "source": "server/routes/ficha-templates.ts",
+    "guards": [
+      "auth()",
+      "requireModule('clientes')",
+      "actionPermissions('clientes')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/ficha-templates",
+    "source": "server/routes/ficha-templates.ts",
+    "guards": [
+      "auth()",
+      "requireModule('clientes')",
+      "actionPermissions('clientes')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/ficha-templates/:id",
+    "source": "server/routes/ficha-templates.ts",
+    "guards": [
+      "auth()",
+      "requireModule('clientes')",
+      "actionPermissions('clientes')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/ficha-templates/:id",
+    "source": "server/routes/ficha-templates.ts",
+    "guards": [
+      "auth()",
+      "requireModule('clientes')",
+      "actionPermissions('clientes')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/ficha-templates/:id",
+    "source": "server/routes/ficha-templates.ts",
+    "guards": [
+      "auth()",
+      "requireModule('clientes')",
+      "actionPermissions('clientes')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/fichas",
+    "source": "server/routes/fichas.ts",
+    "guards": [
+      "auth()",
+      "requireModule('clientes')",
+      "actionPermissions('clientes')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/fichas",
+    "source": "server/routes/fichas.ts",
+    "guards": [
+      "auth()",
+      "requireModule('clientes')",
+      "actionPermissions('clientes')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/fichas/:id",
+    "source": "server/routes/fichas.ts",
+    "guards": [
+      "auth()",
+      "requireModule('clientes')",
+      "actionPermissions('clientes')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/fichas/:id",
+    "source": "server/routes/fichas.ts",
+    "guards": [
+      "auth()",
+      "requireModule('clientes')",
+      "actionPermissions('clientes')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/fichas/:id",
+    "source": "server/routes/fichas.ts",
+    "guards": [
+      "auth()",
+      "requireModule('clientes')",
+      "actionPermissions('clientes')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/funnel-config",
+    "source": "server/routes/funnelConfig.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "ownerConfiguration",
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/funnel-config",
+    "source": "server/routes/funnelConfig.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "ownerConfiguration",
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/funnel-config/:funnelId/stages",
+    "source": "server/routes/funnelConfig.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "ownerConfiguration",
+      "auth()"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/funnel-config/:id",
+    "source": "server/routes/funnelConfig.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "ownerConfiguration",
+      "auth()"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/funnel-config/:id",
+    "source": "server/routes/funnelConfig.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "ownerConfiguration",
+      "auth()"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/funnel-config/reorder/batch",
+    "source": "server/routes/funnelConfig.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "ownerConfiguration",
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/funnel-config/seed",
+    "source": "server/routes/funnelConfig.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "ownerConfiguration",
+      "auth()"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/funnel-config/stages/:id",
+    "source": "server/routes/funnelConfig.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "ownerConfiguration",
+      "auth()"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/funnel-config/stages/:id",
+    "source": "server/routes/funnelConfig.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "ownerConfiguration",
+      "auth()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/google-calendar/callback",
+    "source": "server/routes/google-calendar.ts",
+    "guards": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/google-calendar/connect",
+    "source": "server/routes/google-calendar.ts",
+    "guards": [
+      "auth()",
+      "requireModule('agendamentos')",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/google-calendar/disconnect",
+    "source": "server/routes/google-calendar.ts",
+    "guards": [
+      "auth()",
+      "requireModule('agendamentos')",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/google-calendar/resync",
+    "source": "server/routes/google-calendar.ts",
+    "guards": [
+      "auth()",
+      "requireModule('agendamentos')",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/google-calendar/status",
+    "source": "server/routes/google-calendar.ts",
+    "guards": [
+      "auth()",
+      "requireModule('agendamentos')"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/health",
+    "source": "server/index.ts",
+    "guards": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/lead-origins",
+    "source": "server/routes/lead-origins.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "ownerConfiguration",
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/lead-origins",
+    "source": "server/routes/lead-origins.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "ownerConfiguration",
+      "auth()"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/lead-origins/:id",
+    "source": "server/routes/lead-origins.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "ownerConfiguration",
+      "auth()"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/lead-origins/:id",
+    "source": "server/routes/lead-origins.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "ownerConfiguration",
+      "auth()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/leads",
+    "source": "server/routes/leads.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "auth()",
+      "actionPermissions('funnel')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/leads",
+    "source": "server/routes/leads.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "auth()",
+      "actionPermissions('funnel')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/leads/:id",
+    "source": "server/routes/leads.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "auth()",
+      "actionPermissions('funnel')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/leads/:id",
+    "source": "server/routes/leads.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "auth()",
+      "actionPermissions('funnel')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/leads/:id",
+    "source": "server/routes/leads.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "auth()",
+      "actionPermissions('funnel')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/leads/:id/activities",
+    "source": "server/routes/leads.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "auth()",
+      "actionPermissions('funnel')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/leads/:id/activities/:activityId",
+    "source": "server/routes/leads.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "auth()",
+      "actionPermissions('funnel')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/leads/:id/activities/:activityId",
+    "source": "server/routes/leads.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "auth()",
+      "actionPermissions('funnel')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/leads/:id/assignment",
+    "source": "server/routes/leads.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "auth()",
+      "actionPermissions('funnel')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/leads/:id/cadence-contact",
+    "source": "server/routes/leads.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "auth()",
+      "actionPermissions('funnel')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/leads/:id/confirm-payment",
+    "source": "server/routes/leads.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "auth()",
+      "actionPermissions('funnel')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/leads/:id/proposals",
+    "source": "server/routes/leads.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "auth()",
+      "actionPermissions('funnel')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/leads/:id/proposals",
+    "source": "server/routes/leads.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "auth()",
+      "actionPermissions('funnel')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/leads/:id/proposals/:proposalId",
+    "source": "server/routes/leads.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "auth()",
+      "actionPermissions('funnel')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/leads/:id/proposals/:proposalId",
+    "source": "server/routes/leads.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "auth()",
+      "actionPermissions('funnel')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/leads/:id/proposals/:proposalId/reopen-sale",
+    "source": "server/routes/leads.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "auth()",
+      "actionPermissions('funnel')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/leads/:id/proposals/batch",
+    "source": "server/routes/leads.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "auth()",
+      "actionPermissions('funnel')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/leads/bulk",
+    "source": "server/routes/leads.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "auth()",
+      "actionPermissions('funnel')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/leads/bulk-assignment",
+    "source": "server/routes/leads.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "auth()",
+      "actionPermissions('funnel')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/leads/import",
+    "source": "server/routes/leads.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "auth()",
+      "actionPermissions('funnel')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/mensagens",
+    "source": "server/routes/mensagens.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/mensagens",
+    "source": "server/routes/mensagens.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/mensagens/:id",
+    "source": "server/routes/mensagens.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/mensagens/:id",
+    "source": "server/routes/mensagens.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/mensagens/:id",
+    "source": "server/routes/mensagens.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/metas",
+    "source": "server/routes/metas.ts",
+    "guards": [
+      "auth()",
+      "requireModule('metas')",
+      "auth()",
+      "actionPermissions('metas')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/metas",
+    "source": "server/routes/metas.ts",
+    "guards": [
+      "auth()",
+      "requireModule('metas')",
+      "auth()",
+      "actionPermissions('metas')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/metas/:id",
+    "source": "server/routes/metas.ts",
+    "guards": [
+      "auth()",
+      "requireModule('metas')",
+      "auth()",
+      "actionPermissions('metas')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/modules",
+    "source": "server/routes/modules.ts",
+    "guards": [
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/modules",
+    "source": "server/routes/modules.ts",
+    "guards": [
+      "auth()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/modules/:code",
+    "source": "server/routes/modules.ts",
+    "guards": [
+      "auth()"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/modules/:id",
+    "source": "server/routes/modules.ts",
+    "guards": [
+      "auth()"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/modules/:id",
+    "source": "server/routes/modules.ts",
+    "guards": [
+      "auth()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/notifications",
+    "source": "server/routes/notifications.ts",
+    "guards": [
+      "auth()"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/notifications/:id/read",
+    "source": "server/routes/notifications.ts",
+    "guards": [
+      "auth()"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/notifications/read-all",
+    "source": "server/routes/notifications.ts",
+    "guards": [
+      "auth()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/pagamentos",
+    "source": "server/routes/payments.ts",
+    "guards": [
+      "auth()",
+      "requireModule('pagamentos')"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/pagamentos",
+    "source": "server/routes/payments.ts",
+    "guards": [
+      "auth()",
+      "requireModule('pagamentos')"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/pagamentos/:id",
+    "source": "server/routes/payments.ts",
+    "guards": [
+      "auth()",
+      "requireModule('pagamentos')"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/pagamentos/:id",
+    "source": "server/routes/payments.ts",
+    "guards": [
+      "auth()",
+      "requireModule('pagamentos')"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/pagamentos/:id",
+    "source": "server/routes/payments.ts",
+    "guards": [
+      "auth()",
+      "requireModule('pagamentos')"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/permissions/my-permissions",
+    "source": "server/routes/permissions.ts",
+    "guards": [
+      "auth()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/permissions/professional/:id",
+    "source": "server/routes/permissions.ts",
+    "guards": [
+      "auth()"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/permissions/professional/:id",
+    "source": "server/routes/permissions.ts",
+    "guards": [
+      "auth()",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/permissions/user/:id",
+    "source": "server/routes/permissions.ts",
+    "guards": [
+      "auth()"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/permissions/user/:id",
+    "source": "server/routes/permissions.ts",
+    "guards": [
+      "auth()",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/profissionais",
+    "source": "server/routes/professionals.ts",
+    "guards": [
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/profissionais",
+    "source": "server/routes/professionals.ts",
+    "guards": []
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/profissionais/:id",
+    "source": "server/routes/professionals.ts",
+    "guards": [
+      "auth()",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/profissionais/:id",
+    "source": "server/routes/professionals.ts",
+    "guards": [
+      "auth()"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/profissionais/:id",
+    "source": "server/routes/professionals.ts",
+    "guards": [
+      "auth()",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/profissionais/:id/clientes",
+    "source": "server/routes/professionals.ts",
+    "guards": [
+      "auth()",
+      "requirePermission('clientes', 'verClientes')"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/profissionais/equipe",
+    "source": "server/routes/professionals.ts",
+    "guards": [
+      "auth()",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/profissionais/login",
+    "source": "server/routes/professionals.ts",
+    "guards": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/profissionais/me",
+    "source": "server/routes/professionals.ts",
+    "guards": [
+      "auth()",
+      "requireIdentity('profissional')"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/profissionais/me",
+    "source": "server/routes/professionals.ts",
+    "guards": [
+      "auth()",
+      "requireIdentity('profissional')"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/profissionais/onboarding/complete",
+    "source": "server/routes/professionals.ts",
+    "guards": [
+      "auth()",
+      "requireIdentity('profissional')",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/roles",
+    "source": "server/routes/roles.ts",
+    "guards": [
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/roles",
+    "source": "server/routes/roles.ts",
+    "guards": [
+      "auth()",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/roles/:id",
+    "source": "server/routes/roles.ts",
+    "guards": [
+      "auth()",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/roles/:id",
+    "source": "server/routes/roles.ts",
+    "guards": [
+      "auth()"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/roles/:id",
+    "source": "server/routes/roles.ts",
+    "guards": [
+      "auth()",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/tasks",
+    "source": "server/routes/tasks.ts",
+    "guards": [
+      "auth()",
+      "requireModule('tarefas')",
+      "auth()",
+      "actionPermissions('tarefas')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/tasks",
+    "source": "server/routes/tasks.ts",
+    "guards": [
+      "auth()",
+      "requireModule('tarefas')",
+      "auth()",
+      "actionPermissions('tarefas')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/tasks/:id",
+    "source": "server/routes/tasks.ts",
+    "guards": [
+      "auth()",
+      "requireModule('tarefas')",
+      "auth()",
+      "actionPermissions('tarefas')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/tasks/:id",
+    "source": "server/routes/tasks.ts",
+    "guards": [
+      "auth()",
+      "requireModule('tarefas')",
+      "auth()",
+      "actionPermissions('tarefas')",
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/upload",
+    "source": "server/routes/upload.ts",
+    "guards": [
+      "auth()",
+      "imageUpload.single('image')"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/upload/campaign-media",
+    "source": "server/routes/upload.ts",
+    "guards": [
+      "auth()",
+      "runMediaUpload",
+      "persistMedia"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/upload/media",
+    "source": "server/routes/upload.ts",
+    "guards": [
+      "auth()",
+      "runMediaUpload",
+      "persistMedia"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/usuarios",
+    "source": "server/routes/usuarios.ts",
+    "guards": [
+      "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/usuarios",
+    "source": "server/routes/usuarios.ts",
+    "guards": [
+      "auth()",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/usuarios/:id",
+    "source": "server/routes/usuarios.ts",
+    "guards": [
+      "auth()",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/usuarios/:id",
+    "source": "server/routes/usuarios.ts",
+    "guards": [
+      "auth()",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/usuarios/:id/resend-invite",
+    "source": "server/routes/usuarios.ts",
+    "guards": [
+      "auth()",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/usuarios/login",
+    "source": "server/routes/usuarios.ts",
+    "guards": []
+  },
+  {
+    "method": "POST",
+    "path": "/api/usuarios/onboarding/complete",
+    "source": "server/routes/usuarios.ts",
+    "guards": [
+      "auth()",
+      "requireIdentity('usuario')"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/webhooks/abacate-pay",
+    "source": "server/routes/webhooks.ts",
+    "guards": []
+  },
+  {
+    "method": "POST",
+    "path": "/api/webhooks/evolution",
+    "source": "server/routes/webhooks.ts",
+    "guards": []
+  },
+  {
+    "method": "POST",
+    "path": "/api/webhooks/evolution/:token",
+    "source": "server/routes/webhooks.ts",
+    "guards": []
+  },
+  {
+    "method": "POST",
+    "path": "/api/webhooks/leads/:apiKey",
+    "source": "server/routes/webhooks.ts",
+    "guards": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/webhooks/meta",
+    "source": "server/routes/webhooks.ts",
+    "guards": []
+  },
+  {
+    "method": "POST",
+    "path": "/api/webhooks/meta",
+    "source": "server/routes/webhooks.ts",
+    "guards": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/webhooks/meta/:token",
+    "source": "server/routes/webhooks.ts",
+    "guards": []
+  },
+  {
+    "method": "POST",
+    "path": "/api/webhooks/meta/:token",
+    "source": "server/routes/webhooks.ts",
+    "guards": []
+  },
+  {
+    "method": "POST",
+    "path": "/api/webhooks/uazapi/:token",
+    "source": "server/routes/webhooks.ts",
+    "guards": []
+  },
+  {
+    "method": "GET",
+    "path": "/api/whatsapp/meta/callback",
+    "source": "server/routes/whatsapp-meta.ts",
+    "guards": []
+  },
+  {
+    "method": "POST",
+    "path": "/api/whatsapp/meta/configure",
+    "source": "server/routes/whatsapp-meta.ts",
+    "guards": [
+      "...ownerOnly"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/whatsapp/meta/connect",
+    "source": "server/routes/whatsapp-meta.ts",
+    "guards": [
+      "...ownerOnly"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/whatsapp/meta/disconnect",
+    "source": "server/routes/whatsapp-meta.ts",
+    "guards": [
+      "...ownerOnly"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/whatsapp/meta/status",
+    "source": "server/routes/whatsapp-meta.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/whatsapp/meta/webhook/repair",
+    "source": "server/routes/whatsapp-meta.ts",
+    "guards": [
+      "...ownerOnly"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/whatsapp/templates",
+    "source": "server/routes/whatsapp-templates.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/whatsapp/templates",
+    "source": "server/routes/whatsapp-templates.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/whatsapp/templates/:id",
+    "source": "server/routes/whatsapp-templates.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/whatsapp/templates/:id/resubmit",
+    "source": "server/routes/whatsapp-templates.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/whatsapp/templates/appointment-reminder",
+    "source": "server/routes/whatsapp-templates.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/whatsapp/templates/sync",
+    "source": "server/routes/whatsapp-templates.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/whatsapp/uazapi/connect",
+    "source": "server/routes/whatsapp-uazapi.ts",
+    "guards": [
+      "...ownerOnly"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/whatsapp/uazapi/disconnect",
+    "source": "server/routes/whatsapp-uazapi.ts",
+    "guards": [
+      "...ownerOnly"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/whatsapp/uazapi/status",
+    "source": "server/routes/whatsapp-uazapi.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/whatsapp/uazapi/webhook/setup",
+    "source": "server/routes/whatsapp-uazapi.ts",
+    "guards": [
+      "...ownerOnly"
+    ]
+  }
+]

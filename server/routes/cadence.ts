@@ -1,15 +1,16 @@
 import { Router } from 'express'
-import { PrismaClient } from '@prisma/client'
-import { auth } from '../middleware/auth.js'
+import { prisma } from '../prisma.js'
+import { auth, requireModule } from '../middleware/auth.js'
+import { conversationScope } from '../services/conversation-access.js'
 import { createErrorResponse, createSuccessResponse } from '../utils/response.js'
 
-const prisma = new PrismaClient()
 export const router = Router()
+router.use(auth(), requireModule('funnel'))
 
 // GET /api/cadence/:stageCode
 router.get('/:stageCode', auth(), async (req, res) => {
   try {
-    const { stageCode } = req.params
+    const stageCode = String(req.params.stageCode)
     const companyId = req.user?.companyId
 
     if (!companyId) return res.status(403).json(createErrorResponse('Acesso negado'))
@@ -41,7 +42,7 @@ router.get('/:stageCode', auth(), async (req, res) => {
 // PUT /api/cadence/:stageCode
 router.put('/:stageCode', auth(), async (req, res) => {
   try {
-    const { stageCode } = req.params
+    const stageCode = String(req.params.stageCode)
     const companyId = req.user?.companyId
     const { isActive, steps } = req.body
 
@@ -50,12 +51,8 @@ router.put('/:stageCode', auth(), async (req, res) => {
       return res.status(403).json(createErrorResponse('Acesso negado.'))
     }
 
-    if (req.user?.type === 'usuario') {
-      // Verificar se o usuário tem permissão de admin/gestor
-      const dbUser = await prisma.usuario.findUnique({ where: { id: req.user.id }, include: { role: true } })
-      if (dbUser?.role && !dbUser.role.isAdmin && !dbUser.role.isManager) {
-        return res.status(403).json(createErrorResponse('Apenas Administradores ou Gestores podem configurar cadências.'))
-      }
+    if (!(await conversationScope(req.user!)).canManage) {
+      return res.status(403).json(createErrorResponse('Apenas proprietários ou gestores da clínica podem configurar cadências.', 403))
     }
 
     const config = await prisma.cadenceConfig.upsert({

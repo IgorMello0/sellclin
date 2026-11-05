@@ -14,7 +14,7 @@ router.get('/', auth(), async (req, res) => {
     const { skip, take, page, pageSize } = parsePagination(req.query)
     const profId = await getCompanyOwnerProfessionalId(req.user?.companyId)
 
-    const where: any = { professionalId: profId };
+    const where: any = { companyId: req.user!.companyId!, professionalId: profId };
 
     const [items, total] = await Promise.all([
       prisma.catalogItem.findMany({
@@ -22,7 +22,7 @@ router.get('/', auth(), async (req, res) => {
         skip,
         take,
         orderBy: { id: 'desc' },
-        include: { category: true, appointments: true }
+        include: { category: true }
       }),
       prisma.catalogItem.count({ where })
     ])
@@ -37,8 +37,8 @@ router.get('/:id', auth(), async (req, res) => {
   const id = Number(req.params.id)
   const professionalId = await getCompanyOwnerProfessionalId(req.user?.companyId)
   const item = await prisma.catalogItem.findFirst({
-    where: { id, professionalId },
-    include: { category: true, appointments: true }
+    where: { id, companyId: req.user!.companyId!, professionalId },
+    include: { category: true }
   })
   if (!item) return res.status(404).json(createErrorResponse('Item de catálogo não encontrado', 404))
   res.json(createSuccessResponse(item))
@@ -51,9 +51,13 @@ router.post('/', auth(), requireModule('catalogos'), async (req, res) => {
     const professionalId = await getCompanyOwnerProfessionalId(req.user?.companyId)
 
     const categoryIdNum = categoryId ? Number(categoryId) : null
+    if (categoryIdNum && !await prisma.category.findFirst({ where: { id: categoryIdNum, companyId: req.user!.companyId!, professionalId }, select: { id: true } })) {
+      return res.status(400).json(createErrorResponse('Categoria inválida para esta clínica', 400))
+    }
     
     const created = await prisma.catalogItem.create({
       data: { 
+        companyId: req.user!.companyId!,
         professionalId, 
         categoryId: categoryIdNum, 
         name, 
@@ -76,10 +80,13 @@ router.put('/:id', auth(), requireModule('catalogos'), async (req, res) => {
     const { categoryId, name, description, price, imageUrl, status, durationMinutes } = req.body
     
     const professionalId = await getCompanyOwnerProfessionalId(req.user?.companyId)
-    const current = await prisma.catalogItem.findFirst({ where: { id, professionalId } });
+    const current = await prisma.catalogItem.findFirst({ where: { id, companyId: req.user!.companyId!, professionalId } });
     if (!current) return res.status(404).json(createErrorResponse('Item não encontrado', 404));
 
-    const categoryIdNum = categoryId ? Number(categoryId) : null
+    const categoryIdNum = categoryId === undefined ? undefined : categoryId ? Number(categoryId) : null
+    if (categoryIdNum && !await prisma.category.findFirst({ where: { id: categoryIdNum, companyId: req.user!.companyId!, professionalId }, select: { id: true } })) {
+      return res.status(400).json(createErrorResponse('Categoria inválida para esta clínica', 400))
+    }
     
     const updated = await prisma.catalogItem.update({
       where: { id },
@@ -102,7 +109,7 @@ router.put('/:id', auth(), requireModule('catalogos'), async (req, res) => {
 router.delete('/:id', auth(), requireModule('catalogos'), async (req, res) => {
   const id = Number(req.params.id)
   const professionalId = await getCompanyOwnerProfessionalId(req.user?.companyId)
-  const current = await prisma.catalogItem.findFirst({ where: { id, professionalId }, select: { id: true } })
+  const current = await prisma.catalogItem.findFirst({ where: { id, companyId: req.user!.companyId!, professionalId }, select: { id: true } })
   if (!current) return res.status(404).json(createErrorResponse('Item não encontrado', 404))
   await prisma.catalogItem.delete({ where: { id: current.id } })
   res.json(createSuccessResponse({ id }))

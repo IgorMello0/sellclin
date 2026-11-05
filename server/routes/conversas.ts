@@ -11,6 +11,7 @@ import { sendUazapiRequest } from '../services/uazapi-whatsapp.js'
 import { sendMetaTemplateMessage } from '../services/whatsapp-messages.js'
 import { conversationScope } from '../services/conversation-access.js'
 import { leadVisibility } from '../services/funnel-access.js'
+import { assertClientBelongsToCompany, assertProfessionalBelongsToCompany } from '../services/tenant.js'
 
 export const router = Router()
 router.use(auth())
@@ -869,6 +870,11 @@ router.post('/', auth(), requireModule('conversas'), async (req, res) => {
     const companyId = req.user?.companyId;
     if (!companyId) return res.status(400).json(createErrorResponse('Empresa não identificada', 400));
 
+    if (clientId) await assertClientBelongsToCompany(Number(clientId), companyId)
+    if (agentId && !await prisma.agenteIa.findFirst({ where: { id: Number(agentId), companyId }, select: { id: true } })) {
+      return res.status(400).json(createErrorResponse('Agente IA inválido para esta clínica', 400))
+    }
+
     let professionalId: number;
 
     if (req.user?.type === 'profissional') {
@@ -910,6 +916,8 @@ router.put('/:id', auth(), requireModule('conversas'), async (req, res) => {
   const existing = await prisma.conversa.findFirst({ where: { id, companyId: companyId || -1 }, select: { id: true } })
   if (!existing) return res.status(404).json(createErrorResponse('Conversa nao encontrada', 404))
   const { agentId, clientId, professionalId, app, channel } = req.body
+  if (clientId) await assertClientBelongsToCompany(Number(clientId), companyId)
+  if (professionalId) await assertProfessionalBelongsToCompany(Number(professionalId), companyId)
   if (agentId) {
     const agent = await prisma.agenteIa.findFirst({ where: { id: Number(agentId), companyId: companyId || -1 } })
     if (!agent) return res.status(400).json(createErrorResponse('Agente IA nao pertence a esta clinica', 400))

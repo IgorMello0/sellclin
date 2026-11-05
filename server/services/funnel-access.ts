@@ -12,7 +12,7 @@ export async function leadVisibility(prisma: PrismaClient, user: any, companyId:
   if (!account?.isActive || access?.isActive === false || (!access && account.companyId !== companyId)) {
     return { companyId, id: -1 }
   }
-  const role = access?.role || account.role
+  const role = access?.role || (account.companyId === companyId ? account.role : null)
   if (role?.isAdmin || role?.isManager) return { companyId }
   const assignments: any[] = []
   if (role?.isSDR) assignments.push({ sdrId: user.id })

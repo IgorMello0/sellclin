@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { prisma } from '../prisma.js'
-import { auth, requireCompanyOwner } from '../middleware/auth.js'
+import { auth, requireCompanyOwner, requireIdentity, requirePermission } from '../middleware/auth.js'
 import { createErrorResponse, createSuccessResponse, parsePagination } from '../utils/response.js'
 import { matchesLoginPassword } from '../services/password-policy.js'
 import jwt from 'jsonwebtoken'
@@ -75,7 +75,7 @@ router.post('/login', async (req, res) => {
     res.status(500).json(createErrorResponse('Erro interno do servidor', 500))
   }
 })
-router.get('/me', auth(), async (req, res) => {
+router.get('/me', auth(), requireIdentity('profissional'), async (req, res) => {
   try {
     const professional = await prisma.professional.findUnique({
       where: { id: req.user!.id },
@@ -131,7 +131,7 @@ router.get('/me', auth(), async (req, res) => {
 })
 
 // Completar o Onboarding
-router.post('/onboarding/complete', auth(), async (req, res) => {
+router.post('/onboarding/complete', auth(), requireIdentity('profissional'), requireCompanyOwner(), async (req, res) => {
   try {
     const { companyName, logoUrl, faturamentoMensal, quantidadeFuncionarios, quantidadeClinicas, canalAquisicao, objetivoCrm } = req.body;
     
@@ -154,9 +154,9 @@ router.post('/onboarding/complete', auth(), async (req, res) => {
       }
     });
 
-    if (professional.companyId && companyName) {
+    if (req.user!.companyId && companyName) {
       await prisma.empresa.update({
-        where: { id: professional.companyId },
+        where: { id: req.user!.companyId },
         data: { name: companyName },
         select: { id: true },
       });
@@ -170,7 +170,7 @@ router.post('/onboarding/complete', auth(), async (req, res) => {
 })
 
 // Atualizar perfil do profissional logado
-router.put('/me', auth(), async (req, res) => {
+router.put('/me', auth(), requireIdentity('profissional'), async (req, res) => {
   try {
     const { name, phone, specialization, photoUrl, bio, crm } = req.body
 
@@ -293,7 +293,7 @@ router.delete('/:id', auth(), requireCompanyOwner(), async (req, res) => {
 })
 
 // Listar clientes de um profissional
-router.get('/:id/clientes', auth(), async (req, res) => {
+router.get('/:id/clientes', auth(), requirePermission('clientes', 'verClientes'), async (req, res) => {
   const professionalId = Number(req.params.id)
   const professional = await prisma.professional.findFirst({
     where: { id: professionalId, companyId: req.user!.companyId },

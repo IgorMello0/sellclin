@@ -71,7 +71,7 @@ export async function fetchIntegration(value: string | URL, init: RequestInit = 
     if (values === undefined || ['content-encoding', 'content-length', 'transfer-encoding'].includes(key)) continue
     for (const v of Array.isArray(values) ? values : [String(values)]) responseHeaders.append(key, v)
   }
-  const response = new Response([204, 205, 304].includes(result.status) || request.method === 'HEAD' ? null : buffer, { status: result.status, headers: responseHeaders })
+  const response = new Response([204, 205, 304].includes(result.status) || request.method === 'HEAD' ? null : new Uint8Array(buffer), { status: result.status, headers: responseHeaders })
   Object.defineProperty(response, 'url', { value: target.url.toString() })
   return response
 }

@@ -77,8 +77,9 @@ router.put('/:id/read', auth(), async (req, res) => {
     const recipientId = req.user!.id
     const isUser = req.user!.type === 'usuario'
 
-    const notification = await prisma.notification.findUnique({
-      where: { id }
+    const where = { id, companyId: req.user!.companyId, ...(isUser ? { recipientUserId: recipientId } : { recipientId }) }
+    const notification = await prisma.notification.findFirst({
+      where
     })
 
     if (!notification) {
@@ -94,7 +95,7 @@ router.put('/:id/read', auth(), async (req, res) => {
     }
 
     const updated = await prisma.notification.update({
-      where: { id },
+      where,
       data: { read: true }
     })
 

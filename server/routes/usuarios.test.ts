@@ -4,7 +4,7 @@ import { encryptCredential, readCredentialData } from '../services/integration-e
 
 const state = vi.hoisted(() => ({ db: {} as any, sendInvite: vi.fn() }))
 vi.mock('../prisma.js', () => ({ prisma: state.db }))
-vi.mock('../middleware/auth.js', () => ({ auth: () => () => {}, requireCompanyOwner: () => () => {} }))
+vi.mock('../middleware/auth.js', () => ({ auth: () => () => {}, requireCompanyOwner: () => () => {}, requireIdentity: () => () => {} }))
 vi.mock('../bootstrap/defaults.js', () => ({ ensureCompanyDefaults: vi.fn() }))
 vi.mock('../services/billing.js', () => ({ assertCanAddUserToCompany: vi.fn(), BillingLimitError: class extends Error {} }))
 vi.mock('../services/email-verification.js', () => ({ sendTeamInviteEmail: state.sendInvite }))

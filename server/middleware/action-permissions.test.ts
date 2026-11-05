@@ -39,7 +39,7 @@ it.each(cases)('%s %s %s respects %s and preserves allowed operations',async(mod
  const req:any={user:{id:5,type:'usuario',companyId:2,role:'admin'},method,path,body};
  state.sub={[key]:false};const denied=response();const next=vi.fn();
  await actionPermissions(module)(req,denied,next);expect(denied.code).toBe(403);expect(next).not.toHaveBeenCalled();
- state.sub={[key]:true};const allowed=response();await actionPermissions(module)(req,allowed,next);expect(next).toHaveBeenCalledTimes(1);
+ state.sub={verClientes:true,verLeads:true,verAgendamentosAlheios:true,moverFases:true,[key]:true};const allowed=response();await actionPermissions(module)(req,allowed,next);expect(next).toHaveBeenCalledTimes(1);
 });
 it('does not require delegation permission to assign a task to oneself',async()=>{
  state.sub={atribuirParaOutros:false};const next=vi.fn();

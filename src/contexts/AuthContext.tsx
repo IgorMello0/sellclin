@@ -153,7 +153,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Verificar se o usuário tem acesso a um módulo
   const hasModuleAccess = (moduleCode: string): boolean => {
     // Admins (conta da Sellclin) têm acesso irrestrito a todos os módulos
-    if (professional?.role === 'admin') return true;
     if (isHiddenDevelopmentModule(moduleCode) && canAccessHiddenDevelopmentPages(professional?.email)) return true;
     
     if (!permissionsLoaded) return false;
@@ -167,15 +166,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!permissionsLoaded) return false;
     
     // Usuários da equipe, inclusive administradores, respeitam as permissões do cargo.
-    const type = localStorage.getItem('userType');
-    if (type === 'professional') return true;
-
     const perms = Array.isArray(permissions) ? permissions : [];
     const permission = perms.find((p) => p.moduleCode === moduleCode);
     if (!permission || !permission.hasAccess) return false;
 
     const subPerms = permission.subPermissions;
-    if (!subPerms || subPerms[permissionKey] === undefined) return true;
+    if (!subPerms || subPerms[permissionKey] === undefined) return false;
 
     return subPerms[permissionKey];
   };

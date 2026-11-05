@@ -52,7 +52,7 @@ router.post('/', auth(), async (req, res) => {
   const professionalId = await getCompanyOwnerProfessionalId(req.user?.companyId)
   if (templateId) {
     const template = await prisma.fichaTemplate.findFirst({
-      where: { id: Number(templateId), createdBy: professionalId },
+      where: { id: Number(templateId), companyId: req.user!.companyId!, createdBy: professionalId },
       select: { id: true },
     })
     if (!template) return res.status(400).json(createErrorResponse('Template inválido para esta clínica', 400))
@@ -71,7 +71,13 @@ router.put('/:id', auth(), async (req, res) => {
     select: { id: true },
   })
   if (!current) return res.status(404).json(createErrorResponse('Ficha não encontrada', 404))
-  const updated = await prisma.ficha.update({ where: { id: current.id }, data: { type, templateId, content } })
+  if (templateId != null) {
+    const createdBy = await getCompanyOwnerProfessionalId(req.user?.companyId)
+    if (!await prisma.fichaTemplate.findFirst({ where: { id: Number(templateId), companyId: req.user!.companyId!, createdBy }, select: { id: true } })) {
+      return res.status(400).json(createErrorResponse('Template inválido para esta clínica', 400))
+    }
+  }
+  const updated = await prisma.ficha.update({ where: { id: current.id, client: { companyId: req.user!.companyId } }, data: { type, templateId, content } })
   res.json(createSuccessResponse(updated))
 })
 

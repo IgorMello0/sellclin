@@ -1043,7 +1043,7 @@ async function resolveAudience(
     const { type, recipientIds } = audienceFilter
     if (type === 'leads') {
       const leads = await prisma.lead.findMany({
-        where: { id: { in: recipientIds.map(Number) }, professionalId },
+        where: { id: { in: recipientIds.map(Number) }, professionalId, companyId },
         select: { id: true, name: true, phone: true }
       })
       for (const l of leads) {
@@ -1054,7 +1054,7 @@ async function resolveAudience(
       }
     } else {
       const clients = await prisma.client.findMany({
-        where: { id: { in: recipientIds.map(Number) }, professionalId },
+        where: { id: { in: recipientIds.map(Number) }, professionalId, companyId },
         select: { id: true, name: true, phone: true }
       })
       for (const c of clients) {

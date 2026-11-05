@@ -20,6 +20,9 @@ export function actionPermissions(module: string) {
     const checks: [string, string][] = []
     const check = (key: string, scope = module) => checks.push([scope, key])
     const write = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)
+    if (module === 'clientes') check('verClientes')
+    if (module === 'funnel') check('verLeads', 'clientes')
+    if (module === 'metas' && !write) check('verMetasEquipe')
     if (module === 'agendamentos' && /^\/\d+\/?$/.test(path) && !await hasActionPermission(req, module, 'verAgendamentosAlheios')) {
       const id = Number(path.split('/')[1])
       const own = req.user!.type === 'usuario'

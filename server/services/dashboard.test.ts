@@ -76,7 +76,7 @@ async function execute(options: { query?: any; user?: any; globalRole?: any; act
   const db = {
     professional: { findMany: async () => [{ id: 1 }] },
     empresa: { findUnique: async () => ({ ownerId: 1 }) },
-    usuario: { findUnique: async () => ({ role: options.globalRole || { isManager: true, permissions: [] } }) },
+    usuario: { findUnique: async () => ({ companyId: 2, role: options.globalRole || { isManager: true, permissions: [{ subPermissions: { verFaturamento: true } }] } }) },
     userCompanyAccess: { findUnique: async () => options.activeRole ? { role: options.activeRole } : null },
     funnelConfig: { findMany: async () => [] },
     lead: {
@@ -117,9 +117,15 @@ async function execute(options: { query?: any; user?: any; globalRole?: any; act
 }
 
 describe('dashboard access and metrics', () => {
+  it('hides financial metrics without an explicit grant even for an administrator', async () => {
+    const { body } = await execute({ activeRole: { value: 'admin', isAdmin: true, permissions: [] } })
+    assert.equal(body.data.faturamento, 0)
+    assert.equal(body.data.faturamentoFechado, 0)
+    assert.equal(body.data.totalDiscount, 0)
+  })
   it('counts a closed sale only after its payment method is confirmed', async () => {
     const confirmedAt = new Date('2026-09-08T12:00:00Z')
-    const { body } = await execute({ leads: [lead(1, { isPaid: false }), lead(2, { isPaid: true, sales: [{ amount: 100, confirmedAt, voidedAt: null }] })], activeRole: { isManager: true, permissions: [] } })
+    const { body } = await execute({ leads: [lead(1, { isPaid: false }), lead(2, { isPaid: true, sales: [{ amount: 100, confirmedAt, voidedAt: null }] })], activeRole: { isManager: true, permissions: [{ subPermissions: { verFaturamento: true } }] } })
     assert.equal(body.data.contratos, 1)
     assert.equal(body.data.faturamentoFechado, 100)
     assert.equal(body.data.funil.fechados, 1)
@@ -137,7 +143,7 @@ describe('dashboard access and metrics', () => {
         { amount: 500, confirmedAt: createdAt, voidedAt: null },
       ],
     })]
-    const { body } = await execute({ leads: rows, activeRole: { isManager: true, permissions: [] } })
+    const { body } = await execute({ leads: rows, activeRole: { isManager: true, permissions: [{ subPermissions: { verFaturamento: true } }] } })
     assert.equal(body.data.oportunidades, 3)
     assert.equal(body.data.faturamento, 1000)
     assert.equal(body.data.contratos, 2)
@@ -155,7 +161,7 @@ describe('dashboard access and metrics', () => {
       ],
       sales: [{ amount: 270, confirmedAt, voidedAt: null }],
     })]
-    const { body } = await execute({ leads: rows, activeRole: { isManager: true, permissions: [] } })
+    const { body } = await execute({ leads: rows, activeRole: { isManager: true, permissions: [{ subPermissions: { verFaturamento: true } }] } })
     assert.equal(body.data.totalDiscount, 30)
   })
   it('calculates closed/proposals from contracts and proposals in their displayed periods', async () => {
@@ -167,14 +173,14 @@ describe('dashboard access and metrics', () => {
         { amount: 500, confirmedAt: createdAt, voidedAt: null },
       ],
     })]
-    const { body } = await execute({ leads: rows, activeRole: { isManager: true, permissions: [] } })
+    const { body } = await execute({ leads: rows, activeRole: { isManager: true, permissions: [{ subPermissions: { verFaturamento: true } }] } })
     assert.equal(body.data.oportunidades, 1)
     assert.equal(body.data.contratos, 2)
     assert.equal(body.data.conversaoPropostas, '200.0')
   })
   it('keeps overdue installments in the payment-method totals', async () => {
     const { body } = await execute({
-      activeRole: { isManager: true, permissions: [] },
+      activeRole: { isManager: true, permissions: [{ subPermissions: { verFaturamento: true } }] },
       paymentGroups: [
         { method: 'transferencia', status: 'atrasado', _sum: { amount: 599 } },
         { method: 'pix', status: 'pago', _sum: { amount: 400 } },
@@ -224,7 +230,7 @@ describe('dashboard access and metrics', () => {
     for (const model of ['appointment', 'payment']) assert(result.calls.find(call => call.model === model)?.where.AND.length)
   })
   it('allows the whole team for an active-clinic manager with a global SDR role', async () => {
-    const result = await execute({ globalRole: { isSDR: true, permissions: [] }, activeRole: { isManager: true, permissions: [] } })
+    const result = await execute({ globalRole: { isSDR: true, permissions: [] }, activeRole: { isManager: true, permissions: [{ subPermissions: { verFaturamento: true } }] } })
     assert.equal(result.body.data.leads, 2)
   })
   it('restricts accounts without a role and preserves the clinic boundary', async () => {

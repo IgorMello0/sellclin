@@ -7,7 +7,7 @@ export async function conversationScope(user: AuthenticatedUser) {
   if (!companyId) return { where: { companyId: -1 }, canManage: false }
   if (user.type === 'profissional') {
     const owner = await prisma.empresa.findFirst({ where: { id: companyId, ownerId: user.id }, select: { id: true } })
-    if (owner || user.role === 'admin') return { where: { companyId }, canManage: true }
+    if (owner) return { where: { companyId }, canManage: true }
     return { where: { companyId, assignedProfessionalId: user.id }, canManage: false }
   }
   if (user.type !== 'usuario') return { where: { companyId: -1 }, canManage: false }
@@ -21,7 +21,7 @@ export async function conversationScope(user: AuthenticatedUser) {
   if (!account?.isActive || access?.isActive === false || (!access && account.companyId !== companyId)) {
     return { where: { companyId: -1 }, canManage: false }
   }
-  const role = access?.role || account.role
+  const role = access?.role || (account.companyId === companyId ? account.role : null)
   if (role?.isAdmin || role?.isManager) return { where: { companyId }, canManage: true }
   const assignments: any[] = []
   if (role?.isSDR) assignments.push({ lead: { sdrId: user.id } })

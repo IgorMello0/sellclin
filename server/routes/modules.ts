@@ -22,7 +22,7 @@ router.get('/', auth(), async (_req, res) => {
 // Buscar módulo por código
 router.get('/:code', auth(), async (req, res) => {
   try {
-    const { code } = req.params
+    const code = String(req.params.code)
     const module = await prisma.module.findUnique({
       where: { code },
     })
