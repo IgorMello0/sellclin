@@ -1,10 +1,67 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { buildMetaConnectUrl, verifyMetaState } from './meta-whatsapp.js'
-import { handleMetaMessages, handleUazapiPayload, processIncomingMessage } from './whatsapp-integration.js'
+import { handleMetaMessages, handleUazapiPayload, processIncomingMessage, processOutgoingMessage } from './whatsapp-integration.js'
 import { chooseSdrForCompany } from './sdr-routing.js'
 
 type RecordData = Record<string, any>
+
+const contactInput = { companyId: 5, ownerId: 10, phone: '5511999000000', pushName: '', messageText: 'Oi', rawPayload: {}, origin: 'WhatsApp' }
+
+test('a later inbound name replaces an automatic placeholder and preserves manually edited names', async () => {
+  const { db, state } = createFakeDatabase()
+  await processOutgoingMessage({ ...contactInput, pushName: 'Nome da clínica' }, db)
+  assert.equal(state.leads[0].name, 'Contato WhatsApp')
+  await processIncomingMessage({ ...contactInput, pushName: '  Ana   Silva  ' }, db)
+  assert.equal(state.leads[0].name, 'Ana Silva')
+  state.leads[0].name = 'Ana — cadastro da equipe'
+  await processIncomingMessage({ ...contactInput, pushName: 'Nome do perfil mudou' }, db)
+  assert.equal(state.leads[0].name, 'Ana — cadastro da equipe')
+  assert.equal(state.leads.length, 1)
+  assert.equal(state.conversations.length, 1)
+})
+
+test('empty, generic, phone-only and outgoing names never replace the placeholder', async () => {
+  const { db, state } = createFakeDatabase()
+  await processIncomingMessage(contactInput, db)
+  for (const pushName of ['', '   ', 'Contato WhatsApp', '+55 (11) 99900-0000']) {
+    await processIncomingMessage({ ...contactInput, pushName }, db)
+    assert.equal(state.leads[0].name, 'Contato WhatsApp')
+  }
+  await processOutgoingMessage({ ...contactInput, pushName: 'Clínica' }, db)
+  assert.equal(state.leads[0].name, 'Contato WhatsApp')
+})
+
+test('placeholder correction is restricted to automatically created leads in the current clinic', async () => {
+  const { db, state } = createFakeDatabase()
+  await processIncomingMessage(contactInput, db)
+  await processIncomingMessage({ ...contactInput, companyId: 6 }, db)
+  await processIncomingMessage({ ...contactInput, pushName: 'Ana' }, db)
+  assert.equal(state.leads[1].name, 'Contato WhatsApp')
+  state.leads[0].name = 'Contato WhatsApp'
+  state.leads[0].tags = []
+  await processIncomingMessage({ ...contactInput, pushName: 'Outro nome' }, db)
+  assert.equal(state.leads[0].name, 'Contato WhatsApp')
+})
+
+test('a concurrent team name edit wins over the webhook name update', async () => {
+  const { db, state } = createFakeDatabase()
+  await processIncomingMessage(contactInput, db)
+  const update = db.lead.updateMany
+  db.lead.updateMany = async (args: any) => {
+    state.leads[0].name = 'Nome salvo pela equipe'
+    return update(args)
+  }
+  await processIncomingMessage({ ...contactInput, pushName: 'Nome WhatsApp' }, db)
+  assert.equal(state.leads[0].name, 'Nome salvo pela equipe')
+})
+
+test('Meta inbound profile repairs a lead first created by an event without a name', async () => {
+  const { db, state } = createFakeDatabase()
+  await processIncomingMessage({ ...contactInput, phone: '5511999990001' }, db)
+  await handleMetaMessages(metaInboundPayload('repair-name-1', 'Olá'), { id: 5, ownerId: 10, name: 'Clínica' }, db)
+  assert.equal(state.leads[0].name, 'Lead Meta')
+})
 
 function createFakeDatabase(options: { failFirstMessageCreate?: boolean; routingMode?: string; sdrs?: Array<{ id: number; leadRoutingWeight: number }> } = {}) {
   const state = {
@@ -28,6 +85,11 @@ function createFakeDatabase(options: { failFirstMessageCreate?: boolean; routing
     },
     usuario: { findMany: async () => options.sdrs || [] },
     lead: {
+      updateMany: async ({ where, data }: any) => {
+        const rows = state.leads.filter(lead => lead.id === where.id && lead.companyId === where.companyId && lead.name === where.name && lead.tags?.includes(where.tags.has))
+        rows.forEach(lead => Object.assign(lead, data))
+        return { count: rows.length }
+      },
       findFirst: async ({ where }: any) => state.leads.find(
         (lead) => lead.phone === where.phone && lead.companyId === where.companyId,
       ) || null,

@@ -1935,6 +1935,24 @@
     ]
   },
   {
+    "method": "GET",
+    "path": "/api/usuarios/:id/lead-transfer",
+    "source": "server/routes/usuarios.ts",
+    "guards": [
+      "auth()",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/usuarios/:id/lead-transfer",
+    "source": "server/routes/usuarios.ts",
+    "guards": [
+      "auth()",
+      "requireCompanyOwner()"
+    ]
+  },
+  {
     "method": "POST",
     "path": "/api/usuarios/:id/resend-invite",
     "source": "server/routes/usuarios.ts",

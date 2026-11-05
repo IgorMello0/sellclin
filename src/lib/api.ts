@@ -690,6 +690,8 @@ export const categoriesApi = {
 
 // Usuários
 export const usuariosApi = {
+  leadTransferPreview: (id: number) => apiRequest<{ source: { id: number; name: string }; companyId: number; total: number; counts: Record<string, number>; targets: Array<{ id: number; name: string }> }>(`/usuarios/${id}/lead-transfer`),
+  transferLeads: (id: number, targetId: number, expectedTotal: number, expectedCompanyId: number) => apiRequest<{ transferred: number }>(`/usuarios/${id}/lead-transfer`, { method: 'POST', body: JSON.stringify({ targetId, expectedTotal, expectedCompanyId }) }),
   getAll: async (params?: { page?: number; pageSize?: number; search?: string; allCompanies?: boolean }) => {
     const query = new URLSearchParams()
     if (params?.page) query.append('page', params.page.toString())

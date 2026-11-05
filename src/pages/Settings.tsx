@@ -49,6 +49,7 @@ import DiscountSettingsView from './settings/DiscountSettingsView';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { catalogsApi, professionalsApi, usuariosApi, permissionsApi, empresasApi, rolesApi, modulesApi, billingApi, type BillingStatus, type BillingUsage } from '@/lib/api';
+import { LeadTransfer } from '@/components/team/LeadTransfer';
 import Profile from './Profile';
 
 // -- CARGOS HELPERS REMOVIDOS (Agora vêm do banco) --
@@ -825,6 +826,11 @@ const EquipeView = ({ isSpecialistMode = false }: { isSpecialistMode?: boolean }
                 </div>
 
                 <Separator />
+
+                {isOwner && professional?.companyId && <>
+                  <LeadTransfer key={`${u.id}-${professional.companyId}`} memberId={u.id} companyId={Number(professional.companyId)} companyName={clinicas.find(c => Number(c.id) === Number(professional.companyId))?.name || 'a clínica atual'} />
+                  <Separator />
+                </>}
 
                 {/* Resetar Senha */}
                 <div className="space-y-4">

@@ -1238,6 +1238,10 @@ async function persistWhatsAppMessage(
     providerMediaType, messageAt, avatarUrl,
   } = opts
   const isIncoming = sender === 'cliente'
+  // Outgoing echoes may carry the clinic's sender name instead of the contact.
+  const incomingName = isIncoming && typeof pushName === 'string' ? pushName.trim().replace(/\s+/g, ' ') : ''
+  const contactName = incomingName && incomingName.toLowerCase() !== 'contato whatsapp'
+    && !/^[\d\s()+.-]+$/.test(incomingName) ? incomingName : null
   const occurredAt = messageAt || new Date()
 
   if (!ownerId) {
@@ -1258,7 +1262,7 @@ async function persistWhatsAppMessage(
         professionalId: ownerId,
         companyId,
         sdrId,
-        name: pushName || 'Contato WhatsApp',
+        name: contactName || 'Contato WhatsApp',
         phone,
         avatar: avatarUrl || null,
         status: 'prospect_lead',
@@ -1271,6 +1275,16 @@ async function persistWhatsAppMessage(
     })
 
     action = 'created'
+  }
+
+  if (action === 'existing' && contactName && lead.tags?.includes('whatsapp-auto')
+    && (!lead.name?.trim() || lead.name.trim().toLowerCase() === 'contato whatsapp')) {
+    // Compare-and-set preserves a name edited by the team after this lookup.
+    const renamed = await db.lead.updateMany({
+      where: { id: lead.id, companyId, name: lead.name, tags: { has: 'whatsapp-auto' } },
+      data: { name: contactName },
+    })
+    if (renamed.count) lead = { ...lead, name: contactName }
   }
 
   let conversa = await db.conversa.findFirst({

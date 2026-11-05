@@ -8,7 +8,7 @@
 
 ## Matriz e barreira central
 
-`server/config/route-manifest.json` registra os 225 pares método/caminho atuais, arquivo de origem e middlewares declarados. `scripts/security-route-inventory.mjs` extrai as declarações pela AST TypeScript, sem interpretar comentários como rotas. O teste compara a matriz com o código: alterações exigem revisão explícita do manifesto.
+`server/config/route-manifest.json` registra os 227 pares método/caminho atuais, arquivo de origem e middlewares declarados, incluindo as duas rotas de transferência de leads integradas da main. `scripts/security-route-inventory.mjs` extrai as declarações pela AST TypeScript, sem interpretar comentários como rotas. O teste compara a matriz com o código: alterações exigem revisão explícita do manifesto.
 
 `routePolicy` bloqueia endpoints `/api` fora do manifesto. Rotas privadas exigem sessão e clínica ativa antes de chegar ao handler. Autenticação repetida reutiliza somente o resultado da mesma requisição; a requisição seguinte revalida acesso no banco. HEAD usa a política de GET. CORS trata preflight antes dessa barreira.
 
@@ -44,20 +44,37 @@ Arquivo: `server/scripts/migrate-security-isolation.ts`. NÃO executar `prisma d
 7. Conferir contagens, vínculos e acessos de proprietário, funcionário restrito e usuário multiempresa; executar novamente e confirmar `alreadyApplied: true`. A marca de versão impede duplicação.
 8. Só depois repetir o procedimento aprovado na produção e publicar backend/frontend juntos. Evitar versões antiga e nova simultâneas. Manter `RUN_PRISMA_DB_PUSH=false`.
 
+Na imagem Docker compilada, o comando equivalente é `node dist-server/scripts/migrate-security-isolation.js --apply` (omitir `--apply` para a contagem somente leitura). Enviar código ao GitHub não executa essa migração nem substitui o procedimento de manutenção da VPS.
+
 Uma falha antes do commit desfaz as alterações da transação; sequências PostgreSQL podem avançar. Após o commit, a reversão exige procedimento de restauração planejado: não há down migration que una cadastros que já possam ter sido editados separadamente. Guardar backup até a homologação e o aceite operacional.
 
 Os cargos criados futuramente começam sem acesso; a tela de cargos permite liberar os módulos e ações explicitamente. A inicialização não reativa negativas gravadas. Revisar o cargo `Acessos legados — revisar` quando ele for criado pela migração para usuários sem cargo local.
 
 ## Verificação e limites
 
-Validação local em 01/11/2026: TypeScript do backend e build de produção aprovados. A suíte Vitest executou 164 testes; houve um timeout na leitura da matriz sob carga, corrigido com prazo específico de 20 segundos, e a reexecução direcionada passou (8/8, incluindo matriz, migração e usuários). Os outros 163 haviam passado na suíte completa. Dashboard e segurança de sessões passaram em 39/39 testes Node. O Node 26 exigiu desativar seu Web Storage experimental nos testes jsdom. Nenhum teste utilizou banco de produção.
+Validação local em 04/11/2026, após integrar a main até `3c69aec`: TypeScript do backend e build de produção aprovados. A suíte Vitest completa passou em 174/174 testes (25 arquivos, dois workers). Dashboard, sessões, cargos padrão e integração WhatsApp passaram em 62/62 testes Node. O Node 26 exigiu desativar seu Web Storage experimental nos testes jsdom. O build mantém o aviso de tamanho do bundle Admin. Nenhum teste utilizou banco de produção.
 
 - `npx tsc -p tsconfig.server.json --noEmit`
-- `npx vitest run` (suítes HTTP usam localhost e persistência simulada).
-- No Node 26, usar `NODE_OPTIONS=--no-experimental-webstorage npx vitest run` para o jsdom fornecer o armazenamento de navegador dos testes.
+- `npx vitest run --maxWorkers=2` (suítes HTTP usam localhost e persistência simulada).
+- No Node 26, usar `NODE_OPTIONS=--no-experimental-webstorage npx vitest run --maxWorkers=2` para o jsdom fornecer o armazenamento de navegador dos testes.
 - `npm run build`
-- `node --import tsx --test server/middleware/session-revocation.test.ts server/services/session-security.test.ts`
+- `node --import tsx --test server/services/dashboard.test.ts server/middleware/session-revocation.test.ts server/services/session-security.test.ts server/bootstrap/default-roles.test.ts server/services/whatsapp-integration.test.ts`
 
-As fixtures cobrem isolamento de mensagens inclusive dentro da mesma clínica, troca de clínica por cabeçalho, IDs coincidentes entre tipos de conta, cadastros do mesmo proprietário, vínculos externos, notificações, elevação de privilégios, bloqueio por ausência de permissões e transformação da migração. A migração ainda precisa de ensaio em PostgreSQL com cópia restaurada e teste real de rollback/constraints. Não foi executada contra produção.
+As fixtures cobrem isolamento de mensagens inclusive dentro da mesma clínica, troca de clínica por cabeçalho, IDs coincidentes entre tipos de conta, cadastros do mesmo proprietário, vínculos externos, notificações, elevação de privilégios, bloqueio por ausência de permissões e transformação da migração.
+
+## Ensaio real PostgreSQL local
+
+`scripts/security-postgres-rehearsal.mjs` passou em 12/12 verificações no PostgreSQL 18.6. Cria um cluster descartável restrito a `127.0.0.1`, com senha aleatória, usando o schema legado do commit `b63fb3d` e dados fictícios de três clínicas e dois proprietários. Sobrescreve as URLs herdadas com conexões locais; não aceita uma URL externa. O cluster é encerrado e removido ao final. A dependência do ensaio fica em `.security-check`, fora do Git e da imagem de produção.
+
+```sh
+npm install --prefix .security-check/postgres-runtime --no-audit --no-fund --save-exact embedded-postgres@18.6.0-beta.19
+node --import tsx scripts/security-postgres-rehearsal.mjs
+```
+
+O ensaio verifica cópias e remapeamento de serviços/modelos, preservação dos pacientes e conteúdos, negativas explícitas e acessos inativos, reexecução sem alterações, NOT NULL, chaves estrangeiras, índices e defaults de bloqueio. Compara o banco migrado ao schema Prisma; a única tabela extra esperada é a marca da migração. Exercita autenticação e autorização reais contra o banco migrado, inclusive usuário multiempresa, dono, cargo sem permissões e negativa granular. Confere que o bootstrap integrado dos cargos não reabre acessos.
+
+Quatro cenários inconsistentes (agendamento, ficha, cargo de outra clínica e proprietário sem clínica) confirmam rollback real dos dados, colunas, defaults e marca de versão. A comparação de schema identificou e corrigiu as regras das novas chaves estrangeiras para `ON DELETE RESTRICT ON UPDATE CASCADE`.
+
+**Limite:** isso não é restauração de backup da VPS e não comprova a consistência nem o tempo de migração dos dados reais. Antes de atualizar a VPS, continua obrigatório ensaiar com uma cópia restaurada, conferir a versão PostgreSQL usada nela e testar o procedimento operacional de backup/recuperação. Nenhuma migração de produção foi executada.
 
 Etapas 2–5 do plano (rotação de chaves, sessão por cookie/MFA, revisão ampla de logs/arquivos e infraestrutura) não são entregues por esta mudança.

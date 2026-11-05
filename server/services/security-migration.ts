@@ -10,7 +10,7 @@ export async function migrateSecurityIsolation(tx: Prisma.TransactionClient) {
   if (applied.length) return { alreadyApplied: true }
 
   for (const table of ['categories', 'catalog_items', 'ficha_templates']) {
-    await tx.$executeRawUnsafe(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS company_id INTEGER REFERENCES empresas(id)`)
+    await tx.$executeRawUnsafe(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS company_id INTEGER REFERENCES empresas(id) ON DELETE RESTRICT ON UPDATE CASCADE`)
   }
 
   const companies = await tx.empresa.findMany({ select: { id: true, ownerId: true }, orderBy: { id: 'asc' } })

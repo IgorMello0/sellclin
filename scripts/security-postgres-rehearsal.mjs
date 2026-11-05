@@ -187,6 +187,12 @@ try {
     assert.equal(defaults.length, 4)
     assert.ok(defaults.every(row => row.column_default === 'false'))
   })
+  await check('migrated schema matches the Prisma deployment schema', async () => {
+    const diff = execFileSync(process.execPath, ['node_modules/prisma/build/index.js', 'migrate', 'diff', '--from-schema-datasource', 'prisma/schema.prisma', '--to-schema-datamodel', 'prisma/schema.prisma', '--script'], { cwd: root, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 })
+    // The explicit migration marker is intentionally not an application model.
+    const changes = diff.replace(/--[^\n]*/g, '').replace(/DROP TABLE "(?:public"\.")?sellclin_security_migrations";/g, '').trim()
+    assert.equal(changes, '', diff)
+  })
   await check('real middleware enforces migrated grants and clinic boundaries', async () => {
     globalThis.prisma = db
     const { auth, requireModule, requirePermission } = await import('../server/middleware/auth.ts')
@@ -218,6 +224,15 @@ try {
     assert.equal(await authorize(newUser, 'usuario', f.a.id, 'verClientes'), 403)
     const grant = await db.rolePermission.create({ data: { roleId: newRole.id, moduleId: f.contacts.id } })
     assert.equal(grant.hasAccess, false)
+  })
+  await check('standard role bootstrap preserves migrated grants and denies new grants', async () => {
+    const { ensureDefaultRoles } = await import('../server/bootstrap/default-roles.ts')
+    const existing = await db.rolePermission.findMany({ where: { role: { companyId: f.a.id } }, orderBy: { id: 'asc' } })
+    await ensureDefaultRoles(db, f.a.id, f.owner.id)
+    for (const permission of existing) assert.deepEqual(await db.rolePermission.findUnique({ where: { id: permission.id } }), permission)
+    const newPermissions = await db.rolePermission.findMany({ where: { role: { companyId: f.a.id }, id: { notIn: existing.map(item => item.id) } } })
+    assert.ok(newPermissions.length > 0)
+    assert.ok(newPermissions.every(item => item.hasAccess === false))
   })
   for (const [name, corrupt, message] of [
     ['bad_appointment', async broken => broken.appointment.update({ where: { id: f.appointments[1].id }, data: { companyId: f.c.id } }), /Serviço .*fora das clínicas/],

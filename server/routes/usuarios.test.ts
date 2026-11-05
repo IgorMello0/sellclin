@@ -66,3 +66,16 @@ it('explicit resend also avoids unrelated encrypted credentials', async () => {
   expect(res.body.data.sent).toBe(true)
   expect(state.sendInvite).toHaveBeenCalledOnce()
 })
+
+it('rejects lead transfer when the active clinic changed after preview', async () => {
+  const res = await call('/:id/lead-transfer', { targetId: 30, expectedTotal: 2, expectedCompanyId: 5 })
+  expect(res.code).toBe(409)
+  expect(res.body.error.message).toContain('clínica ativa mudou')
+  expect(state.db.usuario.findUnique).not.toHaveBeenCalled()
+})
+
+it('rejects malformed transfer requests before querying the database', async () => {
+  const res = await call('/:id/lead-transfer', { targetId: '30', expectedTotal: 2, expectedCompanyId: 4 })
+  expect(res.code).toBe(400)
+  expect(state.db.usuario.findUnique).not.toHaveBeenCalled()
+})
