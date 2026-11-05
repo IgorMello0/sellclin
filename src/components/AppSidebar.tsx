@@ -55,6 +55,13 @@ const menuItems = [
     moduleCode: 'conversas',
   },
   {
+    title: 'Bots de atendimento',
+    url: '/bots',
+    icon: 'smart_toy',
+    moduleCode: 'conversas',
+    ownerOnly: true,
+  },
+  {
     title: 'Metas',
     url: '/metas',
     icon: 'track_changes', // Target/bullseye is better for goals than 'trending_up'

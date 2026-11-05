@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { createAppointmentSafely, updateAppointmentSafely, AppointmentConflict } from '../services/appointment-booking.js'
 import { prisma } from '../prisma.js'
 import { auth, requireModule } from '../middleware/auth.js'
 import { createErrorResponse, createSuccessResponse, parsePagination } from '../utils/response.js'
@@ -407,7 +408,7 @@ router.post('/', auth(), requireModule('agendamentos'), async (req, res) => {
       }
     }
 
-    const created = await prisma.appointment.create({
+    const created = await createAppointmentSafely({
       data: { 
         professionalId, 
         companyId: req.user.companyId,
@@ -489,7 +490,7 @@ router.post('/', auth(), requireModule('agendamentos'), async (req, res) => {
     res.status(201).json(createSuccessResponse(synced || created))
   } catch (error: any) {
     console.error('[Appointments] Erro ao criar agendamento:', error)
-    res.status(500).json(createErrorResponse(error.message || 'Erro ao criar agendamento', 500))
+    res.status(error instanceof AppointmentConflict ? 409 : 500).json(createErrorResponse(error.message || 'Erro ao criar agendamento', error instanceof AppointmentConflict ? 409 : 500))
   }
 })
 
@@ -576,7 +577,7 @@ router.put('/:id', auth(), requireModule('agendamentos'), async (req, res) => {
       return res.status(409).json(createErrorResponse('Este horário já está ocupado.', 409));
     }
 
-    const updated = await prisma.appointment.update({
+    const updated = await updateAppointmentSafely({
       where: { id },
       data: { 
         professionalId: req.body.professionalId ? Number(req.body.professionalId) : undefined,
@@ -594,7 +595,7 @@ router.put('/:id', auth(), requireModule('agendamentos'), async (req, res) => {
         sdr: { select: { id: true, name: true,  } },
         especialista: { select: { id: true, name: true,  } }
       }
-    })
+    }, req.user.companyId!)
 
     const synced = await syncAppointmentToGoogle(updated.id)
   
@@ -637,7 +638,7 @@ router.put('/:id', auth(), requireModule('agendamentos'), async (req, res) => {
     res.json(createSuccessResponse(synced || updated))
   } catch (error: any) {
     console.error('[Appointments] Erro ao atualizar agendamento:', error)
-    res.status(500).json(createErrorResponse(error.message || 'Erro ao atualizar agendamento', 500))
+    res.status(error instanceof AppointmentConflict ? 409 : 500).json(createErrorResponse(error.message || 'Erro ao atualizar agendamento', error instanceof AppointmentConflict ? 409 : 500))
   }
 })
 

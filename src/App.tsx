@@ -23,6 +23,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Appointments = lazy(() => import("./pages/Appointments"));
 const Clients = lazy(() => import("./pages/Clients"));
 const Conversations = lazy(() => import("./pages/Conversations"));
+const AtendimentoBots = lazy(() => import("./pages/AtendimentoBots"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Integrations = lazy(() => import("./pages/Integrations"));
@@ -106,6 +107,7 @@ const App = () => (
                   <Route path="clients" element={<LegacyRedirect to="/pacientes" />} />
                   <Route path="oportunidades" element={<ProtectedRoute moduleCode="clientes" moduleName="Leads" subPermissionKey="verLeads"><Leads /></ProtectedRoute>} />
                   <Route path="conversas" element={<ProtectedRoute moduleCode="conversas" moduleName="Conversas"><Conversations /></ProtectedRoute>} />
+                  <Route path="bots" element={<ProtectedRoute moduleCode="conversas" moduleName="Bots de atendimento"><AtendimentoBots /></ProtectedRoute>} />
                   <Route path="modelos" element={<ProtectedRoute moduleCode="conversas" moduleName="Templates"><WhatsAppTemplates /></ProtectedRoute>} />
                   <Route path="modelos/novo" element={<ProtectedRoute moduleCode="conversas" moduleName="Templates"><WhatsAppTemplateCreate /></ProtectedRoute>} />
                   <Route path="configuracoes" element={<Settings />} />

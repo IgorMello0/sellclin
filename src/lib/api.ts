@@ -1015,6 +1015,16 @@ export const aiAgentsApi = {
   list: async () => apiRequest<any[]>('/agentes-ia?page=1&pageSize=100'),
   create: async (data: { name: string; basePrompt: string; temperature?: number; mode?: string }) =>
     apiRequest<any>('/agentes-ia', { method: 'POST', body: JSON.stringify(data) }),
+  update: async (id: number, data: { name?: string; basePrompt?: string; temperature?: number; mode?: string; isActive?: boolean }) =>
+    apiRequest<any>(`/agentes-ia/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  duplicate: async (id: number) => apiRequest<any>(`/agentes-ia/${id}/duplicate`, { method: 'POST' }),
+  delete: async (id: number) => apiRequest<any>(`/agentes-ia/${id}`, { method: 'DELETE' }),
+  getConfig: async (id: number) => apiRequest<any>(`/agentes-ia/${id}/configuracao`),
+  saveConfig: async (id: number, data: any) => apiRequest<any>(`/agentes-ia/${id}/configuracao`, { method: 'PUT', body: JSON.stringify(data) }),
+  testKey: async (id: number) => apiRequest<any>(`/agentes-ia/${id}/test-key`, { method: 'POST' }),
+  activate: async (id: number) => apiRequest<any>(`/agentes-ia/${id}/ativar`, { method: 'POST', body: JSON.stringify({ approveCosts: true }) }),
+  usage: async (id: number) => apiRequest<any>(`/agentes-ia/${id}/usage`),
+  playground: async (id: number, message: string, history: { role: string; content: string }[] = [], state: any = {}) => apiRequest<any>(`/agentes-ia/${id}/playground`, { method: 'POST', body: JSON.stringify({ message, history: history.slice(-16), state }) }),
 }
 
 // Configuração de Funis

@@ -712,13 +712,72 @@ model AgenteIa {
   basePrompt  String     @map("base_prompt")
   temperature Float      @default(0.7)
   mode        String?
-  isActive    Boolean    @default(true) @map("is_active")
+  isActive    Boolean    @default(false) @map("is_active")
   createdAt   DateTime   @default(now()) @map("created_at")
   updatedAt   DateTime   @updatedAt @map("updated_at")
   company     Empresa    @relation(fields: [companyId], references: [id])
   conversas   Conversa[]
+  configuracao BotConfiguracao?
+  activatedAt DateTime? @map("activated_at")
 
   @@map("agentes_ia")
+}
+
+model BotConfiguracao {
+  agentId       Int      @id @map("agent_id")
+  provider      String   @default("openai")
+  model         String   @default("")
+  apiKey        String?  @map("api_key") @db.Text
+  knowledge     String   @default("") @db.Text
+  maxResponses  Int      @default(10) @map("max_responses")
+  verifiedAt DateTime? @map("verified_at")
+  playgroundAt DateTime? @map("playground_at")
+  qualificationFields Json? @map("qualification_fields")
+  handoffTerms Json? @map("handoff_terms")
+  qualifyEnabled Boolean @default(true) @map("qualify_enabled")
+  bookingEnabled Boolean @default(true) @map("booking_enabled")
+  dailyLimit Int @default(200) @map("daily_limit")
+  timezone String @default("America/Sao_Paulo")
+  workingDays Json? @map("working_days")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  agent         AgenteIa @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@map("bot_configuracoes")
+}
+
+model BotSession {
+  conversationId Int @id @map("conversation_id")
+  companyId Int @map("company_id")
+  paused Boolean @default(false)
+  reason String?
+  responseCount Int @default(0) @map("response_count")
+  state Json?
+  busyUntil DateTime? @map("busy_until")
+  runningRunId Int? @map("running_run_id")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  conversation Conversa @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  @@index([companyId])
+  @@map("bot_sessions")
+}
+
+model BotRun {
+  id Int @id @default(autoincrement())
+  companyId Int @map("company_id")
+  agentId Int @map("agent_id")
+  conversationId Int? @map("conversation_id")
+  messageId Int? @unique @map("message_id")
+  status String @default("pending")
+  mode String @default("live")
+  inputTokens Int @default(0) @map("input_tokens")
+  outputTokens Int @default(0) @map("output_tokens")
+  durationMs Int? @map("duration_ms")
+  errorCode String? @map("error_code")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  conversation Conversa? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  @@index([status, createdAt])
+  @@index([companyId, agentId, createdAt])
+  @@map("bot_runs")
 }
 
 model Conversa {
@@ -752,6 +811,8 @@ model Conversa {
   labels                 ConversationLabelLink[]
   notes                  ConversationNote[]
   events                 ConversationEvent[]
+  botSession             BotSession?
+  botRuns                BotRun[]
 
   @@unique([phone, companyId])
   @@index([companyId, status, updatedAt])
