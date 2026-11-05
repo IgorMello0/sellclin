@@ -35,7 +35,7 @@ export async function resolveIntegrationTarget(value: string | URL, resolve = (h
 
 export async function fetchIntegration(value: string | URL, init: RequestInit = {}, dependencies: Dependencies = {
   lookup: host => lookup(host, { all: true, verbatim: true }), request: requestPinned,
-}): Promise<Response> {
+}, policy: { publicOnly?: boolean; maxResponseBytes?: number } = {}): Promise<Response> {
   const signal = AbortSignal.any([AbortSignal.timeout(30_000), ...(init.signal ? [init.signal] : [])])
   signal.throwIfAborted()
   const bounded = async <T>(operation: Promise<T>) => {
@@ -48,7 +48,7 @@ export async function fetchIntegration(value: string | URL, init: RequestInit = 
     try { return await Promise.race([operation, cancelled]) }
     finally { signal.removeEventListener('abort', abort!) }
   }
-  const target = await bounded(resolveIntegrationTarget(value, dependencies.lookup))
+  const target = await bounded(resolveIntegrationTarget(value, dependencies.lookup, policy.publicOnly ? [] : trustedIntegrationOrigins()))
   const request = new Request(target.url, { ...init, signal })
   const body = request.body ? Buffer.from(await bounded(request.arrayBuffer())) : undefined
   if (body && body.length > MAX_REQUEST_BYTES) throw new Error('Requisição de integração excede o limite permitido')
@@ -57,14 +57,14 @@ export async function fetchIntegration(value: string | URL, init: RequestInit = 
   delete headers.host
   delete headers['content-length']
   const result = await bounded(dependencies.request(target.url, target.address, {
-    maxBytes: MAX_RESPONSE_BYTES, timeoutMs: 30_000, headers, method: request.method, body, signal,
+    maxBytes: policy.maxResponseBytes || MAX_RESPONSE_BYTES, timeoutMs: 30_000, headers, method: request.method, body, signal,
   }))
   // Do not replay authenticated requests or write operations at another URL.
   if (result.status >= 300 && result.status < 400) throw new Error('Redirecionamento de integração não permitido')
   let buffer = result.buffer
   const encoding = result.headers['content-encoding']?.toLowerCase()
   const decode = { gzip: gunzipSync, deflate: inflateSync, br: brotliDecompressSync }[encoding || '']
-  if (decode) buffer = decode(buffer, { maxOutputLength: MAX_RESPONSE_BYTES })
+  if (decode) buffer = decode(buffer, { maxOutputLength: policy.maxResponseBytes || MAX_RESPONSE_BYTES })
   else if (encoding && encoding !== 'identity') throw new Error('Codificação de integração não permitida')
   const responseHeaders = new Headers()
   for (const [key, values] of Object.entries(result.headers)) {

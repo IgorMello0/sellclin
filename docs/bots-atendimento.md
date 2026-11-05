@@ -1,5 +1,7 @@
 # Bots de atendimento nativos
 
+Também é possível selecionar **Workflow n8n** como mecanismo de execução. Consulte [configuração e contrato do n8n](bots-n8n.md) e aplique `database/bot-n8n.sql` antes da versão que oferece essa opção.
+
 O módulo está em `/bots`, para o proprietário da clínica. Os canais iniciais são WhatsApp Meta e Uazapi. Cada clínica cadastra sua própria chave OpenAI ou Anthropic, escolhe um modelo habilitado nessa conta e assume o custo diretamente no provedor.
 
 ## Preparar o banco antes de iniciar a nova imagem

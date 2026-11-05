@@ -3,8 +3,10 @@ import { botDecisionSchema } from './bot-policy.js'
 
 export type BotAIConfig = { provider: string; model: string; apiKey: string; prompt: string; knowledge: string }
 export type BotHistory = { role: 'user' | 'assistant'; content: string }[]
-export class BotProviderError extends Error { constructor(public code: string) { super(code) } }
+export class BotProviderError extends Error { constructor(public code: string, public httpStatus?: number) { super(code) } }
 export function providerErrorMessage(code: string) {
+  if (code === 'workflow_auth') return 'O workflow recusou o token. Confira a credencial Header Auth no n8n.'
+  if (code.startsWith('workflow_')) return 'O workflow não retornou uma decisão válida a tempo. Confira a URL de produção, a ativação e o formato da resposta no n8n.'
   if (code === 'credentials') return 'A chave ou o modelo foi recusado. Confira as permissões no provedor de IA.'
   if (code === 'quota') return 'O provedor de IA atingiu o limite de uso. Confira o saldo e os limites da chave.'
   return 'Não foi possível obter uma resposta válida da IA. Confira o provedor e tente novamente.'

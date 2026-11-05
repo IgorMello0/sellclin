@@ -5,6 +5,7 @@ import { sendBotWhatsApp } from './bot-whatsapp.js'
 import { confirmBotAppointment } from './bot-agenda.js'
 import { syncAppointmentToGoogle } from './google-calendar.js'
 import { BotProviderError } from './bot-provider.js'
+import { botConnectionReady } from './bot-n8n.js'
 
 export async function lockBotConversation(tx: any, companyId: number, id: number) {
   const rows = await tx.$queryRaw`SELECT id FROM conversas WHERE id = ${id} AND company_id = ${companyId} FOR UPDATE`
@@ -53,9 +54,10 @@ export async function processBotRun(id: number, deps = botDependencies) {
   try {
     const agent = await db.agenteIa.findFirst({ where: { id: run.agentId, companyId: run.companyId, isActive: true }, include: { configuracao: true } })
     const config = agent?.configuracao
+    await db.botRun.update({ where: { id }, data: { executionMode: config?.executionMode || 'native' } })
     const conversation = await db.conversa.findFirst({ where: { id: run.conversationId, companyId: run.companyId }, include: { botSession: true } })
     const message = await db.mensagem.findFirst({ where: { id: run.messageId, conversationId: run.conversationId, sender: 'cliente' } })
-    if (!config?.apiKey || !config.verifiedAt || !conversation || !message || !agent.activatedAt || message.createdAt < agent.activatedAt || conversation.status === 'RESOLVED') throw new Error('bot_unavailable')
+    if (!botConnectionReady(config) || !config.verifiedAt || !conversation || !message || !agent.activatedAt || message.createdAt < agent.activatedAt || conversation.status === 'RESOLVED') throw new Error('bot_unavailable')
     if (!(await deps.access(run.companyId, 'conversas')).hasAccess) throw new Error('subscription_unavailable')
     if (config.bookingEnabled && !(await deps.access(run.companyId, 'agendamentos')).hasAccess) config.bookingEnabled = false
     if (config.qualifyEnabled && !(await deps.access(run.companyId, 'funnel')).hasAccess) config.qualifyEnabled = false
@@ -74,8 +76,8 @@ export async function processBotRun(id: number, deps = botDependencies) {
     const recent = await db.mensagem.findMany({ where: { conversationId: run.conversationId, id: { lt: message.id } }, orderBy: { id: 'desc' }, take: 14 })
     const history = recent.reverse().map((m: any) => ({ role: m.sender === 'cliente' ? 'user' as const : 'assistant' as const, content: m.content }))
     const media = message.rawJson?.mediaType || message.rawJson?.providerMediaType
-    const prepared = media ? { reply: 'Recebi seu arquivo. Vou encaminhá-lo para a equipe da clínica.', handoff: 'media_requires_human', state: {}, fields: {}, confirmSlot: null, inputTokens: 0, outputTokens: 0 }
-      : await deps.prepare({ agent, config, companyId: run.companyId, message: message.content, history, state: conversation.botSession?.state || {}, responseCount: conversation.botSession?.responseCount || 0 })
+    const prepared = media ? { reply: 'Recebi seu arquivo. Vou encaminhá-lo para a equipe da clínica.', handoff: 'media_requires_human', state: {}, fields: {}, confirmSlot: null, inputTokens: 0, outputTokens: 0, httpStatus: undefined, decisionAction: 'handoff' }
+      : await deps.prepare({ agent, config, companyId: run.companyId, eventId: `bot-run-${run.id}`, mode: 'live', contact: { phone: conversation.phone || undefined }, message: message.content, history, state: conversation.botSession?.state || {}, responseCount: conversation.botSession?.responseCount || 0 })
     let appointmentId: number | undefined
     const expectedSession = await db.$transaction(async (tx: any) => {
       await lockBotConversation(tx, run.companyId, run.conversationId)
@@ -95,7 +97,7 @@ export async function processBotRun(id: number, deps = botDependencies) {
         if (updatedLead.count) await tx.leadActivity.create({ data: { leadId: conversation.leadId, type: 'sistema', createdBy: agent.name, content: `Qualificação pelo bot: ${JSON.stringify(prepared.fields)}` } })
       }
       const updated = await tx.botSession.update({ where: { conversationId: run.conversationId }, data: { state: JSON.parse(JSON.stringify(prepared.state)) } })
-      await tx.botRun.update({ where: { id }, data: { status: 'sending', inputTokens: prepared.inputTokens, outputTokens: prepared.outputTokens } })
+      await tx.botRun.update({ where: { id }, data: { status: 'sending', inputTokens: prepared.inputTokens, outputTokens: prepared.outputTokens, httpStatus: prepared.httpStatus, decisionAction: prepared.decisionAction } })
       return updated.updatedAt
     })
     stage = 'sending'
@@ -121,7 +123,7 @@ export async function processBotRun(id: number, deps = botDependencies) {
   } catch (error) {
     const known = error instanceof BotProviderError ? error.code : error instanceof Error && ['human_control', 'daily_limit', 'bot_unavailable', 'subscription_unavailable'].includes(error.message) ? error.message : 'execution_failed'
     await db.$transaction(async (tx: any) => {
-      await tx.botRun.update({ where: { id }, data: { status: known === 'human_control' ? 'skipped' : stage === 'sending' ? 'uncertain' : 'failed', errorCode: known, durationMs: Date.now() - started } })
+      await tx.botRun.update({ where: { id }, data: { status: known === 'human_control' ? 'skipped' : stage === 'sending' ? 'uncertain' : 'failed', errorCode: known, httpStatus: error instanceof BotProviderError ? error.httpStatus : undefined, durationMs: Date.now() - started } })
       if (known !== 'human_control') await pauseBot(tx, run.companyId, run.conversationId, known)
     })
   } finally {

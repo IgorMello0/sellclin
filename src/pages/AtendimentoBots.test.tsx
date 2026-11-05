@@ -17,6 +17,18 @@ beforeEach(() => {
   mocks.activate.mockResolvedValue(ok({ ...bot, isActive: true }))
 })
 afterEach(cleanup)
+it('shows workflow setup without requesting an AI key and keeps credentials masked', async () => {
+  mocks.getConfig.mockResolvedValue(ok({ executionMode: 'n8n', n8nWebhookUrl: 'https://example.com/webhook/bot', hasN8nSecret: true, verifiedAt: null }))
+  render(<AtendimentoBots />)
+  fireEvent.click(await screen.findByRole('button', { name: /Recepção/ }))
+  expect(await screen.findByRole('button', { name: 'Testar workflow' })).toBeTruthy()
+  expect(screen.queryByLabelText('Modelo')).toBeNull()
+  expect((screen.getByLabelText('Substituir token (opcional)') as HTMLInputElement).value).toBe('')
+  expect(screen.getByRole('link', { name: /Baixar workflow/ }).getAttribute('href')).toBe('/examples/sellclin-n8n.json')
+  fireEvent.click(screen.getByRole('button', { name: 'Testar workflow' }))
+  await screen.findByText('Workflow validado')
+  expect((screen.getByRole('button', { name: 'Ativar para esta clínica' }) as HTMLButtonElement).disabled).toBe(true)
+})
 it('requires key validation, a playground conversation and cost approval before activation', async () => {
   render(<AtendimentoBots />)
   fireEvent.click(await screen.findByRole('button', { name: /Recepção/ }))

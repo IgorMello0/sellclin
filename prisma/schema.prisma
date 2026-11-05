@@ -724,6 +724,11 @@ model AgenteIa {
 }
 
 model BotConfiguracao {
+  executionMode String @default("native") @map("execution_mode")
+  n8nWebhookUrl String? @map("n8n_webhook_url")
+  n8nSecret String? @map("n8n_secret") @db.Text
+  n8nTimeoutSeconds Int @default(20) @map("n8n_timeout_seconds")
+  contractVersion String @default("1.0") @map("contract_version")
   agentId       Int      @id @map("agent_id")
   provider      String   @default("openai")
   model         String   @default("")
@@ -761,6 +766,9 @@ model BotSession {
 }
 
 model BotRun {
+  executionMode String @default("native") @map("execution_mode")
+  httpStatus Int? @map("http_status")
+  decisionAction String? @map("decision_action")
   id Int @id @default(autoincrement())
   companyId Int @map("company_id")
   agentId Int @map("agent_id")

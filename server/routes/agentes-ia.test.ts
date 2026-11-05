@@ -46,6 +46,25 @@ beforeEach(() => {
   })
 })
 async function call(path = '', method = 'GET', data?: any) { const response = await fetch(base+path, { method, headers: { 'Content-Type': 'application/json' }, ...(data ? { body: JSON.stringify(data) } : {}) }); return { status: response.status, body: await response.json() } }
+it('saves n8n without an AI key, never exposes its token, and invalidates it when changing destinations', async () => {
+  const data = { executionMode: 'n8n', n8nWebhookUrl: 'https://workflow.example.com/webhook/a', n8nSecret: 'workflow-private-token' }
+  expect((await call('/1/configuracao', 'PUT', data)).status).toBe(200)
+  const saved = (await call('/1/configuracao')).body.data
+  expect(saved.hasN8nSecret).toBe(true)
+  expect(JSON.stringify(saved)).not.toContain('workflow-private-token')
+  expect(configs[0].verifiedAt).toBe(null)
+  expect((await call('/1/configuracao', 'PUT', { ...data, n8nSecret: '' })).status).toBe(200)
+  expect(configs[0].n8nSecret).toBe('workflow-private-token')
+  await call('/1/configuracao', 'PUT', { ...data, n8nSecret: '', n8nWebhookUrl: 'https://other.example.com/webhook/b' })
+  expect(configs[0].n8nSecret).toBe(null)
+  expect((await call('/1/ativar', 'POST', { approveCosts: true })).status).toBe(409)
+})
+it('allows one verified n8n bot to replace a native bot without needing an AI key', async () => {
+  agents[1].isActive = true
+  Object.assign(configs[0], { executionMode: 'n8n', apiKey: null, n8nWebhookUrl: 'https://workflow.example.com/webhook/a', n8nSecret: 'test' })
+  expect((await call('/1/ativar', 'POST', { approveCosts: true })).status).toBe(200)
+  expect(agents.filter(a => a.isActive).map(a => a.id)).toEqual([1])
+})
 it('lists only the authenticated clinic and ignores a client-supplied companyId on create', async () => {
   expect((await call()).body.data).toHaveLength(2)
   const created = await call('', 'POST', { name: 'Novo', basePrompt: 'Ajude', companyId: 9, isActive: true })
