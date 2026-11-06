@@ -503,7 +503,7 @@ router.post('/:id/proposals/batch', auth(), async (req, res) => {
     const id = Number(req.params.id);
     const access = await assertLeadAccess(id, req.user);
     if (access.error) return res.status(access.status).json(createErrorResponse(access.message, access.status));
-    const proposals = await createLeadProposals(prisma, id, req.body.proposals, String(req.user!.id));
+    const proposals = await createLeadProposals(prisma, id, req.body.proposals, req.user!);
     if (['prospect_lead', 'prospect_qualified', 'prospect_scheduled', 'prospect_attended'].includes(access.lead!.status)) {
       await triggerCadenceForLead(id, access.lead!.companyId!, 'comercial_proposal', access.lead!.sdrId || access.lead!.closerId, access.lead!.professionalId).catch(console.error);
     }
@@ -518,7 +518,7 @@ router.post('/:id/proposals', auth(), async (req, res) => {
     const id = Number(req.params.id);
     const access = await assertLeadAccess(id, req.user);
     if (access.error) return res.status(access.status).json(createErrorResponse(access.message, access.status));
-    const proposals = await createLeadProposals(prisma, id, [req.body], String(req.user!.id));
+    const proposals = await createLeadProposals(prisma, id, [req.body], req.user!);
     res.status(201).json(createSuccessResponse(proposals[0]));
   } catch (error: any) {
     res.status(400).json(createErrorResponse(error.message || 'Erro ao salvar proposta', 400));

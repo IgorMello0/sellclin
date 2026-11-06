@@ -2,167 +2,18 @@ import type { Request, Response } from 'express'
 import type { PrismaClient } from '@prisma/client'
 import { ZodError } from 'zod'
 import { createErrorResponse, createSuccessResponse } from '../utils/response.js'
-import { parseDashboardQuery, buildTeamFilter } from './dashboard-filters.js'
+import { parseDashboardQuery } from './dashboard-filters.js'
+import { boletoGroupBy, getDashboardScope, originKey, paymentStatuses } from './dashboard-scope.js'
 
 export function createDashboardMetricsHandler(prisma: PrismaClient) {
   return async (req: Request, res: Response) => {
   try {
-    const { sdrId, closerId, startDate, endDate, period } = parseDashboardQuery(req.query);
+    const range = parseDashboardQuery(req.query);
+    const { startDate, endDate, period } = range;
     
-    // 1. Isolamento Multi-Tenant (SaaS)
-    const companyId = req.user?.companyId;
-    let professionalIds: number[] = [];
-
-    if (companyId) {
-      const professionalsInCompany = await prisma.professional.findMany({
-        where: { companyId },
-        select: { id: true }
-      });
-      professionalIds = professionalsInCompany.map(p => p.id);
-      
-      const empresa = await prisma.empresa.findUnique({
-        where: { id: companyId },
-        select: { ownerId: true }
-      });
-      if (empresa?.ownerId && !professionalIds.includes(empresa.ownerId)) {
-        professionalIds.push(empresa.ownerId);
-      }
-    } else {
-      // Fallback para quando o token não tem companyId (ex: Administrador ou profissional autônomo)
-      professionalIds = [req.user!.id];
-    }
-
-    // Condições Base Isoladas por Tenant e Data
-    const baseWhere: any = {
-      createdAt: { gte: startDate, lt: endDate },
-      professionalId: { in: professionalIds }
-    };
-    if (companyId) baseWhere.companyId = companyId;
-
-    const appointmentWhere: any = {
-      createdAt: { gte: startDate, lt: endDate },
-      professionalId: { in: professionalIds },
-      status: { in: ['agendado', 'confirmado', 'concluido'] }
-    };
-    if (companyId) appointmentWhere.companyId = companyId;
-    appointmentWhere.AND = [];
-
-    // 2.5 Lógica de Filtros por SDR e Closer
-    const leadExtraFilters: any = {};
-    const paymentExtraFilters: any = {};
-    const paymentExtraConditions: any[] = [];
-
-    let hasBillingPermission = true;
-
-    // Regra de Visibilidade de Leads
-    if (req.user?.type === 'usuario') {
-      const roleInclude = { include: { permissions: { where: { module: { code: 'dashboard' } } } } };
-      const [dbUser, companyAccess] = await Promise.all([
-        prisma.usuario.findUnique({ where: { id: req.user.id }, include: { role: roleInclude } }),
-        prisma.userCompanyAccess.findUnique({
-          where: { userId_companyId: { userId: req.user.id, companyId: companyId || 0 } },
-          include: { role: roleInclude },
-        }),
-      ]);
-      const activeRole = companyAccess?.role || dbUser?.role;
-      const subPermissions = activeRole?.permissions[0]?.subPermissions as Record<string, boolean> | null;
-      hasBillingPermission = activeRole?.value === 'admin' || subPermissions?.verFaturamento !== false;
-      if (!activeRole?.isAdmin && !activeRole?.isManager) {
-        // Se não for Admin nem Gestor Comercial, só vê leads atribuídos a si mesmo (como SDR ou Closer) ou propostas vinculadas a si
-        leadExtraFilters.OR = [
-          { sdrId: req.user.id },
-          { closerId: req.user.id },
-          { proposals: { some: { sdrId: req.user.id } } },
-          { proposals: { some: { salespersonId: req.user.id } } },
-          { proposals: { some: { specialistId: req.user.id } } }
-        ];
-
-        appointmentWhere.AND.push({
-          OR: [
-            { sdrId: req.user.id },
-            { especialistaId: req.user.id },
-            { lead: { closerId: req.user.id } }
-          ]
-        });
-
-        paymentExtraConditions.push({
-          OR: [
-            { appointment: { sdrId: req.user.id } },
-            { appointment: { especialistaId: req.user.id } },
-            { appointment: { lead: { closerId: req.user.id } } },
-            { client: { originLead: { sdrId: req.user.id } } },
-            { client: { originLead: { closerId: req.user.id } } },
-            { client: { originLead: { proposals: { some: { sdrId: req.user.id } } } } },
-            { client: { originLead: { proposals: { some: { salespersonId: req.user.id } } } } },
-            { client: { originLead: { proposals: { some: { specialistId: req.user.id } } } } }
-          ]
-        });
-      }
-    }
-
-    for (const [kind, selection] of [['sdr', sdrId], ['closer', closerId]] as const) {
-      if (selection === 'all') continue;
-      const condition = buildTeamFilter(kind, selection);
-      leadExtraFilters.AND = leadExtraFilters.AND || [];
-      leadExtraFilters.AND.push(condition.lead);
-      appointmentWhere.AND.push(condition.appointment);
-      paymentExtraConditions.push(condition.payment);
-    }
-
-    if (paymentExtraConditions.length > 0) {
-      paymentExtraFilters.AND = paymentExtraConditions;
-    }
-
-    // Mesclando filtros extras ao baseWhere
-    Object.assign(baseWhere, leadExtraFilters);
-
-    // Função utilitária para montar os where das demais consultas de lead
-    const buildLeadWhere = (statusIn: string[], dateField?: string) => {
-      const where: any = {
-        professionalId: { in: professionalIds },
-        ...leadExtraFilters
-      };
-      if (companyId) where.companyId = companyId;
-      if (dateField) {
-        where[dateField] = { gte: startDate, lt: endDate };
-      }
-      if (statusIn.length > 0) {
-        where.status = { in: statusIn };
-      }
-      return where;
-    };
-
-
-    // Busca os funis configurados para pegar os estágios dinâmicos
-    const funnels = await prisma.funnelConfig.findMany({
-      where: companyId ? { companyId } : {},
-      include: { stages: { where: { isActive: true }, orderBy: { order: 'asc' } } }
-    });
-
-    const prospectStages = funnels.find(f => f.code === 'prospecting')?.stages.map(s => s.code) || [];
-    const commercialStages = funnels.find(f => f.code === 'commercial')?.stages.map(s => s.code) || [];
-
-    // Fallbacks
-    const finalProspectStages = prospectStages.length > 0 ? prospectStages : ['prospect_lead', 'prospect_qualified', 'prospect_scheduled', 'prospect_attended'];
-    const finalCommercialStages = commercialStages.length > 0 ? commercialStages : ['comercial_proposal', 'comercial_follow', 'comercial_closed'];
-
-    // Attended: 'prospect_attended' + todos do commercial
-    const attendedStages = ['prospect_attended', ...finalCommercialStages];
-
-    const proposalWhere: any = {
-      lead: buildLeadWhere([]),
-      createdAt: { gte: startDate, lt: endDate },
-    };
-    const saleWhere: any = {
-      lead: buildLeadWhere([]),
-      confirmedAt: { gte: startDate, lt: endDate },
-      voidedAt: null,
-    };
-    const discountWhere: any = {
-      lead: buildLeadWhere([]),
-      discountApplied: true,
-      sales: { some: { confirmedAt: { gte: startDate, lt: endDate }, voidedAt: null } },
-    };
+    const scope = await getDashboardScope(prisma, req.user!, range);
+    const { leadWhere, appointmentWhere, proposalWhere, saleWhere, discountWhere,
+      hasBillingPermission, finalProspectStages } = scope;
 
     // 3. Consultas em Paralelo para Performance
     const [
@@ -181,7 +32,7 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
       leadsQueCompraram
     ] = await Promise.all([
       // 1. Total de Novos Leads (Criados no período)
-      prisma.lead.count({ where: baseWhere }),
+      prisma.lead.count({ where: leadWhere }),
       
       // 2. Avaliações Agendadas (Para o período selecionado)
       prisma.appointment.count({ 
@@ -190,7 +41,7 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
       
       // 3. Avaliações Comparecidas (Leads que estão em status de comparecimento ou superior)
       prisma.lead.count({ 
-        where: buildLeadWhere(attendedStages, 'attendedAt') 
+        where: scope.attendedWhere
       }),
       
       // 4. Oportunidades (Leads em Proposta ou superior no período)
@@ -209,35 +60,29 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
       prisma.payment.groupBy({
         by: ['method', 'status'],
         _sum: { amount: true },
-        where: { 
-          professionalId: { in: professionalIds }, 
-          ...(companyId && { companyId }),
-          createdAt: { gte: startDate, lt: endDate },
-          saleVoidedAt: null,
-          ...paymentExtraFilters
-        }
+        where: scope.paymentWhere
       }),
 
       // 8. Situação atual dos leads criados no período selecionado.
       prisma.lead.groupBy({
         by: ['status'],
         _count: { id: true },
-        where: buildLeadWhere([], 'createdAt')
+        where: scope.leadWhere
       }),
 
       // 9. Leads por Origem (criados no período selecionado)
       prisma.lead.groupBy({
         by: ['origin'],
         _count: { id: true },
-        where: buildLeadWhere([], 'createdAt')
+        where: scope.leadWhere
       }),
 
       // 11. Faturamento Fechado (Valor dos leads que viraram fechamento no periodo)
       prisma.sale.aggregate({ _sum: { amount: true }, where: saleWhere }),
       // 12. Descontos aplicados às vendas confirmadas no período.
       prisma.proposal.aggregate({ _sum: { discountValue: true }, where: discountWhere }),
-      prisma.lead.count({ where: { ...buildLeadWhere([], 'createdAt'), sales: { some: { voidedAt: null } } } }),
-      prisma.lead.count({ where: { ...buildLeadWhere([], 'createdAt'), sales: { some: { confirmedAt: { gte: startDate, lt: endDate }, voidedAt: null } } } })
+      prisma.lead.count({ where: scope.funnelClosedWhere }),
+      prisma.lead.count({ where: { ...scope.leadWhere, sales: { some: { confirmedAt: { gte: startDate, lt: endDate }, voidedAt: null } } } })
     ]);
 
     // Cálculo da Receita Real
@@ -288,16 +133,8 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
       // Cálculo do Parcelamento Médio de Boleto:
       // Dividir o número de boletos gerados (método 'transferencia') pelo número de contratos fechados que têm boleto
       const boletosGrouped = await prisma.payment.groupBy({
-        by: ['saleId', 'clientId', 'appointmentId'],
-        where: {
-          method: 'transferencia',
-          status: { in: ['pago', 'pendente', 'atrasado'] },
-          professionalId: { in: professionalIds },
-          ...(companyId && { companyId }),
-          createdAt: { gte: startDate, lt: endDate },
-          saleVoidedAt: null,
-          ...paymentExtraFilters
-        },
+        by: [...boletoGroupBy],
+        where: { ...scope.paymentWhere, method: 'transferencia', status: { in: [...paymentStatuses] } },
         _count: { id: true }
       });
 
@@ -311,12 +148,12 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
     // Processamento dos Agrupamentos (Sub-Métricas)
     const metodos = hasBillingPermission ? {
       boleto: {
-        gerados: faturamentoPorMetodo.filter(m => m.method === 'transferencia' && ['pago', 'pendente', 'atrasado'].includes(m.status)).reduce((acc, curr) => acc + (Number(curr._sum.amount) || 0), 0)
+        gerados: faturamentoPorMetodo.filter(m => m.method === 'transferencia' && paymentStatuses.some(status => status === m.status)).reduce((acc, curr) => acc + (Number(curr._sum.amount) || 0), 0)
         // Removido boleto.pagos conforme solicitado
       },
-      cartao: faturamentoPorMetodo.filter(m => m.method === 'cartao' && ['pago', 'pendente', 'atrasado'].includes(m.status)).reduce((acc, curr) => acc + (Number(curr._sum.amount) || 0), 0),
-      pix: faturamentoPorMetodo.filter(m => m.method === 'pix' && ['pago', 'pendente', 'atrasado'].includes(m.status)).reduce((acc, curr) => acc + (Number(curr._sum.amount) || 0), 0),
-      dinheiro: faturamentoPorMetodo.filter(m => m.method === 'dinheiro' && ['pago', 'pendente', 'atrasado'].includes(m.status)).reduce((acc, curr) => acc + (Number(curr._sum.amount) || 0), 0),
+      cartao: faturamentoPorMetodo.filter(m => m.method === 'cartao' && paymentStatuses.some(status => status === m.status)).reduce((acc, curr) => acc + (Number(curr._sum.amount) || 0), 0),
+      pix: faturamentoPorMetodo.filter(m => m.method === 'pix' && paymentStatuses.some(status => status === m.status)).reduce((acc, curr) => acc + (Number(curr._sum.amount) || 0), 0),
+      dinheiro: faturamentoPorMetodo.filter(m => m.method === 'dinheiro' && paymentStatuses.some(status => status === m.status)).reduce((acc, curr) => acc + (Number(curr._sum.amount) || 0), 0),
     } : {
       boleto: { gerados: 0, pagos: 0 },
       cartao: 0,
@@ -344,7 +181,7 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
     
     origemData.forEach(o => {
       const rawOrigin = (o.origin || '').trim();
-      const key = !rawOrigin ? 'desconhecido' : rawOrigin.toLowerCase();
+      const key = originKey(o.origin);
       const displayOrigin = !rawOrigin || key === 'desconhecido' ? 'Desconhecido' : rawOrigin;
       
       if (origemMap.has(key)) {

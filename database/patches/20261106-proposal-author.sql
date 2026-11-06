@@ -1,0 +1,4 @@
+ALTER TABLE "proposals"
+  ADD COLUMN IF NOT EXISTS "author_id" INTEGER,
+  ADD COLUMN IF NOT EXISTS "author_type" TEXT,
+  ADD COLUMN IF NOT EXISTS "author_name" TEXT;
