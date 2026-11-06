@@ -1,0 +1,12 @@
+{
+  "name": "SellClin — decisão de atendimento",
+  "active": false,
+  "nodes": [
+    { "id": "receive", "name": "Receber do SellClin", "type": "n8n-nodes-base.webhook", "typeVersion": 2, "position": [240, 300], "webhookId": "sellclin-bot", "parameters": { "httpMethod": "POST", "path": "sellclin-bot", "authentication": "headerAuth", "responseMode": "responseNode", "options": {} } },
+    { "id": "decide", "name": "Personalizar decisão", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [500, 300], "parameters": { "jsCode": "const event = $input.first().json.body;\nif (event?.schemaVersion !== '1.0' || !event.eventId) throw new Error('Contrato incompatível');\n// Header Auth valida Authorization: Bearer SEU_TOKEN antes deste nó.\n// Não envie WhatsApp ou grave dados externos aqui.\n// connection_test e playground são simulações.\n// Use event.eventId para deduplicar qualquer extensão deste workflow.\n// Personalize as regras ou adicione sua IA antes de ativar clientes reais.\nreturn [{ json: { action: 'handoff', reply: 'Vou encaminhar sua conversa para a equipe.', evidence: '', clinical: false, fields: [], serviceId: null, specialistId: null, date: null } }];" } },
+    { "id": "respond", "name": "Devolver decisão", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1.4, "position": [760, 300], "parameters": { "respondWith": "json", "responseBody": "={{ $json }}", "options": { "responseCode": 200 } } },
+    { "id": "instructions", "name": "Configuração", "type": "n8n-nodes-base.stickyNote", "typeVersion": 1, "position": [240, 40], "parameters": { "width": 720, "height": 200, "content": "## Antes de publicar\nNo Webhook, crie uma credencial Header Auth: nome Authorization, valor Bearer seguido de espaço e seu token secreto. Use o mesmo token no SellClin, sem o prefixo Bearer.\n\nEste exemplo transfere para humano. Personalize a decisão com answer, qualify, slots ou handoff; consulte docs/bots-n8n.md. Publique e copie a URL de produção. Não use WhatsApp Trigger." } }
+  ],
+  "connections": { "Receber do SellClin": { "main": [[{ "node": "Personalizar decisão", "type": "main", "index": 0 }]] }, "Personalizar decisão": { "main": [[{ "node": "Devolver decisão", "type": "main", "index": 0 }]] } },
+  "settings": { "executionOrder": "v1", "saveDataSuccessExecution": "none", "saveDataErrorExecution": "none" }
+}

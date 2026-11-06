@@ -8,7 +8,7 @@
 
 ## Matriz e barreira central
 
-`server/config/route-manifest.json` registra os 227 pares método/caminho atuais, arquivo de origem e middlewares declarados, incluindo as duas rotas de transferência de leads integradas da main. `scripts/security-route-inventory.mjs` extrai as declarações pela AST TypeScript, sem interpretar comentários como rotas. O teste compara a matriz com o código: alterações exigem revisão explícita do manifesto.
+`server/config/route-manifest.json` registra os 234 pares método/caminho atuais, arquivo de origem e middlewares declarados, incluindo transferência de leads e as novas rotas dos bots integradas da main. `scripts/security-route-inventory.mjs` extrai as declarações pela AST TypeScript, sem interpretar comentários como rotas. O teste compara a matriz com o código: alterações exigem revisão explícita do manifesto.
 
 `routePolicy` bloqueia endpoints `/api` fora do manifesto. Rotas privadas exigem sessão e clínica ativa antes de chegar ao handler. Autenticação repetida reutiliza somente o resultado da mesma requisição; a requisição seguinte revalida acesso no banco. HEAD usa a política de GET. CORS trata preflight antes dessa barreira.
 
@@ -55,8 +55,8 @@ Os cargos criados futuramente começam sem acesso; a tela de cargos permite libe
 Validação local em 04/11/2026, após integrar a main até `3c69aec`: TypeScript do backend e build de produção aprovados. A suíte Vitest completa passou em 174/174 testes (25 arquivos, dois workers). Dashboard, sessões, cargos padrão e integração WhatsApp passaram em 62/62 testes Node. O Node 26 exigiu desativar seu Web Storage experimental nos testes jsdom. O build mantém o aviso de tamanho do bundle Admin. Nenhum teste utilizou banco de produção.
 
 - `npx tsc -p tsconfig.server.json --noEmit`
-- `npx vitest run --maxWorkers=2` (suítes HTTP usam localhost e persistência simulada).
-- No Node 26, usar `NODE_OPTIONS=--no-experimental-webstorage npx vitest run --maxWorkers=2` para o jsdom fornecer o armazenamento de navegador dos testes.
+- `npx vitest run --minWorkers=1 --maxWorkers=2` (suítes HTTP usam localhost e persistência simulada).
+- No Node 26, usar `NODE_OPTIONS=--no-experimental-webstorage npx vitest run --minWorkers=1 --maxWorkers=2` para o jsdom fornecer o armazenamento de navegador dos testes.
 - `npm run build`
 - `node --import tsx --test server/services/dashboard.test.ts server/middleware/session-revocation.test.ts server/services/session-security.test.ts server/bootstrap/default-roles.test.ts server/services/whatsapp-integration.test.ts`
 
@@ -64,7 +64,7 @@ As fixtures cobrem isolamento de mensagens inclusive dentro da mesma clínica, t
 
 ## Ensaio real PostgreSQL local
 
-`scripts/security-postgres-rehearsal.mjs` passou em 12/12 verificações no PostgreSQL 18.6. Cria um cluster descartável restrito a `127.0.0.1`, com senha aleatória, usando o schema legado do commit `b63fb3d` e dados fictícios de três clínicas e dois proprietários. Sobrescreve as URLs herdadas com conexões locais; não aceita uma URL externa. O cluster é encerrado e removido ao final. A dependência do ensaio fica em `.security-check`, fora do Git e da imagem de produção.
+`scripts/security-postgres-rehearsal.mjs` passou em 12/12 verificações no PostgreSQL 18.6. Cria um cluster descartável restrito a `127.0.0.1`, com senha aleatória, usando o schema anterior ao isolamento do commit `9c0495e` (inclui bots/n8n) e dados fictícios de três clínicas e dois proprietários. Sobrescreve as URLs herdadas com conexões locais; não aceita uma URL externa. O cluster é encerrado e removido ao final. A dependência do ensaio fica em `.security-check`, fora do Git e da imagem de produção.
 
 ```sh
 npm install --prefix .security-check/postgres-runtime --no-audit --no-fund --save-exact embedded-postgres@18.6.0-beta.19
@@ -78,3 +78,7 @@ Quatro cenários inconsistentes (agendamento, ficha, cargo de outra clínica e p
 **Limite:** isso não é restauração de backup da VPS e não comprova a consistência nem o tempo de migração dos dados reais. Antes de atualizar a VPS, continua obrigatório ensaiar com uma cópia restaurada, conferir a versão PostgreSQL usada nela e testar o procedimento operacional de backup/recuperação. Nenhuma migração de produção foi executada.
 
 Etapas 2–5 do plano (rotação de chaves, sessão por cookie/MFA, revisão ampla de logs/arquivos e infraestrutura) não são entregues por esta mudança.
+
+## Atualização local em 05/11/2026
+
+Integrada a main até `9c0495e` (bots nativos e n8n), preservando os commits locais de segurança. Conflitos de agentes/conversas resolvidos e manifesto atualizado para 234 rotas. Dependências sincronizadas com o lockfile e Prisma Client 6.18.0 regenerado. TypeScript, build, 174 testes gerais, 45 testes dos bots e as 12 verificações PostgreSQL passaram. O ensaio agora parte do schema `9c0495e`, anterior ao isolamento e já com os modelos dos bots. As migrações SQL dos bots e a migração de isolamento ainda precisam ser aplicadas no banco de destino conforme os respectivos procedimentos; nenhum banco externo foi alterado nesta atualização.

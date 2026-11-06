@@ -42,6 +42,7 @@ type Conversation = {
   id: number;
   phone?: string | null;
   agentId?: number | null;
+  botSession?: { paused: boolean; reason?: string | null; responseCount: number } | null;
   channel?: string | null;
   startedAt: string;
   updatedAt: string;
@@ -862,7 +863,7 @@ const Conversations = () => {
       setShowAgentDialog(false);
       setAgentName('');
       setAgentPrompt('');
-      if (selected) await assignAgent(String(created.id));
+      toast({ title: 'Rascunho criado', description: 'Configure a chave e teste em Bots de atendimento antes de ativar.' });
     } catch (error: any) {
       toast({ title: 'Erro ao criar agente', description: error.message, variant: 'destructive' });
     } finally {
@@ -1021,7 +1022,7 @@ const Conversations = () => {
                         <SelectValue>{selected.agentId ? agents.find(a => String(a.id) === String(selected.agentId))?.name : 'Atendimento manual'}</SelectValue>
                       </div>
                     </SelectTrigger>
-                    <SelectContent><SelectItem value="manual">Atendimento manual</SelectItem>{agents.map((agent) => <SelectItem key={agent.id} value={String(agent.id)}>{agent.name}</SelectItem>)}<SelectItem value="new"><span className="flex items-center gap-2"><Plus className="h-3.5 w-3.5" />Novo agente</span></SelectItem></SelectContent>
+                    <SelectContent><SelectItem value="manual">Assumir atendimento humano</SelectItem>{agents.filter(agent => agent.isActive).map((agent) => <SelectItem key={agent.id} value={String(agent.id)}>Retomar {agent.name}</SelectItem>)}<SelectItem value="new"><span className="flex items-center gap-2"><Plus className="h-3.5 w-3.5" />Novo agente</span></SelectItem></SelectContent>
                   </Select>
                 </div>
                 <div className="ml-0.5 flex items-center gap-0.5 border-l border-slate-200 pl-1.5">
@@ -1031,6 +1032,7 @@ const Conversations = () => {
               </div>
             </div>
 
+            {selected.botSession?.paused && <div className="border-b border-amber-200 bg-amber-50 px-5 py-2 text-xs text-amber-900">Bot pausado. A equipe está responsável por esta conversa. Para retomar, selecione o bot ativo no menu de atendimento.</div>}
             {notesOpen && (
               <section className="flex-shrink-0 border-b border-slate-200 bg-slate-50 px-5 py-3" aria-labelledby="conversation-notes-title">
                 <div className="mx-auto max-w-5xl">

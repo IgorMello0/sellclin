@@ -5,6 +5,7 @@ import { localMediaPath, signMediaUrl } from '../services/media-access.js'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { prisma } from '../prisma.js'
+import { pauseBot, setConversationBot } from '../services/bot-runtime.js'
 import { auth, requireModule } from '../middleware/auth.js'
 import { createErrorResponse, createSuccessResponse, parsePagination } from '../utils/response.js'
 import { sendUazapiRequest } from '../services/uazapi-whatsapp.js'
@@ -56,6 +57,7 @@ function getActor(req: any) {
 }
 
 const conversationInclude = {
+  botSession: true,
   agent: true,
   client: true,
   lead: { include: { sdr: { select: { id: true, name: true, email: true } } } },
@@ -212,6 +214,8 @@ function getMetaWindow(messages: Array<{ sender: string; createdAt: Date }>, pro
 function withConversationState(item: any) {
   return {
     ...item,
+    agentId: item.botSession?.paused || item.agent?.isActive === false ? null : item.agentId,
+    botSession: item.botSession ? { paused: item.botSession.paused, reason: item.botSession.reason, responseCount: item.botSession.responseCount } : null,
     assignedUser: item.lead?.sdr || item.assignedUser,
     assignedProfessional: item.lead?.sdrId ? null : item.assignedProfessional,
     labels: Array.isArray(item.labels) ? item.labels.map((entry: any) => entry.label) : [],
@@ -553,6 +557,7 @@ router.post('/:id/assign', auth(), requireModule('conversas'), async (req, res) 
       data: { assignedProfessionalId, assignedUserId },
       include: conversationInclude,
     })
+    if (assignedProfessionalId || assignedUserId) await pauseBot(tx, companyId!, conversationId, 'manual')
     await tx.conversationEvent.create({
       data: { conversationId, type: 'assignment_changed', metadata: { assigneeType, assigneeId }, ...getActor(req) },
     })
@@ -637,6 +642,7 @@ router.post('/:id/messages', auth(), requireModule('conversas'), async (req, res
     const phone = normalizePhone(conversation.phone || conversation.lead?.phone || conversation.client?.phone)
     if (!phone) return res.status(400).json(createErrorResponse('Conversa sem telefone valido', 400))
 
+    await setConversationBot(companyId, conversation.id, null)
     const provider = conversation.company.whatsappProvider
     let providerMessageId: string | null = null
     let origin = 'WhatsApp'
@@ -827,6 +833,7 @@ router.post('/:id/templates', auth(), requireModule('conversas'), async (req, re
 
     const phone = normalizePhone(conversation.phone || conversation.lead?.phone || conversation.client?.phone)
     const name = conversation.client?.name || conversation.lead?.name || phone
+    await setConversationBot(companyId, conversation.id, null)
     const sent = await sendMetaTemplateMessage({
       companyId,
       phone,
@@ -892,6 +899,8 @@ router.post('/', auth(), requireModule('conversas'), async (req, res) => {
       return res.status(403).json(createErrorResponse('Acesso negado', 403));
     }
 
+    if (agentId && !await prisma.agenteIa.findFirst({ where: { id: Number(agentId), companyId, isActive: true } })) return res.status(400).json(createErrorResponse('Bot ativo não encontrado nesta clínica', 400))
+    if (clientId && !await prisma.client.findFirst({ where: { id: Number(clientId), companyId }, select: { id: true } })) return res.status(400).json(createErrorResponse('Cliente não encontrado nesta clínica', 400))
     const created = await prisma.conversa.create({ 
       data: { 
         companyId, 
@@ -901,7 +910,8 @@ router.post('/', auth(), requireModule('conversas'), async (req, res) => {
         assignedUserId: req.user?.type === 'usuario' ? req.user.id : null,
         app, 
         channel, 
-        startedAt: startedAt ? new Date(startedAt) : new Date() 
+        startedAt: startedAt ? new Date(startedAt) : new Date(),
+        botSession: { create: { companyId, paused: !agentId, reason: agentId ? null : 'manual' } },
       } 
     })
     res.status(201).json(createSuccessResponse(created))
@@ -916,12 +926,13 @@ router.put('/:id', auth(), requireModule('conversas'), async (req, res) => {
   const existing = await prisma.conversa.findFirst({ where: { id, companyId: companyId || -1 }, select: { id: true } })
   if (!existing) return res.status(404).json(createErrorResponse('Conversa nao encontrada', 404))
   const { agentId, clientId, professionalId, app, channel } = req.body
-  if (clientId) await assertClientBelongsToCompany(Number(clientId), companyId)
-  if (professionalId) await assertProfessionalBelongsToCompany(Number(professionalId), companyId)
-  if (agentId) {
-    const agent = await prisma.agenteIa.findFirst({ where: { id: Number(agentId), companyId: companyId || -1 } })
-    if (!agent) return res.status(400).json(createErrorResponse('Agente IA nao pertence a esta clinica', 400))
+  if ('agentId' in req.body) {
+    try { await setConversationBot(companyId!, id, agentId ? Number(agentId) : null) }
+    catch (error) { return res.status(409).json(createErrorResponse(error instanceof Error ? error.message : 'Não foi possível alterar o atendimento', 409)) }
+    return res.json(createSuccessResponse(withConversationState(await prisma.conversa.findFirst({ where: { id, companyId: companyId! }, include: conversationInclude }))))
   }
+  if (clientId && !await prisma.client.findFirst({ where: { id: Number(clientId), companyId: companyId! }, select: { id: true } })) return res.status(400).json(createErrorResponse('Cliente não encontrado nesta clínica', 400))
+  if (professionalId && !await prisma.professional.findFirst({ where: { id: Number(professionalId), OR: [{ companyId }, { ownedCompanies: { some: { id: companyId! } } }] }, select: { id: true } })) return res.status(400).json(createErrorResponse('Profissional não encontrado nesta clínica', 400))
   const updated = await prisma.conversa.update({ where: { id }, data: { agentId, clientId, professionalId, app, channel } })
   res.json(createSuccessResponse(updated))
 })

@@ -147,6 +147,7 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 })
 
 const port = process.env.PORT || 4000
+import { startBotWorker } from './services/bot-runtime.js'
 
 async function startServer() {
   await bootstrapSystemDefaults(prisma)
@@ -168,6 +169,7 @@ async function startServer() {
   }, 60_000).unref()
 
   app.listen(Number(port), '0.0.0.0', () => {
+    void startBotWorker().catch(() => console.warn('[bots] Não foi possível iniciar a fila de bots.'))
     startFailureAlerts()
     // eslint-disable-next-line no-console
     console.log(`[server] listening on http://0.0.0.0:${port}`)

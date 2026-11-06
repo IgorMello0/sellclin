@@ -105,7 +105,7 @@ try {
   console.log((await admin.query('SHOW server_version')).rows[0])
   await pg.createDatabase('baseline')
   const legacySchema = join(temp, 'legacy.prisma')
-  await writeFile(legacySchema, execFileSync('git', ['show', 'b63fb3d:prisma/schema.prisma'], { cwd: root }))
+  await writeFile(legacySchema, execFileSync('git', ['show', '9c0495e:prisma/schema.prisma'], { cwd: root }))
   const ddl = execFileSync(process.execPath, ['node_modules/prisma/build/index.js', 'migrate', 'diff', '--from-empty', '--to-schema-datamodel', legacySchema, '--script'], { cwd: root, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 })
   seedConnection = pg.getPgClient('baseline')
   await seedConnection.connect()

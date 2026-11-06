@@ -36,6 +36,8 @@ async function call(method: 'post' | 'put', path: '/' | '/:id', body: any) {
 }
 
 beforeEach(() => {
+  state.db.$transaction = (fn: any) => fn(state.db)
+  state.db.$queryRaw = vi.fn().mockResolvedValue([{ id: 2 }])
   state.db.appointment = {
     findFirst: vi.fn(async ({ where }: any) => where.id === 11 ? { ...current } : null),
     update: vi.fn(async ({ data }: any) => ({ ...current, ...data })),
@@ -77,12 +79,13 @@ it('allows cancellation without an unnecessary conflict lookup', async () => {
     endTime: current.endTime.toISOString(),
   })
   expect(response.code).toBe(200)
-  expect(state.db.appointment.findFirst).toHaveBeenCalledTimes(1)
+  expect(state.db.appointment.findFirst).toHaveBeenCalledTimes(2)
+  expect(state.db.appointment.findFirst.mock.calls.every(([args]: any) => args.where.id === 11)).toBe(true)
   expect(state.db.appointment.update).toHaveBeenCalledOnce()
 })
 
 it('records attendance without moving a lead backwards in the funnel', async () => {
-  state.db.appointment.findFirst = vi.fn(async () => ({ ...current, leadId: 44 }))
+  state.db.appointment.findFirst = vi.fn(async ({ where }: any) => where.id === 11 ? ({ ...current, leadId: 44 }) : null)
   state.db.appointment.update = vi.fn(async ({ data }: any) => ({
     ...current,
     ...data,

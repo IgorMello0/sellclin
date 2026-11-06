@@ -91,7 +91,8 @@
     "source": "server/routes/agentes-ia.ts",
     "guards": [
       "auth()",
-      "requireModule('conversas')"
+      "requireModule('conversas')",
+      "manage"
     ]
   },
   {
@@ -100,7 +101,8 @@
     "source": "server/routes/agentes-ia.ts",
     "guards": [
       "auth()",
-      "requireModule('conversas')"
+      "requireModule('conversas')",
+      "manage"
     ]
   },
   {
@@ -118,7 +120,80 @@
     "source": "server/routes/agentes-ia.ts",
     "guards": [
       "auth()",
-      "requireModule('conversas')"
+      "requireModule('conversas')",
+      "manage"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/agentes-ia/:id/ativar",
+    "source": "server/routes/agentes-ia.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')",
+      "manage"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/agentes-ia/:id/configuracao",
+    "source": "server/routes/agentes-ia.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')",
+      "manage"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/agentes-ia/:id/configuracao",
+    "source": "server/routes/agentes-ia.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')",
+      "manage"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/agentes-ia/:id/duplicate",
+    "source": "server/routes/agentes-ia.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')",
+      "manage"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/agentes-ia/:id/playground",
+    "source": "server/routes/agentes-ia.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')",
+      "manage",
+      "aiLimit"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/agentes-ia/:id/test-key",
+    "source": "server/routes/agentes-ia.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')",
+      "manage",
+      "aiLimit"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/agentes-ia/:id/usage",
+    "source": "server/routes/agentes-ia.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')",
+      "manage"
     ]
   },
   {
