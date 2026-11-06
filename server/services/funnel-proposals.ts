@@ -52,7 +52,7 @@ export async function createLeadProposals(db: PrismaClient, leadId: number, inpu
       value: last.value,
       ...(last.sdrId ? { sdrId: last.sdrId } : {}),
       ...(last.salespersonId ? { closerId: last.salespersonId } : {}),
-      ...(advance ? { status: 'comercial_proposal', proposalAt: lead.proposalAt || new Date(), attendedAt: lead.attendedAt || new Date() } : {}),
+      ...(advance ? { status: 'comercial_proposal', proposalAt: lead.proposalAt || new Date() } : {}),
     } })
     return saved
   })

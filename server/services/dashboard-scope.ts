@@ -110,10 +110,11 @@ export async function getDashboardScope(
   const leadScope: Prisma.LeadWhereInput = {
     ...clinicScope, ...leadExtraFilters, ...(leadConditions.length > 0 && { AND: leadConditions }),
   };
-  const appointmentWhere: Prisma.AppointmentWhereInput = {
-    ...clinicScope, createdAt: dateRange, AND: appointmentConditions,
+  const appointmentScope: Prisma.AppointmentWhereInput = {
+    ...clinicScope, AND: appointmentConditions,
     status: { in: ['agendado', 'confirmado', 'concluido'] },
   };
+  const appointmentWhere: Prisma.AppointmentWhereInput = { ...appointmentScope, createdAt: dateRange };
 
   // Busca os funis configurados para pegar os estágios dinâmicos
   const funnels = await prisma.funnelConfig.findMany({
@@ -141,13 +142,14 @@ export async function getDashboardScope(
   };
   const leadWhere: Prisma.LeadWhereInput = { ...leadScope, createdAt: dateRange };
   const attendedWhere: Prisma.LeadWhereInput = { ...leadScope, attendedAt: dateRange, status: { in: attendedStages } };
+  const funnelScheduledWhere: Prisma.LeadWhereInput = { ...leadWhere, appointments: { some: appointmentScope } };
   const funnelClosedWhere: Prisma.LeadWhereInput = { ...leadWhere, sales: { some: { voidedAt: null } } };
   const paymentWhere: Prisma.PaymentWhereInput = {
     ...clinicScope, createdAt: dateRange, saleVoidedAt: null, ...(paymentConditions.length > 0 && { AND: paymentConditions }),
   };
   return {
     appointmentWhere, proposalWhere, saleWhere, discountWhere,
-    leadWhere, attendedWhere, funnelClosedWhere, paymentWhere,
+    leadWhere, attendedWhere, funnelScheduledWhere, funnelClosedWhere, paymentWhere,
     hasBillingPermission, canReadDetails, canReadBillingDetails, finalProspectStages, stageNames,
   };
 }

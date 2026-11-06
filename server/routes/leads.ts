@@ -747,7 +747,7 @@ router.put('/:id', auth(), async (req, res) => {
         });
 
         // TIMESTAMP LOGIC & SUB-STATUS AUTOMATION
-        if (['prospect_attended', 'comercial_consult', 'comercial_proposal', 'comercial_follow', 'comercial_closed', 'sales_payment', 'sales_contract', 'sales_post'].includes(newStatus)) {
+        if (newStatus === 'prospect_attended' || newStatus === 'comercial_consult') {
           if (!currentLead.attendedAt) prismaData.attendedAt = new Date();
         }
         if (['comercial_proposal', 'comercial_follow', 'comercial_closed', 'sales_payment', 'sales_contract', 'sales_post'].includes(newStatus)) {

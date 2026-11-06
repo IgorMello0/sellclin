@@ -295,6 +295,21 @@ describe('dashboard access and metrics', () => {
 
 
 describe('dashboard details', () => {
+  it('requires a valid appointment for the scheduled funnel count and details', async () => {
+    const appointment = { companyId: 2, professionalId: 1, status: 'agendado' }
+    const leads = [
+      lead(1, { status: 'comercial_proposal', attendedAt: null }),
+      lead(2, { appointments: [appointment, appointment] }),
+      lead(3, { appointments: [{ ...appointment, status: 'cancelado' }] }),
+      lead(4, { appointments: [{ ...appointment, companyId: 3 }] }),
+    ]
+    const metrics = await execute({ leads })
+    const detail = await execute({ leads, detail: true, query: { ...custom, indicator: 'funil-agendados' } })
+    assert.equal(metrics.body.data.funil.agendamentos, 1)
+    assert.equal(detail.body.data.total, 1)
+    assert.deepEqual(detail.body.data.rows.map(row => row.id), [2])
+  })
+
   it('exports all matching rows across pages and rejects oversized reports', async () => {
     const leads = Array.from({ length: 40 }, (_, i) => lead(i + 1, {
       sdrId: i < 32 ? 5 : 6, closerId: i < 30 ? 9 : 8,

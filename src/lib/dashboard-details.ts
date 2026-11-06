@@ -18,7 +18,7 @@ export const dashboardIndicators = {
   dinheiro: { label: 'Dinheiro', rule: 'Pagamentos em dinheiro registrados no período, incluindo pagos, pendentes e atrasados. Exclui vendas estornadas.', format: 'money', billing: true },
   'funil-novos': { label: 'Funil · Novos', rule: 'Todos os leads criados no período.', format: 'count' },
   'funil-contatados': { label: 'Funil · Contatados', rule: 'Leads criados no período cuja etapa atual é diferente da primeira etapa de prospecção.', format: 'count' },
-  'funil-agendados': { label: 'Funil · Agendados', rule: 'Leads criados no período que estão fora das duas primeiras etapas de prospecção.', format: 'count' },
+  'funil-agendados': { label: 'Funil · Agendados', rule: 'Leads criados no período com pelo menos um agendamento válido vinculado, mesmo que a marcação tenha sido criada em outra data.', format: 'count' },
   'funil-fechados': { label: 'Funil · Fechados', rule: 'Leads criados no período com ao menos uma venda válida. A venda pode ter sido confirmada fora do período.', format: 'count' },
   origem: { label: 'Leads por Origem', rule: 'Leads criados no período. Origens vazias são agrupadas em Desconhecido.', format: 'count' },
 } satisfies Record<string, { label: string; rule: string; format: 'count' | 'money' | 'percent' | 'installments'; billing?: boolean }>

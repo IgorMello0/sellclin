@@ -28,6 +28,7 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
       origemData,
       faturamentoFechadoAgg,
       totalDiscountAgg,
+      agendadosNoFunil,
       fechadosNoFunil,
       leadsQueCompraram
     ] = await Promise.all([
@@ -81,6 +82,7 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
       prisma.sale.aggregate({ _sum: { amount: true }, where: saleWhere }),
       // 12. Descontos aplicados às vendas confirmadas no período.
       prisma.proposal.aggregate({ _sum: { discountValue: true }, where: discountWhere }),
+      prisma.lead.count({ where: scope.funnelScheduledWhere }),
       prisma.lead.count({ where: scope.funnelClosedWhere }),
       prisma.lead.count({ where: { ...scope.leadWhere, sales: { some: { confirmedAt: { gte: startDate, lt: endDate }, voidedAt: null } } } })
     ]);
@@ -169,11 +171,7 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
         const topStage = finalProspectStages[0] || 'prospect_lead';
         return s.status !== topStage;
       }).reduce((acc, curr) => acc + curr._count.id, 0),
-      agendamentos: funilStatus.filter(s => {
-        const ignoredStages = finalProspectStages.slice(0, 2);
-        if (ignoredStages.length === 0) ignoredStages.push('prospect_lead', 'prospect_qualified');
-        return !ignoredStages.includes(s.status);
-      }).reduce((acc, curr) => acc + curr._count.id, 0),
+      agendamentos: agendadosNoFunil,
       fechados: fechadosNoFunil,
     };
 
