@@ -6,8 +6,8 @@
   "scripts": {
     "test:bots": "vitest run --config vitest.bots.config.ts",
     "dev": "vite",
-    "build": "prisma generate && vite build",
-    "build:dev": "vite build --mode development",
+    "build": "prisma generate && npm run typecheck && vite build",
+    "build:dev": "npm run typecheck && vite build --mode development",
     "lint": "eslint .",
     "test:whatsapp": "tsx --test server/services/whatsapp-integration.test.ts",
     "test:templates": "tsx --test server/services/whatsapp-templates.test.ts",
@@ -27,7 +27,8 @@
     "test:dashboard": "tsx --test server/services/dashboard.test.ts && vitest run --config vitest.config.ts",
     "perf:api:20": "node scripts/performance/load-test.mjs --concurrency=20",
     "perf:api:50": "node scripts/performance/load-test.mjs --concurrency=50",
-    "perf:lighthouse": "npx --yes lighthouse http://127.0.0.1:4173 --only-categories=performance --form-factor=mobile --output=html --output-path=lighthouse-mobile.html --chrome-flags=\"--headless --no-sandbox\""
+    "perf:lighthouse": "npx --yes lighthouse http://127.0.0.1:4173 --only-categories=performance --form-factor=mobile --output=html --output-path=lighthouse-mobile.html --chrome-flags=\"--headless --no-sandbox\"",
+    "typecheck": "tsc -p tsconfig.app.json --noEmit"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

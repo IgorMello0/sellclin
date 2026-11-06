@@ -21,7 +21,7 @@ ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID:-$GOOGLE_CLIENT_ID}
 
 # Build do frontend (React/Vite → dist/)
-RUN npx vite build
+RUN npm run typecheck && npx vite build
 
 # Compilar backend TypeScript → JavaScript (server/ → dist-server/)
 RUN npx tsc -p tsconfig.server.json --outDir dist-server

@@ -216,7 +216,7 @@ const EquipeView = ({ isSpecialistMode = false }: { isSpecialistMode?: boolean }
   const [buyingUserExtra, setBuyingUserExtra] = useState(false);
   const [resendingInviteId, setResendingInviteId] = useState<number | null>(null);
   
-  const isOwner = professional?.type === 'profissional' || professional?.role === 'profissional' || professional?.role === 'admin';
+  const isOwner = professional?.role === 'profissional' || professional?.role === 'admin';
   const [selectedClinicFilter, setSelectedClinicFilter] = useState<string>(professional?.companyId ? String(professional.companyId) : '');
 
   const validRoles = roles.filter((role) => role?.id !== undefined && role?.id !== null && (isSpecialistMode ? role.isSpecialist : !role.isSpecialist));

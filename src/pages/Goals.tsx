@@ -90,7 +90,7 @@ const Goals = () => {
         setIsSaveModalOpen(false);
         setPlanName("");
       } else {
-        toast({ title: "Erro: " + response.message, variant: "destructive" });
+        toast({ title: "Erro: " + (response.error?.message || "Não foi possível salvar o plano."), variant: "destructive" });
       }
     } catch (error: any) {
       console.error('Erro ao salvar plano:', error);

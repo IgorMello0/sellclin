@@ -5,6 +5,32 @@ import vm from 'node:vm';
 import { stripTypeScriptTypes } from 'node:module';
 import { loadAllPages } from '../lib/funnel';
 
+it('preserves the SDR on edit and restores automatic assignment for a new lead', async () => {
+  const source = fs.readFileSync(new URL('./Leads.tsx', import.meta.url), 'utf8');
+  const start = source.indexOf('  const handleOpenDialog =');
+  const end = source.indexOf('  const confirmDelete =', start);
+  const api = { update: vi.fn().mockResolvedValue({ success: true }), create: vi.fn().mockResolvedValue({ success: true }) };
+  const context = vm.createContext({
+    professional: { id: '1' }, formData: {}, editingLead: null, leadsApi: api,
+    setFormData: (value: unknown) => { context.formData = value; },
+    setEditingLead: (value: unknown) => { context.editingLead = value; },
+    setIsDialogOpen: vi.fn(), toast: vi.fn(), loadLeads: vi.fn(),
+  });
+  vm.runInContext(stripTypeScriptTypes(source.slice(start, end)) + '\nglobalThis.open = handleOpenDialog; globalThis.save = handleSave;', context);
+  const lead = { id: 9, name: 'Teste', phone: '11999990000', value: 100, origin: 'Direto', sdrId: 42 };
+  context.open(lead);
+  await context.save();
+  expect(api.update).toHaveBeenLastCalledWith(9, expect.objectContaining({ sdrId: 42 }));
+  context.open({ ...lead, sdrId: null });
+  await context.save();
+  expect(api.update).toHaveBeenLastCalledWith(9, expect.objectContaining({ sdrId: null }));
+  context.open();
+  expect(context.formData.sdrId).toBe('random');
+  Object.assign(context.formData, { name: 'Novo', phone: '11999990000' });
+  await context.save();
+  expect(api.create).toHaveBeenCalledWith(expect.objectContaining({ sdrId: 'random' }));
+});
+
 // Execute the actual page loaders with simulated APIs; never connect to a database.
 const cases = [
   ['Clients', 'loadClients', '  // Recarregar quando searchQuery', 'clientsApi', 'setClients'],

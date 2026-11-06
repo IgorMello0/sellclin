@@ -21,7 +21,7 @@ it('clears the selected stage and form when switching funnels',async()=>{
  fireEvent.change(screen.getAllByRole('combobox')[1],{target:{value:'a'}});await screen.findByDisplayValue('A');
  fireEvent.change(screen.getAllByRole('combobox')[0],{target:{value:'commercial'}});
  expect((screen.getAllByRole('combobox')[1] as HTMLSelectElement).value).toBe('');
- expect(screen.queryByDisplayValue('A')).toBeNull();expect(screen.queryByRole('button',{name:'Salvar',exact:true})).toBeNull();
+ expect(screen.queryByDisplayValue('A')).toBeNull();expect(screen.queryByRole('button',{name:'Salvar'})).toBeNull();
 });
 it('ignores delayed responses from the previously selected stage',async()=>{
  let finish:any;
@@ -33,7 +33,7 @@ it('ignores delayed responses from the previously selected stage',async()=>{
 it('reports rejected saves without claiming success',async()=>{
  api.getByStage.mockResolvedValue(config('A'));api.update.mockResolvedValue({success:false});await setup();
  fireEvent.change(screen.getAllByRole('combobox')[1],{target:{value:'a'}});await screen.findByDisplayValue('A');
- fireEvent.click(screen.getByRole('button',{name:'Salvar',exact:true}));
+ fireEvent.click(screen.getByRole('button',{name:'Salvar'}));
  await waitFor(()=>expect(api.toast).toHaveBeenCalledWith(expect.objectContaining({variant:'destructive'})));
  expect(api.toast).not.toHaveBeenCalledWith({title:'Configuração salva com sucesso!'});
 });
