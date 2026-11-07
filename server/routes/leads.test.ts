@@ -196,6 +196,29 @@ describe('funnel transactions and access', () => {
     await call('put', '/:id', { status: 'comercial_lost' });
     expect(lead.isPaid).toBe(true); expect(payments[0].saleVoidedAt).toBeUndefined();
   });
+  it('creates a proposal without recording attendance or an appointment', async () => {
+    lead.status = 'prospect_lead';
+    lead.attendedAt = null;
+    const res = await call('post', '/:id/proposals/batch', {
+      proposals: [{ title: 'Proposta de avaliação anterior', value: 200, validUntil: '2026-10-01' }],
+    });
+    expect(res.result.success).toBe(true);
+    expect(lead.status).toBe('comercial_proposal');
+    expect(lead.proposalAt).toBeInstanceOf(Date);
+    expect(lead.attendedAt).toBeNull();
+    expect(state.db.appointment.updateMany).not.toHaveBeenCalled();
+  });
+  it('records attendance on an explicit attendance stage and preserves it on later commercial moves', async () => {
+    lead.status = 'prospect_lead';
+    lead.attendedAt = null;
+    await call('put', '/:id', { status: 'comercial_proposal' });
+    expect(lead.attendedAt).toBeNull();
+    await call('put', '/:id', { status: 'prospect_attended' });
+    const attendedAt = lead.attendedAt;
+    expect(attendedAt).toBeInstanceOf(Date);
+    await call('put', '/:id', { status: 'comercial_follow' });
+    expect(lead.attendedAt).toEqual(attendedAt);
+  });
   it('rolls back a partially failed proposal batch and can retry without duplication', async () => {
     const before = snapshot();
     const payload = ['First', 'Fail'].map(title => ({ title, value: 200, validUntil: '2026-10-01' }));

@@ -1,3 +1,4 @@
+import type { DashboardDetailsResult } from './dashboard-details'
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:4000/api')
 
 export interface ApiResponse<T> {
@@ -625,6 +626,8 @@ export const clientsApi = {
 
 // Dashboard
 export const dashboardApi = {
+  getDetails: (query: URLSearchParams, signal?: AbortSignal) =>
+    apiRequest<DashboardDetailsResult>(`/dashboard/details?${query}`, { signal }),
   getMetrics: async (filter: string = 'this_month', startDate?: string, endDate?: string, sdrId?: string, closerId?: string, signal?: AbortSignal) => {
     const query = new URLSearchParams({ filter })
     if (startDate) query.append('startDate', startDate)

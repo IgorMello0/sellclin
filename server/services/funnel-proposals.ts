@@ -1,5 +1,6 @@
 import type { PrismaClient, Prisma } from '@prisma/client'
 import { z } from 'zod'
+import type { AuthUser } from '../middleware/auth.js'
 
 export const proposalInput = z.object({
   title: z.string().trim().min(1).max(500),
@@ -23,17 +24,26 @@ export async function validateProposalTeam(db: Prisma.TransactionClient, company
   }
 }
 
-export async function createLeadProposals(db: PrismaClient, leadId: number, input: unknown, createdBy: string) {
+export async function proposalAuthor(db: Prisma.TransactionClient, user: AuthUser) {
+  const where = { id: user.id }
+  const select = { name: true }
+  const author = user.type === 'usuario' ? await db.usuario.findUnique({ where, select })
+    : user.type === 'profissional' ? await db.professional.findUnique({ where, select }) : null
+  return { authorId: user.id, authorType: user.type, authorName: author?.name ?? null }
+}
+
+export async function createLeadProposals(db: PrismaClient, leadId: number, input: unknown, actor: AuthUser) {
   const proposals = z.array(proposalInput).min(1).max(50).parse(input)
   return db.$transaction(async tx => {
     await tx.$queryRaw`SELECT id FROM leads WHERE id = ${leadId} FOR UPDATE`
     const lead = await tx.lead.findUniqueOrThrow({ where: { id: leadId } })
+    const author = await proposalAuthor(tx, actor)
     const saved = []
     for (const data of proposals) {
       await validateProposalTeam(tx, lead.companyId!, data)
-      saved.push(await tx.proposal.create({ data: { ...data, leadId, title: data.title!, value: data.value!, validUntil: data.validUntil! } }))
+      saved.push(await tx.proposal.create({ data: { ...data, ...author, leadId, title: data.title!, value: data.value!, validUntil: data.validUntil! } }))
       await tx.leadActivity.create({ data: {
-        leadId, type: 'proposta', content: `${data.title} - Valor: R$ ${data.value.toFixed(2)}`, createdBy,
+        leadId, type: 'proposta', content: `${data.title} - Valor: R$ ${data.value.toFixed(2)}`, createdBy: String(actor.id),
       } })
     }
     const last = proposals[proposals.length - 1]
@@ -42,7 +52,7 @@ export async function createLeadProposals(db: PrismaClient, leadId: number, inpu
       value: last.value,
       ...(last.sdrId ? { sdrId: last.sdrId } : {}),
       ...(last.salespersonId ? { closerId: last.salespersonId } : {}),
-      ...(advance ? { status: 'comercial_proposal', proposalAt: lead.proposalAt || new Date(), attendedAt: lead.attendedAt || new Date() } : {}),
+      ...(advance ? { status: 'comercial_proposal', proposalAt: lead.proposalAt || new Date() } : {}),
     } })
     return saved
   })
