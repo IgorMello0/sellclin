@@ -827,7 +827,7 @@ const Conversations = () => {
   const assignAgent = async (value: string) => {
     if (!selected || assigningAgent) return;
     if (value === 'new') {
-      window.location.assign('/fluxos');
+      window.location.assign('/configuracoes?tab=atendimento');
       return;
     }
     setAssigningAgent(true);
@@ -994,7 +994,7 @@ const Conversations = () => {
                         <SelectValue>{selected.agentId ? agents.find(a => String(a.id) === String(selected.agentId))?.name : 'Atendimento manual'}</SelectValue>
                       </div>
                     </SelectTrigger>
-                    <SelectContent><SelectItem value="manual">Assumir atendimento humano</SelectItem>{agents.filter(agent => agent.isActive).map((agent) => <SelectItem key={agent.id} value={String(agent.id)}>Retomar {agent.name}</SelectItem>)}<SelectItem value="new"><span className="flex items-center gap-2"><Plus className="h-3.5 w-3.5" />Novo agente</span></SelectItem></SelectContent>
+                    <SelectContent><SelectItem value="manual">Assumir atendimento humano</SelectItem>{agents.filter(agent => agent.isActive).map((agent) => <SelectItem key={agent.id} value={String(agent.id)}>Retomar {agent.name}</SelectItem>)}<SelectItem value="new"><span className="flex items-center gap-2"><Plus className="h-3.5 w-3.5" />Configurar n8n</span></SelectItem></SelectContent>
                   </Select>
                 </div>
                 <div className="ml-0.5 flex items-center gap-0.5 border-l border-slate-200 pl-1.5">

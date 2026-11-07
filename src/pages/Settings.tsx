@@ -1,4 +1,4 @@
-import AtendimentoSettings from './AtendimentoSettings';
+import AtendimentoSettings from './N8nSettings';
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -2132,7 +2132,7 @@ const Settings = () => {
     {
       title: 'Organizacao',
       items: [
-        { key: 'atendimento', name: 'Atendimento e IA', description: 'Provedor, chave, conhecimento e regras dos fluxos', icon: 'smart_toy', ownerOnly: true },
+        { key: 'atendimento', name: 'Atendimento n8n', description: 'Conexão do workflow e atendimento pelo WhatsApp', icon: 'smart_toy', ownerOnly: true },
         { key: 'business', name: 'Clinica', description: 'Dados comerciais da empresa', icon: 'business', ownerOnly: true },
         { key: 'services', name: 'Servicos', description: 'Servicos oferecidos', icon: 'medical_services', ownerOnly: true },
         { key: 'team', name: 'Equipe', description: 'Usuarios e convites', icon: 'group', ownerOnly: true },

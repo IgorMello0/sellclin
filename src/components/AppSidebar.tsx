@@ -54,13 +54,7 @@ const menuItems = [
     icon: 'text_snippet',
     moduleCode: 'conversas',
   },
-  {
-    title: 'Fluxos',
-    url: '/fluxos',
-    icon: 'smart_toy',
-    moduleCode: 'conversas',
-    ownerOnly: true,
-  },
+
   {
     title: 'Metas',
     url: '/metas',

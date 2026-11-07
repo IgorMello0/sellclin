@@ -1,5 +1,18 @@
 # Fluxos de atendimento
 
+## Interface disponível nesta fase
+
+A interface pública está concentrada em **Configurações → Atendimento n8n**
+(`/configuracoes?tab=atendimento`). Ela permite salvar URL/token, testar a
+conexão, simular conversas e ativar/desativar o atendimento. Conexões n8n
+existentes são reaproveitadas. Havendo mais de uma, a página permite selecionar.
+As rotas antigas `/bots` e `/fluxos` levam à configuração n8n.
+
+Provedor/modelo/chave de IA nativa, base de conhecimento e editor visual estão
+ocultos nesta fase. As capacidades descritas abaixo são preservadas no código
+para uma entrega futura. Nenhuma migração adicional é necessária para essa
+mudança de interface.
+
 Configurações → Atendimento e IA reúne provedor, modelo, chave, comportamento,
 base de conhecimento, campos de qualificação, limites e agenda da clínica.
 Cada clínica utiliza sua chave. Salvar essas configurações desativa os fluxos
