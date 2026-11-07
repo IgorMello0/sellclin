@@ -5,6 +5,7 @@ import { useState, useRef, useEffect } from 'react';
 import { getImageUrl, notificationsApi } from '@/lib/api';
 
 const menuItems = [
+  { title: 'Fluxos', url: '/fluxos', icon: 'account_tree', moduleCode: 'conversas' },
   {
     title: 'Dashboard',
     url: '/painel',

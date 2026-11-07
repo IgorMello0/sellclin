@@ -398,15 +398,11 @@ const Conversations = () => {
   const [previewMedia, setPreviewMedia] = useState<PreviewMedia | null>(null);
   const [agents, setAgents] = useState<AiAgent[]>([]);
   const [assigningAgent, setAssigningAgent] = useState(false);
-  const [showAgentDialog, setShowAgentDialog] = useState(false);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [templateParameters, setTemplateParameters] = useState<string[]>([]);
   const [sendingTemplate, setSendingTemplate] = useState(false);
-  const [creatingAgent, setCreatingAgent] = useState(false);
-  const [agentName, setAgentName] = useState('');
-  const [agentPrompt, setAgentPrompt] = useState('');
   const [, setClock] = useState(Date.now());
   const [loadError, setLoadError] = useState<string | null>(null);
   const [workspace, setWorkspace] = useState<ConversationWorkspace>({ labels: [], professionals: [], users: [] });
@@ -831,7 +827,7 @@ const Conversations = () => {
   const assignAgent = async (value: string) => {
     if (!selected || assigningAgent) return;
     if (value === 'new') {
-      setShowAgentDialog(true);
+      window.location.assign('/fluxos');
       return;
     }
     setAssigningAgent(true);
@@ -844,30 +840,6 @@ const Conversations = () => {
       toast({ title: 'Erro ao atribuir agente', description: error.message, variant: 'destructive' });
     } finally {
       setAssigningAgent(false);
-    }
-  };
-
-  const createAgent = async () => {
-    if (!agentName.trim() || !agentPrompt.trim() || creatingAgent) return;
-    setCreatingAgent(true);
-    try {
-      const response = await aiAgentsApi.create({
-        name: agentName.trim(),
-        basePrompt: agentPrompt.trim(),
-        temperature: 0.7,
-        mode: 'assisted',
-      });
-      if (!response.success || !response.data) throw new Error(response.error?.message || 'Nao foi possivel criar o agente.');
-      const created = response.data as AiAgent;
-      setAgents((current) => [created, ...current]);
-      setShowAgentDialog(false);
-      setAgentName('');
-      setAgentPrompt('');
-      toast({ title: 'Rascunho criado', description: 'Configure a chave e teste em Bots de atendimento antes de ativar.' });
-    } catch (error: any) {
-      toast({ title: 'Erro ao criar agente', description: error.message, variant: 'destructive' });
-    } finally {
-      setCreatingAgent(false);
     }
   };
 
@@ -1355,19 +1327,7 @@ const Conversations = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showAgentDialog} onOpenChange={setShowAgentDialog}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Novo agente de IA</DialogTitle>
-            <DialogDescription>Defina a identidade e as orientacoes que serao usadas neste atendimento.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2"><Label htmlFor="agent-name">Nome do agente</Label><Input id="agent-name" value={agentName} onChange={(event) => setAgentName(event.target.value)} placeholder="Ex.: Assistente de agendamentos" /></div>
-            <div className="space-y-2"><Label htmlFor="agent-prompt">Orientacoes do agente</Label><Textarea id="agent-prompt" value={agentPrompt} onChange={(event) => setAgentPrompt(event.target.value)} placeholder="Descreva o tom, objetivo e regras do atendimento." rows={7} /></div>
-          </div>
-          <DialogFooter><Button variant="outline" onClick={() => setShowAgentDialog(false)}>Cancelar</Button><Button onClick={() => void createAgent()} disabled={creatingAgent || !agentName.trim() || !agentPrompt.trim()}>{creatingAgent && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Criar e atribuir</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
+
 
       <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
         <DialogContent role="dialog" aria-label="Enviar template aprovado" className="flex max-h-[100dvh] flex-col gap-0 overflow-hidden p-0 sm:max-h-[90dvh] sm:max-w-3xl sm:p-0">

@@ -107,7 +107,8 @@ const App = () => (
                   <Route path="clients" element={<LegacyRedirect to="/pacientes" />} />
                   <Route path="oportunidades" element={<ProtectedRoute moduleCode="clientes" moduleName="Leads" subPermissionKey="verLeads"><Leads /></ProtectedRoute>} />
                   <Route path="conversas" element={<ProtectedRoute moduleCode="conversas" moduleName="Conversas"><Conversations /></ProtectedRoute>} />
-                  <Route path="bots" element={<ProtectedRoute moduleCode="conversas" moduleName="Bots de atendimento"><AtendimentoBots /></ProtectedRoute>} />
+                  <Route path="bots" element={<Navigate to="/fluxos" replace />} />
+                  <Route path="fluxos" element={<ProtectedRoute moduleCode="conversas" moduleName="Fluxos de atendimento"><AtendimentoBots /></ProtectedRoute>} />
                   <Route path="modelos" element={<ProtectedRoute moduleCode="conversas" moduleName="Templates"><WhatsAppTemplates /></ProtectedRoute>} />
                   <Route path="modelos/novo" element={<ProtectedRoute moduleCode="conversas" moduleName="Templates"><WhatsAppTemplateCreate /></ProtectedRoute>} />
                   <Route path="configuracoes" element={<Settings />} />

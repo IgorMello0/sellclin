@@ -55,8 +55,8 @@ const menuItems = [
     moduleCode: 'conversas',
   },
   {
-    title: 'Bots de atendimento',
-    url: '/bots',
+    title: 'Fluxos',
+    url: '/fluxos',
     icon: 'smart_toy',
     moduleCode: 'conversas',
     ownerOnly: true,

@@ -16,6 +16,9 @@ beforeAll(async () => {
   const sql = await readFile(new URL('../../database/bot-configuracoes.sql', import.meta.url), 'utf8')
   await db.exec(sql)
   await db.exec(sql)
+  const flows = await readFile(new URL('../../database/bot-flows.sql', import.meta.url), 'utf8')
+  await db.exec(flows)
+  await db.exec(flows)
 }, 30000)
 afterAll(async () => { await db.close() })
 it('is repeatable and does not activate old agents or steal ongoing human conversations', async () => {

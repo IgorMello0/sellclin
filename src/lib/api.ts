@@ -1024,8 +1024,11 @@ export const conversationsApi = {
 }
 
 export const aiAgentsApi = {
+  getSettings: async () => apiRequest<any>('/agentes-ia/settings'),
+  saveSettings: async (data: any) => apiRequest<any>('/agentes-ia/settings', { method: 'PUT', body: JSON.stringify(data) }),
+  testSettings: async () => apiRequest<any>('/agentes-ia/settings/test-key', { method: 'POST' }),
   list: async () => apiRequest<any[]>('/agentes-ia?page=1&pageSize=100'),
-  create: async (data: { name: string; basePrompt: string; temperature?: number; mode?: string }) =>
+  create: async (data: { name: string; basePrompt: string; temperature?: number; mode?: string; template?: string }) =>
     apiRequest<any>('/agentes-ia', { method: 'POST', body: JSON.stringify(data) }),
   update: async (id: number, data: { name?: string; basePrompt?: string; temperature?: number; mode?: string; isActive?: boolean }) =>
     apiRequest<any>(`/agentes-ia/${id}`, { method: 'PUT', body: JSON.stringify(data) }),

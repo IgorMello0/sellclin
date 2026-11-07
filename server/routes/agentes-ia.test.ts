@@ -26,6 +26,7 @@ beforeEach(() => {
   configs = agents.map(a => ({ agentId: a.id, provider: 'openai', model: 'test', apiKey: 'private-test-key', knowledge: 'Rua A', maxResponses: 5, dailyLimit: 50, verifiedAt: new Date(), playgroundAt: new Date(), updatedAt: new Date() }))
   let tail = Promise.resolve()
   Object.assign(state.db, {
+    botClinicSettings: { findUnique: vi.fn().mockResolvedValue(null) },
     $queryRaw: vi.fn().mockResolvedValue([{ ready: true }]),
     $transaction: (fn: any) => { const result = tail.then(() => fn(state.db)); tail = result.catch(() => {}); return result },
     agenteIa: {

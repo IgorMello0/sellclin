@@ -3,6 +3,7 @@ import { bookingInput, groundedReply, HANDOFF_REPLY, needsHuman, verifiedFields,
 import { botCatalog, botSpecialists, availableBotSlots } from './bot-agenda.js'
 import { prisma } from '../prisma.js'
 import { callBotWorkflow } from './bot-n8n.js'
+import { advanceBotFlow } from './bot-flow-runtime.js'
 
 export async function prepareBotTurn(input: { agent: any; config: any; companyId: number; message: string; history: BotHistory; state: BotState; responseCount: number; eventId?: string; mode?: string; contact?: { name?: string; phone?: string } },
   deps = { db: prisma as any, generate: generateBotDecision }) {
@@ -13,6 +14,12 @@ export async function prepareBotTurn(input: { agent: any; config: any; companyId
   const recentInbound = history.slice(history.map(m => m.role).lastIndexOf('assistant') + 1).filter(m => m.role === 'user').map(m => m.content).join('\n')
   if (needsHuman(`${recentInbound}\n${message}`, Array.isArray(config.handoffTerms) ? config.handoffTerms : [])) return handoff('requested_human')
   if (responseCount >= config.maxResponses) return handoff('response_limit')
+  if (config.executionMode !== 'n8n' && config.flowDefinition) {
+    const step = advanceBotFlow(config, message, state)
+    if (step.kind === 'reply') return { ...result, ...step, decisionAction: 'flow' }
+    const answer = await prepareBotTurn({ ...input, state: step.state, config: { ...config, flowDefinition: null } }, deps)
+    return { ...answer, reply: [step.reply, answer.reply].filter(Boolean).join('\n\n'), state: { ...answer.state, flow: step.state.flow }, fields: { ...step.fields, ...answer.fields } }
+  }
   const booking = bookingInput(message, state)
   if (booking.kind === 'cancel' || booking.kind === 'expired') return { ...result, state: { collected: state.collected || {} }, reply: booking.kind === 'cancel' ? 'Seleção cancelada. Qual serviço e data você prefere?' : 'Vou consultar a disponibilidade novamente. Qual serviço e data você prefere?' }
   if (config.bookingEnabled && booking.kind === 'select') return { ...result, state: { ...state, pending: booking.slot, offers: undefined }, reply: `Você escolheu: ${booking.slot.label}. Para reservar, responda CONFIRMAR. Para mudar, responda CANCELAR.` }
@@ -23,14 +30,14 @@ export async function prepareBotTurn(input: { agent: any; config: any; companyId
   const knowledge = `${config.knowledge}\nCatálogo de serviços: ${JSON.stringify(catalog)}`
   const answer = config.executionMode === 'n8n' ? await callBotWorkflow(config, {
     eventId: input.eventId, mode: input.mode || 'playground',
-    bot: { name: agent.name, instructions: agent.basePrompt, knowledge: config.knowledge },
+    bot: { name: agent.name, instructions: `${config.instructions || ''}\n${agent.basePrompt}`, knowledge: config.knowledge },
     clinic: { timezone: config.timezone, currentDate: new Intl.DateTimeFormat('en-CA', { timeZone: config.timezone || 'America/Sao_Paulo' }).format(new Date()) },
     contact: input.contact || {}, message: { text: message.slice(0, 4000) },
     history: history.slice(-14).map(m => ({ role: m.role === 'user' ? 'customer' : 'assistant', content: m.content.slice(0, 4000) })),
     state: { collected: state.collected || {}, pendingAppointment: state.pending || null },
     capabilities: { qualification: Boolean(config.qualifyEnabled), booking: Boolean(config.bookingEnabled), handoff: true },
     qualificationFields: config.qualifyEnabled ? fields : [], services: catalog, specialists,
-  }) : await deps.generate({ provider: config.provider, model: config.model, apiKey: config.apiKey, prompt: agent.basePrompt, knowledge },
+  }) : await deps.generate({ provider: config.provider, model: config.model, apiKey: config.apiKey, prompt: `${config.instructions || ''}\n${agent.basePrompt}`, knowledge },
     [...history.slice(-14), { role: 'user', content: message }], JSON.stringify({ today: new Date().toISOString(), timezone: config.timezone, specialists, fields: config.qualifyEnabled ? fields : [], collected: state.collected || {}, bookingEnabled: config.bookingEnabled }))
   Object.assign(result, { inputTokens: answer.inputTokens, outputTokens: answer.outputTokens, httpStatus: 'httpStatus' in answer ? answer.httpStatus : undefined, decisionAction: answer.decision.action })
   const decision = answer.decision

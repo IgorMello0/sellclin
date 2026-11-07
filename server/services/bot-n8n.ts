@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { integrationHttpClient } from './integration-http.js'
 import { botDecisionSchema } from './bot-policy.js'
 import { BotProviderError } from './bot-provider.js'
+import { validateFlow } from './bot-flow-definition.js'
 
 export function validWorkflowUrl(value: string) {
   try {
@@ -10,6 +11,9 @@ export function validWorkflowUrl(value: string) {
   } catch { return false }
 }
 export function botConnectionReady(config: any) {
+  if (config?.executionMode !== 'n8n' && config?.flowDefinition) {
+    return validateFlow(config.flowDefinition).length === 0 && (!config.flowDefinition.nodes.some((n: any) => n.type === 'ai') || Boolean(config.apiKey && config.model))
+  }
   return Boolean(config && (config.executionMode === 'n8n' ? config.n8nSecret && config.n8nWebhookUrl : config.apiKey))
 }
 export async function callBotWorkflow(config: any, payload: Record<string, unknown>) {

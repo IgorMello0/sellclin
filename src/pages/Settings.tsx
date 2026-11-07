@@ -1,3 +1,4 @@
+import AtendimentoSettings from './AtendimentoSettings';
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -2069,6 +2070,7 @@ const PlaceholderSettingsView = ({ title, description, icon }: { title: string; 
 const EspecialistasView = () => <EquipeView isSpecialistMode={true} />;
 
 const ViewsMap: Record<string, React.FC<any>> = {
+  atendimento: AtendimentoSettings,
   profile: ProfileSettingsView,
   security: SecuritySettingsView,
   notifications: () => <PlaceholderSettingsView title="Notificacoes" description="Preferencias de alertas, lembretes e avisos serao organizadas nesta area." icon="notifications" />,
@@ -2088,6 +2090,7 @@ const ViewsMap: Record<string, React.FC<any>> = {
 };
 
 const tabSlugs: Record<string, string> = {
+  atendimento: 'atendimento',
   profile: 'perfil',
   billing: 'planos',
   security: 'seguranca',
@@ -2129,6 +2132,7 @@ const Settings = () => {
     {
       title: 'Organizacao',
       items: [
+        { key: 'atendimento', name: 'Atendimento e IA', description: 'Provedor, chave, conhecimento e regras dos fluxos', icon: 'smart_toy', ownerOnly: true },
         { key: 'business', name: 'Clinica', description: 'Dados comerciais da empresa', icon: 'business', ownerOnly: true },
         { key: 'services', name: 'Servicos', description: 'Servicos oferecidos', icon: 'medical_services', ownerOnly: true },
         { key: 'team', name: 'Equipe', description: 'Usuarios e convites', icon: 'group', ownerOnly: true },

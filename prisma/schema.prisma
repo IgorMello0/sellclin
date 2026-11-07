@@ -464,6 +464,7 @@ model Contract {
 }
 
 model Empresa {
+  botSettings BotClinicSettings?
   id                     Int       @id @default(autoincrement())
   ownerId                Int?      @map("owner_id")
   name                   String
@@ -724,6 +725,7 @@ model AgenteIa {
 }
 
 model BotConfiguracao {
+  flowDefinition Json? @map("flow_definition")
   executionMode String @default("native") @map("execution_mode")
   n8nWebhookUrl String? @map("n8n_webhook_url")
   n8nSecret String? @map("n8n_secret") @db.Text
@@ -748,6 +750,16 @@ model BotConfiguracao {
   agent         AgenteIa @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
   @@map("bot_configuracoes")
+}
+
+model BotClinicSettings {
+  companyId Int @id @map("company_id")
+  settings Json
+  apiKey String? @map("api_key") @db.Text
+  verifiedAt DateTime? @map("verified_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  company Empresa @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  @@map("bot_clinic_settings")
 }
 
 model BotSession {

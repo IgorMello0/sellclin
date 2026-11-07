@@ -6,6 +6,7 @@ import { confirmBotAppointment } from './bot-agenda.js'
 import { syncAppointmentToGoogle } from './google-calendar.js'
 import { BotProviderError } from './bot-provider.js'
 import { botConnectionReady } from './bot-n8n.js'
+import { effectiveBotConfig } from './bot-clinic-settings.js'
 
 export async function lockBotConversation(tx: any, companyId: number, id: number) {
   const rows = await tx.$queryRaw`SELECT id FROM conversas WHERE id = ${id} AND company_id = ${companyId} FOR UPDATE`
@@ -53,7 +54,7 @@ export async function processBotRun(id: number, deps = botDependencies) {
   let stage = 'processing'
   try {
     const agent = await db.agenteIa.findFirst({ where: { id: run.agentId, companyId: run.companyId, isActive: true }, include: { configuracao: true } })
-    const config = agent?.configuracao
+    const config = await effectiveBotConfig(run.companyId, agent?.configuracao, db)
     await db.botRun.update({ where: { id }, data: { executionMode: config?.executionMode || 'native' } })
     const conversation = await db.conversa.findFirst({ where: { id: run.conversationId, companyId: run.companyId }, include: { botSession: true } })
     const message = await db.mensagem.findFirst({ where: { id: run.messageId, conversationId: run.conversationId, sender: 'cliente' } })
@@ -87,7 +88,7 @@ export async function processBotRun(id: number, deps = botDependencies) {
       if (prepared.confirmSlot) {
         const booked = await confirmBotAppointment(tx, conversation, prepared.confirmSlot, config)
         prepared.reply = booked ? `Agendamento confirmado: ${prepared.confirmSlot.label}.` : 'Esse horário não está mais disponível. Informe uma nova data para consultar outros horários.'
-        prepared.state = { collected: prepared.state.collected || {}, ...(booked ? { appointmentId: booked.id } : {}) }
+        prepared.state = { collected: prepared.state.collected || {}, flow: prepared.state.flow, ...(booked ? { appointmentId: booked.id } : {}) }
         appointmentId = booked?.id
       }
       if (conversation.leadId && Object.keys(prepared.fields).length) {
