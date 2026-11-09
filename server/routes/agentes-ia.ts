@@ -102,7 +102,7 @@ router.put('/:id', manage, async (req, res) => {
 router.post('/:id/ativar', manage, async (req, res) => {
   if (req.body?.approveCosts !== true) return res.status(400).json(createErrorResponse('Confirme o provedor, o custo da sua chave e as respostas do Playground.', 400))
   const readiness: any[] = await prisma.$queryRaw`SELECT EXISTS(SELECT 1 FROM pg_indexes WHERE indexname = 'agentes_ia_um_ativo_por_clinica') AND EXISTS(SELECT 1 FROM pg_trigger WHERE tgname = 'sellclin_bot_message_received' AND NOT tgisinternal) AS ready`
-  if (!readiness[0]?.ready) return res.status(503).json(createErrorResponse('Aplique a migração dos bots antes de ativar o atendimento.', 503))
+  if (!readiness[0]?.ready) return res.status(503).json({ success: false, error: { code: 503, reason: 'bot_schema_missing', message: 'A atualização do banco do atendimento está incompleta. Aplique as migrações dos bots e reinicie o serviço antes de ativar.' } })
   const result = await prisma.$transaction(async tx => {
     await tx.$queryRaw`SELECT id FROM empresas WHERE id = ${clinic(req)} FOR UPDATE`
     const agent = await tx.agenteIa.findFirst({ where: { id: res.locals.bot.id, companyId: clinic(req) }, include: { configuracao: true } })
@@ -113,7 +113,7 @@ router.post('/:id/ativar', manage, async (req, res) => {
     await tx.agenteIa.updateMany({ where: { companyId: clinic(req), isActive: true }, data: { isActive: false } })
     return tx.agenteIa.update({ where: { id: agent!.id }, data: { isActive: true, activatedAt: new Date() } })
   })
-  if (!result) return res.status(409).json(createErrorResponse('Configure Meta ou Uazapi, teste a chave e uma conversa no Playground antes de ativar.', 409))
+  if (!result) return res.status(409).json(createErrorResponse('Configure o WhatsApp da clínica com Meta ou Uazapi, valide a conexão e conclua um teste de conversa antes de ativar.', 409))
   res.json(createSuccessResponse(result))
 })
 router.post('/:id/duplicate', manage, async (req, res) => {
@@ -166,7 +166,7 @@ router.post('/:id/test-key', manage, aiLimit, async (req, res) => {
     const result = await prisma.botConfiguracao.updateMany({ where: { agentId: config.agentId, updatedAt: config.updatedAt }, data: { verifiedAt: new Date() } })
     if (!result.count) return res.status(409).json(createErrorResponse('A configuração mudou durante o teste. Teste novamente.', 409))
     res.json(createSuccessResponse({ verified: true }))
-  } catch (error) { res.status(502).json(createErrorResponse(providerErrorMessage(error instanceof BotProviderError ? error.code : ''), 502)) }
+  } catch (error) { res.status(502).json({ success: false, error: { code: 502, reason: error instanceof BotProviderError ? error.code : 'provider_error', message: providerErrorMessage(error instanceof BotProviderError ? error.code : '') } }) }
 })
 router.post('/:id/playground', manage, aiLimit, async (req, res) => {
   const message = z.string().trim().min(1).max(4000).safeParse(req.body.message)
