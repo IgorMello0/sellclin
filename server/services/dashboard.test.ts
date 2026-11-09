@@ -367,6 +367,12 @@ describe('dashboard details', () => {
       ] },
     }
     const detail = await execute({ ...options, query: { ...custom, indicator: 'propostas' } })
+    const withValues = await execute({ detail: true, leads, query: { ...custom, indicator: 'propostas' } })
+    assert.equal(withValues.body.data.columns[1].label, 'Valor da proposta')
+    assert.equal(withValues.body.data.columns[1].format, 'money')
+    assert.equal(withValues.body.data.rows[0].cells[1], 300)
+    assert.equal(withValues.body.data.rows[1].cells[1], 700)
+    assert(!detail.body.data.columns.some(column => column.format === 'money'))
     assert.equal(detail.body.data.total, 2)
     assert.equal(detail.body.data.summary.amount, undefined)
     assert.equal(detail.calls.find(call => call.model === 'proposal-select')?.where.value, undefined)

@@ -123,9 +123,9 @@ async function readDetail(
     const amount = Number((discount ? totals?._sum?.discountValue : totals?._sum?.value) ?? 0)
     const total = totals?._count.id
     const result = await list(
-      [col('Proposta'), col('Lead'), col('Criada em', 'dateTime'), col('SDR'), col('Responsável comercial'),
-        col('Especialista'), col('Criado por'), ...(discount ? [col('Vendas confirmadas')] : []),
-        ...(billing ? [col(discount ? 'Desconto' : 'Valor', 'money')] : [])],
+      [col('Proposta'), ...(billing ? [col(discount ? 'Desconto' : 'Valor da proposta', 'money')] : []),
+        col('Lead'), col('Criada em', 'dateTime'), col('SDR'), col('Responsável comercial'),
+        col('Especialista'), col('Criado por'), ...(discount ? [col('Vendas confirmadas')] : [])],
       db.proposal.count({ where }),
       db.proposal.findMany({
         where, ...pagination, orderBy: [{ createdAt: order }, { id: order }],
@@ -135,9 +135,9 @@ async function readDetail(
       }),
       row => ({
         id: row.id, record: link('lead', row.lead),
-        cells: [row.title, row.lead.name, row.createdAt, row.sdr?.name ?? null, row.salesperson?.name ?? null,
-          row.specialist?.name ?? null, row.authorName ?? 'Não registrado', ...(discount ? [row._count.sales] : []),
-          ...(billing ? [Number(discount ? row.discountValue : row.value)] : [])],
+        cells: [row.title, ...(billing ? [Number(discount ? row.discountValue : row.value)] : []),
+          row.lead.name, row.createdAt, row.sdr?.name ?? null, row.salesperson?.name ?? null,
+          row.specialist?.name ?? null, row.authorName ?? 'Não registrado', ...(discount ? [row._count.sales] : [])],
       }), total ?? (summary && !financialConversion ? summary.denominator : undefined),
     )
     if (summary && financialConversion && search) result.total = await db.proposal.count({ where: base })
