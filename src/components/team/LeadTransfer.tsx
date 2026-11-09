@@ -45,11 +45,11 @@ export function LeadTransfer({ memberId, companyId, companyName }: { memberId: n
   return <section className="space-y-3" aria-labelledby={`transfer-title-${memberId}`} aria-busy={loading || saving}>
     <div>
       <h4 id={`transfer-title-${memberId}`} className="text-sm font-semibold">Transferir leads deste membro</h4>
-      <p className="mt-1 text-sm text-muted-foreground">Transfira as responsabilidades atuais em {companyName}. Somente negociações em andamento serão transferidas. Leads fechados, pagos ou com venda confirmada permanecem com o responsável original. O membro continua na equipe.</p>
+      <p className="mt-1 text-sm text-muted-foreground">Transfira as responsabilidades atuais em {companyName}. O contato passa para o novo responsável, inclusive quando já teve negociações fechadas. As propostas fechadas e vendas mantêm os responsáveis originais. O membro continua na equipe.</p>
     </div>
     {loading ? <p role="status" className="text-sm text-muted-foreground">Consultando leads…</p> : <>
       {preview && <p className="text-sm">
-        <strong>{preview.total} lead(s)</strong> em andamento disponíveis para transferência.
+        <strong>{preview.total} lead(s)</strong> atribuídos a este membro.
         {preview.total > 0 && <span className="block text-muted-foreground">SDR: {preview.counts.sdrId} · Closer: {preview.counts.closerId} · Especialista: {preview.counts.especialistaId}. Um lead pode ter mais de uma função.</span>}
       </p>}
       {preview && preview.total > 0 && <>

@@ -955,7 +955,11 @@ export const LeadDossierModal = ({ lead: initialLead, open, onOpenChange, onUpda
                                   </div>
                                   <div className="space-y-1">
                                     <div className="flex items-center gap-2">
-                                      <h5 className="font-bold text-primary text-sm line-clamp-1">{proposal.title}</h5>
+                                      <div>
+                                        <h5 className="font-bold text-primary text-sm line-clamp-1">{proposal.title}</h5>
+                                        <p className="mt-1 text-xs text-slate-500">Responsável pela proposta: {proposal.salesperson?.name || 'Não registrado'}</p>
+                                        {(hasActiveSale || ['accepted', 'comercial_closed', 'sales_payment', 'sales_contract', 'sales_post'].includes(proposal.status)) && <p className="mt-1 text-xs text-slate-500">Histórico preservado: transferir o contato não altera o responsável desta proposta.</p>}
+                                      </div>
                                       {hasActiveSale && (
                                         <span className="flex items-center gap-1 bg-green-50 text-green-600 text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wider whitespace-nowrap">
                                           <CheckCircle2 className="w-3 h-3" />

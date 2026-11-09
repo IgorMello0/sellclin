@@ -91,15 +91,17 @@ it('rejects a member outside the active clinic', async () => {
   await expect(leadTransferPreview(db, 4, 10)).rejects.toMatchObject({ status: 404 })
 })
 
-it('preserves closed, paid and confirmed sales and their conversations during transfer', async () => {
+it('transfers closed contacts without rewriting historical proposals or sales', async () => {
   leads.push(...[
     { id: 4, status: 'comercial_closed' }, { id: 5, isPaid: true },
     { id: 6, status: 'comercial_follow', sales: [{ voidedAt: null }] },
     { id: 7, status: 'comercial_follow', proposals: [{ status: 'accepted' }] },
   ].map(l => ({ companyId: 4, closerId: 10, ...l })))
   conversations.push({ id: 4, companyId: 4, leadId: 4, assignedUserId: 10 })
-  expect((await leadTransferPreview(db, 4, 10)).total).toBe(2)
-  await transferMemberLeads(db, 4, 10, 20, 2)
-  expect(leads.slice(3).map(l => l.closerId)).toEqual([10, 10, 10, 10])
-  expect(conversations[3].assignedUserId).toBe(10)
+  expect((await leadTransferPreview(db, 4, 10)).total).toBe(6)
+  const historical = structuredClone(leads.slice(3).map(l => ({ proposals: l.proposals, sales: l.sales })))
+  await transferMemberLeads(db, 4, 10, 20, 6)
+  expect(leads.slice(3).map(l => l.closerId)).toEqual([20, 20, 20, 20])
+  expect(conversations[3].assignedUserId).toBe(20)
+  expect(leads.slice(3).map(l => ({ proposals: l.proposals, sales: l.sales }))).toEqual(historical)
 })
