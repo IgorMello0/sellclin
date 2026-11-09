@@ -7,6 +7,14 @@ const assignments = [
   { field: 'especialistaId', role: 'isSpecialist', label: 'Especialista' },
 ] as const
 
+// Completed negotiations stay with their original owner during team transfers.
+export const transferableLeadWhere: Prisma.LeadWhereInput = {
+  status: { notIn: ['comercial_closed', 'sales_payment', 'sales_contract', 'sales_post'] },
+  isPaid: false,
+  sales: { none: { voidedAt: null } },
+  proposals: { none: { status: { in: ['accepted', 'comercial_closed', 'sales_payment', 'sales_contract', 'sales_post'] } } },
+}
+
 export class LeadTransferError extends Error {
   constructor(message: string, public status = 400) { super(message) }
 }
@@ -19,8 +27,8 @@ export async function leadTransferPreview(db: Db, companyId: number, sourceId: n
     ] }, select: { id: true, name: true },
   })
   if (!source) throw new LeadTransferError('Membro não encontrado na clínica atual.', 404)
-  const counts = await Promise.all(assignments.map(a => db.lead.count({ where: { companyId, [a.field]: sourceId } })))
-  const total = await db.lead.count({ where: { companyId, OR: assignments.map(a => ({ [a.field]: sourceId })) } })
+  const counts = await Promise.all(assignments.map(a => db.lead.count({ where: { ...transferableLeadWhere, companyId, [a.field]: sourceId } })))
+  const total = await db.lead.count({ where: { ...transferableLeadWhere, companyId, OR: assignments.map(a => ({ [a.field]: sourceId })) } })
   const members = await db.usuario.findMany({
     where: { id: { not: sourceId }, isActive: true, emailVerified: true, OR: [
       { companyAccess: { some: { companyId, isActive: true } } },
@@ -53,12 +61,12 @@ export async function transferMemberLeads(db: PrismaClient, companyId: number, s
     // other team members' assignments and all historical financial attribution.
     await tx.conversa.updateMany({ where: {
       companyId, assignedUserId: sourceId,
-      lead: { companyId, OR: assignments.map(a => ({ [a.field]: sourceId })) },
+      lead: { ...transferableLeadWhere, companyId, OR: assignments.map(a => ({ [a.field]: sourceId })) },
     }, data: { assignedUserId: targetId } })
     const changed = []
     for (const assignment of assignments) {
       changed.push(await tx.lead.updateMany({
-        where: { companyId, [assignment.field]: sourceId }, data: { [assignment.field]: targetId },
+        where: { ...transferableLeadWhere, companyId, [assignment.field]: sourceId }, data: { [assignment.field]: targetId },
       }))
     }
     if (changed.some((result, index) => result.count !== preview.counts[assignments[index].field])) {

@@ -341,7 +341,7 @@ export function FunnelCard({
           <div className="flex flex-col gap-1.5">
             <div className="w-full py-2 bg-green-50 text-green-600 rounded-lg text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 border border-green-200">
               <span className="material-symbols-outlined text-xs">how_to_reg</span>
-              Cliente Ativo
+              {lead.isPaid ? 'Venda confirmada' : 'Fechado — confirmação pendente'}
             </div>
             {!lead.isPaid ? (
               <button
@@ -352,12 +352,12 @@ export function FunnelCard({
                 className="w-full py-2 bg-primary/10 hover:bg-primary text-primary hover:text-white rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-primary/20"
               >
                 <span className="material-symbols-outlined text-xs">payments</span>
-                Baixar Pagamento
+                Confirmar venda
               </button>
             ) : (
               <div className="w-full py-2 bg-green-500/10 text-green-600 rounded-lg text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 border border-green-200">
                 <span className="material-symbols-outlined text-xs">check_circle</span>
-                Pagamento Realizado
+                Venda confirmada
               </div>
             )}
 

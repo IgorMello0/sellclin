@@ -6,9 +6,14 @@ let db: any
 let leads: any[]
 let conversations: any[]
 let members: any[]
-const matches = (lead: any, where: any): boolean => lead.companyId === where.companyId &&
-  (where.OR ? where.OR.some((condition: any) => Object.entries(condition).every(([key, value]) => lead[key] === value))
-    : Object.entries(where).every(([key, value]) => lead[key] === value))
+const matches = (lead: any, where: any): boolean => Object.entries(where).every(([key, value]: [string, any]) => {
+  if (key === 'OR') return value.some((condition: any) => matches(lead, condition))
+  if (key === 'status') return !value.notIn.includes(lead.status)
+  if (key === 'isPaid') return Boolean(lead.isPaid) === value
+  if (key === 'sales') return !(lead.sales || []).some((sale: any) => sale.voidedAt == null)
+  if (key === 'proposals') return !(lead.proposals || []).some((p: any) => value.none.status.in.includes(p.status))
+  return lead[key] === value
+})
 
 beforeEach(() => {
   leads = [
@@ -84,4 +89,17 @@ it('rolls back conversation and lead transfers if any update fails', async () =>
 it('rejects a member outside the active clinic', async () => {
   db.usuario.findFirst.mockResolvedValue(null)
   await expect(leadTransferPreview(db, 4, 10)).rejects.toMatchObject({ status: 404 })
+})
+
+it('preserves closed, paid and confirmed sales and their conversations during transfer', async () => {
+  leads.push(...[
+    { id: 4, status: 'comercial_closed' }, { id: 5, isPaid: true },
+    { id: 6, status: 'comercial_follow', sales: [{ voidedAt: null }] },
+    { id: 7, status: 'comercial_follow', proposals: [{ status: 'accepted' }] },
+  ].map(l => ({ companyId: 4, closerId: 10, ...l })))
+  conversations.push({ id: 4, companyId: 4, leadId: 4, assignedUserId: 10 })
+  expect((await leadTransferPreview(db, 4, 10)).total).toBe(2)
+  await transferMemberLeads(db, 4, 10, 20, 2)
+  expect(leads.slice(3).map(l => l.closerId)).toEqual([10, 10, 10, 10])
+  expect(conversations[3].assignedUserId).toBe(10)
 })
