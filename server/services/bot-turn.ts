@@ -4,8 +4,9 @@ import { botCatalog, botSpecialists, availableBotSlots } from './bot-agenda.js'
 import { prisma } from '../prisma.js'
 import { callBotWorkflow } from './bot-n8n.js'
 import { advanceBotFlow } from './bot-flow-runtime.js'
+import { botIdentity } from './bot-identity.js'
 
-export async function prepareBotTurn(input: { agent: any; config: any; companyId: number; message: string; history: BotHistory; state: BotState; responseCount: number; eventId?: string; mode?: string; contact?: { name?: string; phone?: string } },
+export async function prepareBotTurn(input: { agent: any; config: any; companyId: number; message: string; history: BotHistory; state: BotState; responseCount: number; eventId?: string; mode?: string; conversationId?: number; contact?: { name?: string; phone?: string } },
   deps = { db: prisma as any, generate: generateBotDecision }) {
   const { agent, config, companyId, message, history, responseCount } = input
   const state = { ...input.state }
@@ -32,7 +33,8 @@ export async function prepareBotTurn(input: { agent: any; config: any; companyId
     eventId: input.eventId, mode: input.mode || 'playground',
     bot: { name: agent.name, instructions: `${config.instructions || ''}\n${agent.basePrompt}`, knowledge: config.knowledge },
     clinic: { timezone: config.timezone, currentDate: new Intl.DateTimeFormat('en-CA', { timeZone: config.timezone || 'America/Sao_Paulo' }).format(new Date()) },
-    contact: input.contact || {}, message: { text: message.slice(0, 4000) },
+    ...botIdentity(companyId, agent.id, input.mode || 'playground', input.contact?.phone, input.conversationId),
+    message: { text: message.slice(0, 4000) },
     history: history.slice(-14).map(m => ({ role: m.role === 'user' ? 'customer' : 'assistant', content: m.content.slice(0, 4000) })),
     state: { collected: state.collected || {}, pendingAppointment: state.pending || null },
     capabilities: { qualification: Boolean(config.qualifyEnabled), booking: Boolean(config.bookingEnabled), handoff: true },

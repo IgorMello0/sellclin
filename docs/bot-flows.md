@@ -1,5 +1,20 @@
 # Fluxos de atendimento
 
+## Memória externa do n8n
+
+O payload inclui `contact.phone` (DDI + DDD + número, somente dígitos),
+`contact.id`, `conversation.id` e `conversation.memoryKey`. Use
+`{{$json.body.conversation.memoryKey}}` após o Webhook como chave da memória:
+ela combina clínica e telefone, preservando a continuidade entre mensagens e
+evitando colisão entre clínicas. `eventId` identifica uma execução/mensagem,
+não uma conversa. `conversation.id` identifica a conversa do CRM.
+
+`connection_test` e `playground` usam identificadores com prefixo `test:` e
+telefone nulo; não são clientes reais. Filtre esses modos no workflow para não
+enviar WhatsApp nem executar efeitos externos. O telefone real é enviado pelo
+worker em mensagens `live`. Quando não existe telefone válido, a chave de
+memória usa o identificador da conversa; um LID não é convertido em telefone.
+
 ## Interface disponível nesta fase
 
 A interface pública está concentrada em **Configurações → Atendimento n8n**

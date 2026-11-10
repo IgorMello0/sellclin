@@ -9,6 +9,7 @@ import { prepareBotTurn } from '../services/bot-turn.js'
 import { canCompanyAccessModule } from '../services/billing.js'
 import { botConnectionReady, callBotWorkflow, validWorkflowUrl } from '../services/bot-n8n.js'
 import { clinicBotSchema, effectiveBotConfig } from '../services/bot-clinic-settings.js'
+import { botIdentity } from '../services/bot-identity.js'
 import { flowSchema, flowTemplate, validateFlow } from '../services/bot-flow-definition.js'
 
 export const router = Router()
@@ -159,7 +160,7 @@ router.post('/:id/test-key', manage, aiLimit, async (req, res) => {
   if (!botConnectionReady(config)) return res.status(409).json(createErrorResponse('Salve a conexão e a credencial primeiro.', 409))
   try {
     const usage = config.executionMode === 'n8n'
-      ? await callBotWorkflow(config, { mode: 'connection_test', bot: { name: res.locals.bot.name, instructions: 'Teste de conexão', knowledge: '' }, contact: {}, message: { text: 'Olá' }, history: [], state: {}, services: [], specialists: [], capabilities: { qualification: false, booking: false, handoff: true } })
+      ? await callBotWorkflow(config, { mode: 'connection_test', bot: { name: res.locals.bot.name, instructions: 'Teste de conexão', knowledge: '' }, ...botIdentity(clinic(req), res.locals.bot.id, 'connection_test'), message: { text: 'Olá' }, history: [], state: {}, services: [], specialists: [], capabilities: { qualification: false, booking: false, handoff: true } })
       : config.flowDefinition && !config.flowDefinition.nodes.some((n: any) => n.type === 'ai') ? { inputTokens: 0, outputTokens: 0 }
       : await generateBotDecision({ ...config, apiKey: config.apiKey, prompt: 'Teste de conexão', knowledge: '' }, [{ role: 'user', content: 'Olá' }])
     await prisma.botRun.create({ data: { companyId: res.locals.bot.companyId, agentId: config.agentId, executionMode: config.executionMode || 'native', httpStatus: 'httpStatus' in usage ? Number(usage.httpStatus) : undefined, mode: 'key_test', status: 'sent', inputTokens: usage.inputTokens, outputTokens: usage.outputTokens } })
