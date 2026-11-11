@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { funnelConfigApi, empresasApi } from '@/lib/api';
+import { funnelConfigApi } from '@/lib/api';
 import { DuplicateFunnelsButton } from '@/components/funnel/DuplicateFunnelsButton';
 import { FunnelOrderControls, useFunnelOrder } from '@/components/funnel/FunnelOrderControls';
 import { stageBehavior } from '../../../server/utils/funnel-stages';
@@ -59,9 +59,6 @@ export default function FunnelsSettingsView({ name }: { name?: string }) {
   const [editingStage, setEditingStage] = useState<number | null>(null);
   const [editStageData, setEditStageData] = useState({ label: '', color: '' });
   const [isSaving, setIsSaving] = useState(false);
-  const [companyId, setCompanyId] = useState<number | null>(null);
-  const [contactCadence, setContactCadence] = useState<number>(5);
-  const [isSavingCadence, setIsSavingCadence] = useState(false);
 
   // Drag and Drop State
   const [draggedStage, setDraggedStage] = useState<{ funnelIdx: number; stageIdx: number } | null>(null);
@@ -69,37 +66,7 @@ export default function FunnelsSettingsView({ name }: { name?: string }) {
 
   useEffect(() => {
     loadFunnels();
-    loadCompanyCadence();
   }, []);
-
-  const loadCompanyCadence = async () => {
-    try {
-      const res = await empresasApi.getMyCompany();
-      if (res.success && res.data) {
-        setCompanyId(res.data.id);
-        setContactCadence(res.data.contactCadence ?? 5);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleSaveCadence = async () => {
-    if (!companyId) return;
-    setIsSavingCadence(true);
-    try {
-      const res = await empresasApi.update(companyId, { contactCadence });
-      if (res.success) {
-        toast({ title: 'Cadência salva com sucesso!' });
-      } else {
-        toast({ title: 'Erro ao salvar cadência', variant: 'destructive' });
-      }
-    } catch (e) {
-      toast({ title: 'Erro ao salvar cadência', variant: 'destructive' });
-    } finally {
-      setIsSavingCadence(false);
-    }
-  };
 
   const loadFunnels = async () => {
     setIsLoading(true);
@@ -340,12 +307,12 @@ export default function FunnelsSettingsView({ name }: { name?: string }) {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <p className="text-sm text-slate-500 font-medium">
-          Personalize as etapas e funis que serão exibidos no seu pipeline comercial.
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-border pb-4">
+        <p className="min-w-0 flex-[1_1_17rem] text-sm text-muted-foreground">
+          Use as setas para mudar a ordem dos funis. Abra um funil para editar suas etapas.
         </p>
-        <div className="flex flex-wrap gap-2">
+        <div className="ml-auto grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
           <DuplicateFunnelsButton onSaved={loadFunnels} />
           <Button
             onClick={() => {
@@ -354,46 +321,9 @@ export default function FunnelsSettingsView({ name }: { name?: string }) {
             }}
             size="sm"
             variant="secondary"
-            className="h-10 px-4 shadow-sm"
+            className="h-10 px-3"
           >
-            <Plus className="w-4 h-4 mr-2" /> Novo Funil
-          </Button>
-        </div>
-      </div>
-
-      {/* Help Banner */}
-      <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex gap-3 text-sm text-blue-800 shadow-sm">
-        <div className="text-blue-500 mt-0.5">
-          <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>info</span>
-        </div>
-        <div className="space-y-2">
-          <p>
-            <strong>Como organizar seus Funis:</strong> Você pode criar diferentes funis para segmentar o processo (ex: Prospecção, Vendas) e adicionar etapas dentro de cada um. 
-            Arraste as etapas pelo ícone lateral (<GripVertical className="inline w-4 h-4 text-slate-400 -mt-0.5" />) para mudar a ordem. Para editar o nome ou a cor de uma etapa, clique no ícone do lápis.
-          </p>
-          <p>
-            <strong>Cadência de Contatos:</strong> A cadência define o objetivo de tentativas de contato com o cliente (ex: ligar 5 vezes). 
-            Esse número aparece no cartão de cada lead lá na tela do Comercial e seus vendedores podem ir somando (+1) cada vez que tentarem falar com a pessoa.
-          </p>
-        </div>
-      </div>
-
-      <div className="p-5 border border-slate-200 rounded-2xl bg-white shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <Label className="text-base font-semibold">Cadência de Contato (CRM)</Label>
-          <p className="text-sm text-muted-foreground">Número de tentativas (bolinhas) mostradas no cartão do Kanban.</p>
-        </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Input 
-            type="number"
-            min="1"
-            max="20"
-            value={contactCadence}
-            onChange={(e) => setContactCadence(parseInt(e.target.value) || 5)}
-            className="w-20 text-center font-medium"
-          />
-          <Button onClick={handleSaveCadence} disabled={isSavingCadence} variant="secondary">
-            {isSavingCadence ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Salvar'}
+            <Plus className="h-4 w-4" /> Novo funil
           </Button>
         </div>
       </div>
@@ -415,26 +345,26 @@ export default function FunnelsSettingsView({ name }: { name?: string }) {
               {/* Funnel Header */}
               <div 
                 className={cn(
-                  "flex items-center justify-between p-4 sm:p-5 cursor-pointer transition-colors duration-300",
+                  "flex flex-wrap items-center gap-x-2 gap-y-1 p-3 sm:p-5 cursor-pointer transition-colors duration-300",
                   expandedFunnel === funnel.id ? "bg-slate-50/50 border-b border-slate-100" : "bg-white hover:bg-slate-50/50"
                 )}
                 onClick={() => setExpandedFunnel(expandedFunnel === funnel.id ? null : funnel.id)}
               >
-                <div className="flex items-center gap-3.5">
+                <div className="flex min-w-0 flex-[1_1_9rem] items-center gap-2 sm:gap-3.5">
                   <div className={cn(
-                    "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
+                    "w-10 h-10 shrink-0 overflow-hidden rounded-xl flex items-center justify-center transition-colors",
                     expandedFunnel === funnel.id ? "bg-primary text-white shadow-md shadow-primary/20" : "bg-slate-100 text-slate-500 group-hover:bg-slate-200"
                   )}>
                     <span className="material-symbols-outlined text-[20px]">{funnel.icon}</span>
                   </div>
-                  <div>
-                    <span className="font-bold text-slate-900 text-base block">{funnel.label}</span>
+                  <div className="min-w-0">
+                    <span className="block break-words font-bold text-slate-900 text-base">{funnel.label}</span>
                     <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mt-0.5 block">
-                      {funnel.stages?.length || 0} etapas
+                      {funnel.stages?.length || 0} {funnel.stages?.length === 1 ? 'etapa' : 'etapas'}
                     </span>
                   </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-1 sm:gap-3">
+                <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-3">
                   <FunnelOrderControls label={funnel.label} index={funnelIdx} count={funnels.length}
                     disabled={isSaving || isReordering || draggedStage !== null}
                     onMove={direction => void moveFunnel(funnel.id, direction)} />

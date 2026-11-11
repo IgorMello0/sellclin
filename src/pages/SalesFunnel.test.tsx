@@ -98,7 +98,7 @@ it('submits only the originals selected for duplication and refreshes the settin
   const onSaved = vi.fn();
   vi.mocked(funnelConfigApi.duplicate).mockResolvedValue({ success: true, data: [{ id: 22 }] });
   render(<DuplicateFunnelsButton onSaved={onSaved} />);
-  fireEvent.click(screen.getByRole('button', { name: 'Duplicar funis originais' }));
+  fireEvent.click(screen.getByRole('button', { name: /^Duplicar funil$/ }));
   fireEvent.change(screen.getByLabelText('Nome da operação'), { target: { value: 'Social Selling' } });
   fireEvent.click(screen.getByRole('checkbox', { name: 'Comercial' }));
   fireEvent.click(screen.getByRole('button', { name: /^Duplicar$/ }));

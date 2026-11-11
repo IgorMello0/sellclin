@@ -44,9 +44,9 @@ export function DuplicateFunnelsButton({ onSaved }: { onSaved: () => void }) {
 
   return (
     <>
-      <Button type="button" variant="outline" size="sm" className="h-10" onClick={() => { setError(''); setOpen(true) }}>
-        <Copy className="mr-2 h-4 w-4" />
-        Duplicar funis originais
+      <Button type="button" variant="outline" size="sm" className="h-10 px-3" onClick={() => { setError(''); setOpen(true) }}>
+        <Copy className="h-4 w-4" />
+        Duplicar funil
       </Button>
       <Dialog open={open} onOpenChange={value => { if (!saving) setOpen(value) }}>
         <DialogContent className="sm:max-w-md">
