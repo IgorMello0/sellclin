@@ -15,6 +15,7 @@ vi.mock('../services/google-calendar.js', () => ({ syncAppointmentToGoogle: vi.f
 vi.mock('../utils/audit.js', () => ({ logAudit: vi.fn() }))
 
 import { router } from './appointments'
+import { copiedStageCode } from '../utils/funnel-stages'
 
 const user = { id: 7, type: 'profissional', companyId: 2 }
 const current = {
@@ -44,7 +45,7 @@ beforeEach(() => {
     create: vi.fn(),
     count: vi.fn().mockResolvedValue(0),
   }
-  state.db.lead = { update: vi.fn() }
+  state.db.lead = { update: vi.fn(), updateMany: vi.fn().mockResolvedValue({ count: 1 }) }
 })
 
 it('rejects invalid creation periods and statuses before writing', async () => {
@@ -100,4 +101,35 @@ it('records attendance without moving a lead backwards in the funnel', async () 
   const updateData = state.db.lead.update.mock.calls[0][0].data
   expect(updateData.attendedAt).toBeInstanceOf(Date)
   expect(updateData).not.toHaveProperty('status')
+})
+
+it('moves a completed appointment to attendance in the same copied prospecting funnel', async () => {
+  const scheduled = copiedStageCode('social-selling', 'prospecting', 'prospect_scheduled')
+  const attended = copiedStageCode('social-selling', 'prospecting', 'prospect_attended')
+  state.db.appointment.findFirst = vi.fn(async ({ where }: any) => where.id === 11 ? ({ ...current, leadId: 44 }) : null)
+  state.db.appointment.update = vi.fn(async ({ data }: any) => ({
+    ...current, ...data, leadId: 44, lead: { status: scheduled, attendedAt: null },
+  }))
+  state.db.funnelStage = { findFirst: vi.fn().mockResolvedValue({ code: attended }) }
+  expect((await call('put', '/:id', { status: 'concluido' })).code).toBe(200)
+  expect(state.db.lead.updateMany).toHaveBeenCalledWith({
+    where: { id: 44, status: scheduled },
+    data: { status: attended, attendedAt: expect.any(Date), isScheduled: true },
+  })
+})
+
+it('keeps a concurrent lead move when completing a copied appointment', async () => {
+  const scheduled = copiedStageCode('social-selling', 'prospecting', 'prospect_scheduled')
+  state.db.appointment.findFirst = vi.fn(async ({ where }: any) => where.id === 11 ? ({ ...current, leadId: 44 }) : null)
+  state.db.appointment.update = vi.fn(async ({ data }: any) => ({
+    ...current, ...data, leadId: 44, lead: { status: scheduled, attendedAt: null },
+  }))
+  state.db.funnelStage = { findFirst: vi.fn().mockResolvedValue({
+    code: copiedStageCode('social-selling', 'prospecting', 'prospect_attended'),
+  }) }
+  state.db.lead.updateMany.mockResolvedValueOnce({ count: 0 })
+  expect((await call('put', '/:id', { status: 'concluido' })).code).toBe(200)
+  expect(state.db.lead.update).toHaveBeenCalledWith({
+    where: { id: 44 }, data: { attendedAt: expect.any(Date), isScheduled: true },
+  })
 })

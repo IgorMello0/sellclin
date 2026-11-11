@@ -1,6 +1,8 @@
 import type { PrismaClient, Prisma } from '@prisma/client'
 import { z } from 'zod'
 import type { AuthUser } from '../middleware/auth.js'
+import { prospectingStages, stageBehavior } from '../utils/funnel-stages.js'
+import { resolveOperationStage } from './funnel-operations.js'
 
 export const proposalInput = z.object({
   title: z.string().trim().min(1).max(500),
@@ -47,13 +49,15 @@ export async function createLeadProposals(db: PrismaClient, leadId: number, inpu
       } })
     }
     const last = proposals[proposals.length - 1]
-    const advance = ['prospect_lead', 'prospect_qualified', 'prospect_scheduled', 'prospect_attended'].includes(lead.status)
+    const advance = prospectingStages.includes(stageBehavior(lead.status))
+    const target = advance ? await resolveOperationStage(tx, lead.companyId, lead.status, 'commercial', 'comercial_proposal') : null
     await tx.lead.update({ where: { id: leadId }, data: {
       value: last.value,
       ...(last.sdrId ? { sdrId: last.sdrId } : {}),
       ...(last.salespersonId ? { closerId: last.salespersonId } : {}),
-      ...(advance ? { status: 'comercial_proposal', proposalAt: lead.proposalAt || new Date() } : {}),
+      ...(advance ? { proposalAt: lead.proposalAt || new Date() } : {}),
+      ...(target ? { status: target } : {}),
     } })
-    return saved
+    return { proposals: saved, advancedTo: target }
   })
 }

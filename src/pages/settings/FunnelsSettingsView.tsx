@@ -3,6 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { funnelConfigApi, empresasApi } from '@/lib/api';
+import { DuplicateFunnelsButton } from '@/components/funnel/DuplicateFunnelsButton';
+import { FunnelOrderControls, useFunnelOrder } from '@/components/funnel/FunnelOrderControls';
+import { stageBehavior } from '../../../server/utils/funnel-stages';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Loader2, Plus, Trash2, GripVertical, ChevronDown, ChevronUp, Pencil } from 'lucide-react';
@@ -46,6 +49,7 @@ const SYSTEM_STAGES = [
 export default function FunnelsSettingsView({ name }: { name?: string }) {
   const { toast } = useToast();
   const [funnels, setFunnels] = useState<any[]>([]);
+  const { isReordering, moveFunnel } = useFunnelOrder(funnels, setFunnels);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedFunnel, setExpandedFunnel] = useState<number | null>(null);
   const [isAddingFunnel, setIsAddingFunnel] = useState(false);
@@ -237,6 +241,7 @@ export default function FunnelsSettingsView({ name }: { name?: string }) {
   };
 
   const handleMoveStage = async (funnelIdx: number, stageIdx: number, direction: 'up' | 'down') => {
+    if (isSaving || isReordering) return;
     const funnel = funnels[funnelIdx];
     const stages = [...funnel.stages];
     const targetIdx = direction === 'up' ? stageIdx - 1 : stageIdx + 1;
@@ -251,13 +256,14 @@ export default function FunnelsSettingsView({ name }: { name?: string }) {
       stages: stages.map((s: any, i: number) => ({ ...s, order: i }))
     };
     setFunnels(updatedFunnels);
+    setIsSaving(true);
 
     try {
-      await funnelConfigApi.reorder([{
+      const saved = await funnelConfigApi.reorder([{
         id: funnel.id,
-        order: funnel.order,
         stages: stages.map((s: any, i: number) => ({ id: s.id, order: i }))
       }]);
+      if (!saved.success) throw new Error(saved.error?.message);
       const res = await funnelConfigApi.getAll();
       if (res.success) {
         setFunnels(res.data || []);
@@ -265,11 +271,13 @@ export default function FunnelsSettingsView({ name }: { name?: string }) {
     } catch (e) {
       setFunnels(originalFunnels);
       toast({ title: 'Erro ao reordenar', variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleDragStart = (e: React.DragEvent, funnelIdx: number, stageIdx: number) => {
-    if (editingStage !== null) {
+    if (editingStage !== null || isSaving || isReordering) {
       e.preventDefault();
       return;
     }
@@ -285,7 +293,7 @@ export default function FunnelsSettingsView({ name }: { name?: string }) {
 
   const handleDropStage = async (e: React.DragEvent, targetFunnelIdx: number, targetStageIdx: number) => {
     e.preventDefault();
-    if (!draggedStage || draggedStage.funnelIdx !== targetFunnelIdx) {
+    if (isSaving || isReordering || !draggedStage || draggedStage.funnelIdx !== targetFunnelIdx) {
       return;
     }
 
@@ -305,13 +313,14 @@ export default function FunnelsSettingsView({ name }: { name?: string }) {
       stages: stages.map((s: any, i: number) => ({ ...s, order: i }))
     };
     setFunnels(updatedFunnels);
+    setIsSaving(true);
 
     try {
-      await funnelConfigApi.reorder([{
+      const saved = await funnelConfigApi.reorder([{
         id: funnel.id,
-        order: funnel.order,
         stages: stages.map((s: any, i: number) => ({ id: s.id, order: i }))
       }]);
+      if (!saved.success) throw new Error(saved.error?.message);
       const res = await funnelConfigApi.getAll();
       if (res.success) {
         setFunnels(res.data || []);
@@ -319,6 +328,8 @@ export default function FunnelsSettingsView({ name }: { name?: string }) {
     } catch (err) {
       setFunnels(originalFunnels);
       toast({ title: 'Erro ao reordenar etapas', variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -334,17 +345,20 @@ export default function FunnelsSettingsView({ name }: { name?: string }) {
         <p className="text-sm text-slate-500 font-medium">
           Personalize as etapas e funis que serão exibidos no seu pipeline comercial.
         </p>
-        <Button 
-          onClick={() => {
-            setIsAddingFunnel(true);
-            setExpandedFunnel(null);
-          }} 
-          size="sm" 
-          variant="secondary"
-          className="h-10 px-4 shadow-sm"
-        >
-          <Plus className="w-4 h-4 mr-2" /> Novo Funil
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <DuplicateFunnelsButton onSaved={loadFunnels} />
+          <Button
+            onClick={() => {
+              setIsAddingFunnel(true);
+              setExpandedFunnel(null);
+            }}
+            size="sm"
+            variant="secondary"
+            className="h-10 px-4 shadow-sm"
+          >
+            <Plus className="w-4 h-4 mr-2" /> Novo Funil
+          </Button>
+        </div>
       </div>
 
       {/* Help Banner */}
@@ -420,7 +434,10 @@ export default function FunnelsSettingsView({ name }: { name?: string }) {
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex shrink-0 items-center gap-1 sm:gap-3">
+                  <FunnelOrderControls label={funnel.label} index={funnelIdx} count={funnels.length}
+                    disabled={isSaving || isReordering || draggedStage !== null}
+                    onMove={direction => void moveFunnel(funnel.id, direction)} />
                   {!SYSTEM_FUNNELS.includes(funnel.code) && (
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDeleteFunnel(funnel.id); }}
@@ -536,7 +553,7 @@ export default function FunnelsSettingsView({ name }: { name?: string }) {
                           >
                             <Pencil className="w-4 h-4" />
                           </button>
-                          {!SYSTEM_STAGES.includes(stage.code) && (
+                          {!SYSTEM_STAGES.includes(stageBehavior(stage.code)) && (
                             <button
                               onClick={() => handleDeleteStage(stage.id)}
                               className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"

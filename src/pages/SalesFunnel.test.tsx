@@ -2,7 +2,10 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import SalesFunnel from './SalesFunnel';
-import { leadsApi } from '@/lib/api';
+import { funnelConfigApi, leadsApi } from '@/lib/api';
+import { copiedFunnelCode, copiedStageCode } from '../../server/utils/funnel-stages';
+import { DuplicateFunnelsButton } from '@/components/funnel/DuplicateFunnelsButton';
+import FunnelsSettingsView from '@/pages/settings/FunnelsSettingsView';
 
 const fixture = vi.hoisted(() => ({
   professional: { id: '5', name: 'Teste', companyId: 2 },
@@ -23,14 +26,18 @@ vi.mock('@/components/funnel/FunnelBoard', () => ({ FunnelBoard: (p: any) => <di
   <span data-testid="card-stage">{p.leads[0]?.status}</span>
   <span data-testid="card-substatus">{p.leads[0]?.subStatus || ''}</span>
   {['prospect_qualified', 'prospect_scheduled', 'prospect_attended', 'comercial_closed'].map(stage => <button key={stage} onClick={() => p.onMoveLead('lead-1', stage)}>{stage}</button>)}
+  {p.stages.filter(stage => stage.id.startsWith('sellclin_copy__')).map(stage =>
+    <button key={stage.id} onClick={() => p.onMoveLead('lead-1', stage.id)}>{stage.label}</button>
+  )}
   <button onClick={() => p.onSubStatusChange('1', 'won')}>quick-status</button>
 </div> }));
 vi.mock('@/lib/api', () => {
   const empty = { getAll: vi.fn().mockResolvedValue({ success: true, data: [] }) };
-  return { leadsApi: { getAll: vi.fn(), update: vi.fn() }, clientsApi: empty, tasksApi: empty, usuariosApi: empty, catalogsApi: empty, funnelConfigApi: empty, leadStatusesApi: empty, leadOriginsApi: empty };
+  return { leadsApi: { getAll: vi.fn(), update: vi.fn() }, clientsApi: empty, tasksApi: empty, usuariosApi: empty, catalogsApi: empty, funnelConfigApi: { getAll: vi.fn(), duplicate: vi.fn(), reorder: vi.fn() }, empresasApi: { getMyCompany: vi.fn().mockResolvedValue({ success: true, data: { id: 2 } }) }, leadStatusesApi: empty, leadOriginsApi: empty };
 });
 beforeEach(() => {
   vi.clearAllMocks(); fixture.lead.status = 'prospect_lead'; fixture.lead.proposals = [];
+  vi.mocked(funnelConfigApi.getAll).mockResolvedValue({ success: true, data: [] });
   vi.mocked(leadsApi.getAll).mockImplementation(async () => ({ success: true, data: [structuredClone(fixture.lead)] }));
   vi.mocked(leadsApi.update).mockImplementation(async (_id, data) => { Object.assign(fixture.lead, data); return { success: true, data: { ...fixture.lead, value: data.proposalId ? 350 : 900 } }; });
 });
@@ -47,6 +54,22 @@ it.each([['prospect_scheduled', 'schedule-form'], ['prospect_attended', 'proposa
   await mount(); fireEvent.click(screen.getByRole('button', { name: stage }));
   expect((await screen.findByTestId(modal)).textContent).toBe('1');
   expect(fixture.toast).not.toHaveBeenCalledWith(expect.objectContaining({ variant: 'destructive' }));
+});
+it.each([
+  ['prospect_scheduled', 'Agendado no Social', 'schedule-form'],
+  ['prospect_attended', 'Compareceu no Social', 'proposal-form'],
+])('opens the same action for a copied %s stage and stores the copied code', async (stage, label, modal) => {
+  const code = copiedStageCode('social-selling', 'prospecting', stage);
+  vi.mocked(funnelConfigApi.getAll).mockResolvedValue({ success: true, data: [
+    { id: 1, code: 'prospecting', label: 'Prospecção', stages: [] },
+    { id: 2, code: copiedFunnelCode('social-selling', 'prospecting'), label: 'Prospecção · Social Selling',
+      stages: [{ code, label, color: 'bg-blue-500' }] },
+  ] });
+  await mount();
+  fireEvent.click(await screen.findByRole('button', { name: /Prospecção · Social Selling/ }));
+  fireEvent.click(await screen.findByRole('button', { name: label }));
+  expect((await screen.findByTestId(modal)).textContent).toBe('1');
+  expect(leadsApi.update).toHaveBeenCalledWith(1, { status: code });
 });
 it('preserves the chosen proposal and its value in payment', async () => {
   fixture.lead.proposals = [{ id: 101, title: 'Escolhida', value: 350, status: 'pending' }, { id: 102, title: 'Alternativa', value: 900, status: 'pending' }];
@@ -69,4 +92,34 @@ it('does not apply a quick status rejected by the API', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'quick-status' }));
   await waitFor(() => expect(fixture.toast).toHaveBeenCalledWith(expect.objectContaining({ variant: 'destructive' })));
   expect(screen.getByTestId('card-substatus').textContent).toBe('');
+});
+
+it('submits only the originals selected for duplication and refreshes the settings after saving', async () => {
+  const onSaved = vi.fn();
+  vi.mocked(funnelConfigApi.duplicate).mockResolvedValue({ success: true, data: [{ id: 22 }] });
+  render(<DuplicateFunnelsButton onSaved={onSaved} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Duplicar funis originais' }));
+  fireEvent.change(screen.getByLabelText('Nome da operação'), { target: { value: 'Social Selling' } });
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Comercial' }));
+  fireEvent.click(screen.getByRole('button', { name: /^Duplicar$/ }));
+  await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
+  expect(funnelConfigApi.duplicate).toHaveBeenCalledWith({ operationName: 'Social Selling', templates: ['commercial'] });
+});
+
+it('saves the board order from settings and preserves it when a subsequent save is rejected', async () => {
+  vi.mocked(funnelConfigApi.getAll).mockResolvedValue({ success: true, data: [
+    { id: 1, code: 'prospecting', label: 'Prospecção', order: 0, stages: [] },
+    { id: 2, code: 'social', label: 'Social Selling', order: 1, stages: [] },
+  ] });
+  vi.mocked(funnelConfigApi.reorder)
+    .mockResolvedValueOnce({ success: true, data: { reordered: true } })
+    .mockResolvedValueOnce({ success: false, error: { message: 'Acesso negado' } });
+  render(<FunnelsSettingsView />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Subir funil Social Selling' }));
+  await waitFor(() => expect(screen.getAllByRole('group', { name: /^Ordem de/ }).map(group => group.getAttribute('aria-label')))
+    .toEqual(['Ordem de Social Selling', 'Ordem de Prospecção']));
+  expect(funnelConfigApi.reorder).toHaveBeenNthCalledWith(1, [{ id: 2, order: 0 }, { id: 1, order: 1 }]);
+  fireEvent.click(screen.getByRole('button', { name: 'Descer funil Social Selling' }));
+  await waitFor(() => expect(fixture.toast).toHaveBeenCalledWith(expect.objectContaining({ description: 'Acesso negado' })));
+  expect(screen.getAllByRole('group', { name: /^Ordem de/ })[0].getAttribute('aria-label')).toBe('Ordem de Social Selling');
 });

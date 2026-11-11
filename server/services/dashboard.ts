@@ -13,7 +13,7 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
     
     const scope = await getDashboardScope(prisma, req.user!, range);
     const { leadWhere, appointmentWhere, proposalWhere, saleWhere, discountWhere,
-      hasBillingPermission, finalProspectStages } = scope;
+      hasBillingPermission, uncontactedStatuses } = scope;
 
     // 3. Consultas em Paralelo para Performance
     const [
@@ -167,10 +167,7 @@ export function createDashboardMetricsHandler(prisma: PrismaClient) {
 
     const funil = {
       novos: totalLeadsGlobal, 
-      contatados: funilStatus.filter(s => {
-        const topStage = finalProspectStages[0] || 'prospect_lead';
-        return s.status !== topStage;
-      }).reduce((acc, curr) => acc + curr._count.id, 0),
+      contatados: funilStatus.filter(s => !uncontactedStatuses.includes(s.status)).reduce((acc, curr) => acc + curr._count.id, 0),
       agendamentos: agendadosNoFunil,
       fechados: fechadosNoFunil,
     };
