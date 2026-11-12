@@ -35,6 +35,27 @@ function getNextDueDate(currentDate: Date, rule: string): Date {
   return nextDate
 }
 
+function readTaskPlanning(body: { label?: unknown; scheduledAt?: unknown; color?: unknown }) {
+  const { label, scheduledAt, color } = body
+  if (label != null && (typeof label !== 'string' || label.trim().length > 40)) {
+    return { error: 'A etiqueta deve ter até 40 caracteres.' } as const
+  }
+  const scheduledDate = typeof scheduledAt === 'string' ? new Date(scheduledAt) : null
+  if (scheduledAt != null && (!scheduledDate || !Number.isFinite(scheduledDate.getTime()))) {
+    return { error: 'Informe um horário planejado válido.' } as const
+  }
+  if (color != null && (typeof color !== 'string' || !/^#[0-9a-f]{6}$/i.test(color))) {
+    return { error: 'Informe uma cor válida.' } as const
+  }
+  return {
+    data: {
+      label: label === undefined ? undefined : typeof label === 'string' ? label.trim() || null : null,
+      scheduledAt: scheduledAt === undefined ? undefined : scheduledDate,
+      color: typeof color === 'string' ? color.toLowerCase() : color,
+    },
+  } as const
+}
+
 function safeTaskParty(party: any, isUser = false) {
   if (!party) return null
   const { passwordHash: _passwordHash, ...safeParty } = party
@@ -243,6 +264,8 @@ router.post('/', auth(), async (req, res) => {
     const creatorId = req.user!.id
     const companyId = req.user!.companyId
     const { title, description, priority, dueDate, assignedToId, assigneeType, clientId, leadId, isRecurring, recurrenceRule } = req.body
+    const planning = readTaskPlanning(req.body)
+    if (planning.error) return res.status(400).json(createErrorResponse(planning.error, 400))
 
     if (!title || !dueDate || !assignedToId) {
       return res.status(400).json(createErrorResponse('Título, data de vencimento e responsável são obrigatórios.', 400))
@@ -269,6 +292,7 @@ router.post('/', auth(), async (req, res) => {
       status: 'pending',
       priority: priority || 'medium',
       dueDate: new Date(dueDate),
+      ...planning.data,
       companyId,
       clientId: clientId ? Number(clientId) : null,
       leadId: leadId ? Number(leadId) : null,
@@ -347,6 +371,8 @@ router.put('/:id', auth(), async (req, res) => {
     const id = Number(req.params.id)
     const companyId = req.user!.companyId
     const { title, description, status, priority, dueDate, assignedToId, assigneeType, clientId, leadId, isRecurring, recurrenceRule } = req.body
+    const planning = readTaskPlanning(req.body)
+    if (planning.error) return res.status(400).json(createErrorResponse(planning.error, 400))
 
     const existingTask = await prisma.task.findFirst({
       where: { id, companyId },
@@ -378,6 +404,7 @@ router.put('/:id', auth(), async (req, res) => {
       status,
       priority,
       dueDate: dueDate ? new Date(dueDate) : undefined,
+      ...planning.data,
       clientId: clientId !== undefined ? (clientId ? Number(clientId) : null) : undefined,
       leadId: leadId !== undefined ? (leadId ? Number(leadId) : null) : undefined,
       isRecurring: isRecurring !== undefined ? !!isRecurring : undefined,
@@ -486,6 +513,9 @@ router.put('/:id', auth(), async (req, res) => {
         status: 'pending',
         priority: updated.priority,
         dueDate: nextDate,
+        label: updated.label,
+        color: updated.color,
+        scheduledAt: updated.scheduledAt ? getNextDueDate(updated.scheduledAt, updated.recurrenceRule) : null,
         companyId: updated.companyId,
         clientId: updated.clientId,
         leadId: updated.leadId,

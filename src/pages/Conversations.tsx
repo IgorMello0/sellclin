@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { format, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  Bot, Check, ChevronDown, Clock3, Download, Image as ImageIcon, Inbox, Loader2, MessageCircle, Mic, Pause,
+  Bot, Check, ClipboardList, ChevronDown, Clock3, Download, Image as ImageIcon, Inbox, Loader2, MessageCircle, Mic, Pause,
   Maximize2, Paperclip, Phone, Plus, RefreshCcw, Search, Send, Smile,
   Settings2, StickyNote, Tag, Trash2, User, X, Play,
 } from 'lucide-react';
@@ -20,7 +20,7 @@ import { validateMediaUpload } from '@/lib/media-upload';
 import type { WhatsAppTemplate } from '@/components/whatsapp/TemplateCatalog';
 import { ChatTemplatePreview } from '@/components/whatsapp/ChatTemplatePreview';
 import { getChatTemplatePreview, getChatTemplateTokens } from '@/lib/chat-template-preview';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 type Message = {
   id: number;
@@ -375,7 +375,7 @@ function AudioDraftPlayer({ url }: { url: string }) {
 
 const Conversations = () => {
   const { toast } = useToast();
-  const { professional } = useAuth();
+  const { professional, hasModuleAccess } = useAuth();
   const [searchParams] = useSearchParams();
   const requestedConversationId = Number(searchParams.get('conversationId')) || undefined;
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -999,6 +999,13 @@ const Conversations = () => {
                 </div>
                 <div className="ml-0.5 flex items-center gap-0.5 border-l border-slate-200 pl-1.5">
                   <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" onClick={() => setDetailsOpen(true)} aria-label="Abrir organizacao da conversa" title="Responsavel e etiquetas"><Tag className="h-4 w-4" /></Button>
+                  {hasModuleAccess('tarefas') && (selected.lead || selected.client) && (
+                    <Link to="/tarefas" state={{ taskContact: { companyId: professional?.companyId, lead: selected.lead, client: selected.client } }}
+                      className="inline-flex size-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      aria-label="Criar tarefa para este contato" title="Criar tarefa">
+                      <ClipboardList className="size-4" />
+                    </Link>
+                  )}
                   <Button variant={notesOpen ? 'secondary' : 'ghost'} size="icon" className="h-9 w-9 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" onClick={() => setNotesOpen((open) => !open)} aria-label={notesOpen ? 'Fechar notas internas' : 'Abrir notas internas'} title={notesOpen ? 'Fechar notas' : 'Notas internas'}><StickyNote className="h-4 w-4" /></Button>
                 </div>
               </div>

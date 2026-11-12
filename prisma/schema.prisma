@@ -1346,6 +1346,9 @@ model Task {
   status           String   @default("pending") // pending, in_progress, completed
   priority         String   @default("medium") // low, medium, high, urgent
   dueDate          DateTime @map("due_date")
+  label            String?  @db.VarChar(40)
+  color            String?  @db.VarChar(7)
+  scheduledAt      DateTime? @map("scheduled_at")
   assignedToId     Int?     @map("assigned_to_id")
   assignedToUserId Int?     @map("assigned_to_user_id")
   createdById      Int?     @map("created_by_id")

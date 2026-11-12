@@ -984,11 +984,13 @@ export const whatsappUazapiApi = {
 }
 
 export const conversationsApi = {
-  list: async (filters?: { status?: string; assignment?: string; labelId?: number; conversion?: 'in_progress' | 'converted'; unreadOnly?: boolean; search?: string; page?: number; pageSize?: number }) => {
+  list: async (filters?: { status?: string; assignment?: string; labelId?: number; leadId?: number; clientId?: number; conversion?: 'in_progress' | 'converted'; unreadOnly?: boolean; search?: string; page?: number; pageSize?: number }) => {
     const query = new URLSearchParams({ page: String(filters?.page || 1), pageSize: String(filters?.pageSize || 100) })
     if (filters?.status) query.set('status', filters.status)
     if (filters?.assignment) query.set('assignment', filters.assignment)
     if (filters?.labelId) query.set('labelId', String(filters.labelId))
+    if (filters?.leadId) query.set('leadId', String(filters.leadId))
+    if (filters?.clientId) query.set('clientId', String(filters.clientId))
     if (filters?.conversion) query.set('conversion', filters.conversion)
     if (filters?.unreadOnly) query.set('unreadOnly', 'true')
     if (filters?.search?.trim()) query.set('search', filters.search.trim())
