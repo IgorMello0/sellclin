@@ -214,7 +214,7 @@ async function readDetail(
 
   let base = scope.leadWhere
   if (indicator === 'comparecidas') base = scope.attendedWhere
-  if (indicator === 'funil-contatados') base = { ...base, status: { not: scope.finalProspectStages[0] } }
+  if (indicator === 'funil-contatados') base = { ...base, status: { notIn: scope.uncontactedStatuses } }
   if (indicator === 'funil-agendados') base = scope.funnelScheduledWhere
   if (indicator === 'funil-fechados') base = scope.funnelClosedWhere
   let origins: string[] | undefined

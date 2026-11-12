@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from '@prisma/client'
 import type { AuthUser } from '../middleware/auth.js'
 import { buildTeamFilter, parseDashboardQuery } from './dashboard-filters.js'
+import { parseCopiedFunnel, stageBehavior } from '../utils/funnel-stages.js'
 
 export const paymentStatuses = ['pago', 'pendente', 'atrasado'] as const
 export const originKey = (origin: string | null) => origin?.trim().toLowerCase() || 'desconhecido'
@@ -128,11 +129,22 @@ export async function getDashboardScope(
   // Fallbacks
   const finalProspectStages = prospectStages.length > 0 ? prospectStages : ['prospect_lead', 'prospect_qualified', 'prospect_scheduled', 'prospect_attended'];
   const finalCommercialStages = commercialStages.length > 0 ? commercialStages : ['comercial_proposal', 'comercial_follow', 'comercial_closed'];
+  const copiedFunnels = funnels.filter(funnel => parseCopiedFunnel(funnel.code))
+  const uncontactedStatuses = [
+    finalProspectStages[0],
+    ...copiedFunnels.flatMap(funnel => parseCopiedFunnel(funnel.code)?.template === 'prospecting' && funnel.stages[0]
+      ? [funnel.stages[0].code] : []),
+  ]
 
   const stageNames = Object.fromEntries(funnels.flatMap(f => f.stages.map(stage => [stage.code, stage.label])));
 
   // Attended: 'prospect_attended' + todos do commercial
-  const attendedStages = ['prospect_attended', ...finalCommercialStages];
+  const attendedStages = [
+    'prospect_attended', ...finalCommercialStages,
+    ...copiedFunnels.flatMap(funnel => funnel.stages
+      .filter(stage => parseCopiedFunnel(funnel.code)?.template === 'commercial' || stageBehavior(stage.code) === 'prospect_attended')
+      .map(stage => stage.code)),
+  ]
 
   const proposalWhere: Prisma.ProposalWhereInput = { lead: leadScope, createdAt: dateRange };
   const activeSale: Prisma.SaleWhereInput = { confirmedAt: dateRange, voidedAt: null };
@@ -150,6 +162,6 @@ export async function getDashboardScope(
   return {
     appointmentWhere, proposalWhere, saleWhere, discountWhere,
     leadWhere, attendedWhere, funnelScheduledWhere, funnelClosedWhere, paymentWhere,
-    hasBillingPermission, canReadDetails, canReadBillingDetails, finalProspectStages, stageNames,
+    hasBillingPermission, canReadDetails, canReadBillingDetails, uncontactedStatuses, stageNames,
   };
 }

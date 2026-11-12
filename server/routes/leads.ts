@@ -7,6 +7,8 @@ import { createErrorResponse, createSuccessResponse, parsePagination } from '../
 import { logAudit } from '../utils/audit.js'
 import { assertLeadBelongsToCompany, assertUserBelongsToCompany } from '../services/tenant.js'
 import { triggerCadenceForLead } from '../services/cadence.js'
+import { findCopiedStage, isValidLeadStage, resolveOperationStage } from '../services/funnel-operations.js'
+import { isClosingStage, parseCopiedStage, prospectingStages, stageBehavior } from '../utils/funnel-stages.js'
 
 export const router = Router()
 router.use(auth(), requireModule('funnel'))
@@ -274,6 +276,10 @@ router.post('/', auth(), async (req, res) => {
       }
     }
 
+    if (!await isValidLeadStage(prisma, companyId, status)) {
+      return res.status(400).json(createErrorResponse('A etapa escolhida não está disponível nesta clínica.', 400))
+    }
+
     const created = await prisma.lead.create({
       data: {
         professionalId,
@@ -348,6 +354,9 @@ router.post('/import', auth(), async (req, res) => {
 
     if (!currentCompanyId) {
        return res.status(403).json(createErrorResponse('CompanyId não encontrado.', 403));
+    }
+    if (!await isValidLeadStage(prisma, currentCompanyId, defaultStage)) {
+      return res.status(400).json(createErrorResponse('A etapa escolhida não está disponível nesta clínica.', 400))
     }
 
     let createdCount = 0;
@@ -503,9 +512,9 @@ router.post('/:id/proposals/batch', auth(), async (req, res) => {
     const id = Number(req.params.id);
     const access = await assertLeadAccess(id, req.user);
     if (access.error) return res.status(access.status).json(createErrorResponse(access.message, access.status));
-    const proposals = await createLeadProposals(prisma, id, req.body.proposals, req.user!);
-    if (['prospect_lead', 'prospect_qualified', 'prospect_scheduled', 'prospect_attended'].includes(access.lead!.status)) {
-      await triggerCadenceForLead(id, access.lead!.companyId!, 'comercial_proposal', access.lead!.sdrId || access.lead!.closerId, access.lead!.professionalId).catch(console.error);
+    const { proposals, advancedTo } = await createLeadProposals(prisma, id, req.body.proposals, req.user!);
+    if (advancedTo) {
+      await triggerCadenceForLead(id, access.lead!.companyId!, advancedTo, access.lead!.sdrId || access.lead!.closerId, access.lead!.professionalId).catch(console.error);
     }
     res.status(201).json(createSuccessResponse(proposals));
   } catch (error: any) {
@@ -518,7 +527,7 @@ router.post('/:id/proposals', auth(), async (req, res) => {
     const id = Number(req.params.id);
     const access = await assertLeadAccess(id, req.user);
     if (access.error) return res.status(access.status).json(createErrorResponse(access.message, access.status));
-    const proposals = await createLeadProposals(prisma, id, [req.body], req.user!);
+    const { proposals } = await createLeadProposals(prisma, id, [req.body], req.user!);
     res.status(201).json(createSuccessResponse(proposals[0]));
   } catch (error: any) {
     res.status(400).json(createErrorResponse(error.message || 'Erro ao salvar proposta', 400));
@@ -709,9 +718,12 @@ router.put('/:id', auth(), async (req, res) => {
       if (!currentLead) {
         throw Object.assign(new Error('Lead não encontrado'), { code: 'P2025' });
       }
+      if (!await isValidLeadStage(tx, currentLead.companyId, prismaData.status)) {
+        throw Object.assign(new Error('A etapa escolhida não está disponível nesta clínica.'), { status: 400 })
+      }
 
       if (data.proposalId !== undefined) {
-        if (!['comercial_closed', 'sales_payment', 'sales_contract', 'sales_post'].includes(prismaData.status)) throw new Error('Selecione uma etapa de fechamento.');
+        if (!isClosingStage(prismaData.status)) throw new Error('Selecione uma etapa de fechamento.');
         const proposal = await tx.proposal.findFirst({ where: { id: Number(data.proposalId), leadId: id } });
         if (!proposal || proposal.status === 'rejected') throw new Error('Proposta indisponível para fechamento.');
         const existingSale = await tx.sale.findFirst({ where: { proposalId: proposal.id, voidedAt: null }, select: { id: true } });
@@ -721,7 +733,10 @@ router.put('/:id', auth(), async (req, res) => {
 
       // Regra de Negócio: Cancelamento/Rollback automático ao voltar estágio
       if (prismaData.status && prismaData.status !== currentLead.status) {
-        const newStatus = prismaData.status;
+        const newStatus = stageBehavior(prismaData.status);
+        const previousStatus = stageBehavior(currentLead.status)
+        const sameOperation = parseCopiedStage(prismaData.status)?.operation === parseCopiedStage(currentLead.status)?.operation
+        const stageChangedWithinOperation = sameOperation && newStatus !== previousStatus
 
         let userName = 'Sistema';
         if (req.user?.type === 'usuario') {
@@ -732,16 +747,18 @@ router.put('/:id', auth(), async (req, res) => {
           if (p) userName = p.name;
         }
 
-        const getStageLabel = (s: string) => {
+        const getStageLabel = async (s: string) => {
+          const copied = await findCopiedStage(tx, currentLead.companyId, s)
+          if (copied) return copied.funnel ? `${copied.funnel.label}: ${copied.label}` : copied.label
           const map: any = { 'prospect_lead': 'Novos Leads', 'prospect_qualified': 'Qualificados', 'prospect_scheduled': 'Agendados', 'prospect_attended': 'Consulta Feita', 'comercial_lead': 'Novos Leads', 'comercial_consult': 'Avaliação', 'comercial_proposal': 'Proposta', 'comercial_follow': 'Follow-up', 'comercial_negotiation': 'Negociação', 'comercial_closed': 'Fechado', 'comercial_lost': 'Perdido', 'sales_payment': 'Pagamento Pendente', 'sales_contract': 'Contrato Assinado', 'sales_post': 'Pós-Venda' };
-          return map[s] || s;
+          return map[stageBehavior(s)] || s;
         };
 
         await tx.leadActivity.create({
           data: {
             leadId: id,
             type: 'system',
-            content: `Estágio alterado de "${getStageLabel(currentLead.status)}" para "${getStageLabel(newStatus)}" por ${userName}.`,
+            content: `Estágio alterado de "${await getStageLabel(currentLead.status)}" para "${await getStageLabel(prismaData.status)}" por ${userName}.`,
             createdBy: userName
           }
         });
@@ -753,14 +770,14 @@ router.put('/:id', auth(), async (req, res) => {
         if (['comercial_proposal', 'comercial_follow', 'comercial_closed', 'sales_payment', 'sales_contract', 'sales_post'].includes(newStatus)) {
           if (!currentLead.proposalAt) prismaData.proposalAt = new Date();
         }
-        if (['comercial_closed', 'sales_payment', 'sales_contract', 'sales_post'].includes(newStatus)) {
+        if (isClosingStage(newStatus)) {
           if (!currentLead.closedAt) prismaData.closedAt = new Date();
           // Se avançou para uma etapa de fechamento, marcar automaticamente como Ganho
           prismaData.subStatus = 'won';
         }
 
         // 1. Se voltou para antes de Agendados (Novos Leads ou Qualificados)
-        if (newStatus === 'prospect_lead' || newStatus === 'prospect_qualified') {
+        if (stageChangedWithinOperation && (newStatus === 'prospect_lead' || newStatus === 'prospect_qualified')) {
           // Cancelar todos os agendamentos ativos/confirmados deste lead
           await tx.appointment.updateMany({
             where: {
@@ -773,8 +790,7 @@ router.put('/:id', auth(), async (req, res) => {
         }
 
         // 2. Se voltou para antes de Proposta (Novos Leads, Qualificados, Agendados, Consulta Feita)
-        const beforeProposalStatuses = ['prospect_lead', 'prospect_qualified', 'prospect_scheduled', 'prospect_attended'];
-        if (beforeProposalStatuses.includes(newStatus)) {
+        if (stageChangedWithinOperation && prospectingStages.includes(newStatus)) {
           // Cancelar todas as propostas pendentes/ativas do lead
           await tx.proposal.updateMany({
             where: {
@@ -786,15 +802,14 @@ router.put('/:id', auth(), async (req, res) => {
         }
 
         // Moving the lead does not cancel individual sales; each sale is managed by proposal.
-        const closingStatuses = ['comercial_closed', 'sales_payment', 'sales_contract', 'sales_post'];
-        if (!currentLead.isPaid && closingStatuses.includes(currentLead.status) && !closingStatuses.includes(newStatus)) {
+        if (!currentLead.isPaid && isClosingStage(previousStatus) && !isClosingStage(newStatus)) {
           prismaData.closedAt = null;
           if (currentLead.subStatus === 'won') prismaData.subStatus = null;
         }
       }
 
       // ConversÃ£o automÃ¡tica: quando status muda para 'comercial_closed' OU quando hÃ¡ propostas de remarketing (fechamento parcial)
-      const isClosing = ['comercial_closed', 'sales_payment', 'sales_contract', 'sales_post'].includes(prismaData.status)
+      const isClosing = isClosingStage(prismaData.status)
       const isPartialClosing = prismaData.remarketingProposals !== undefined
       const alreadyConverted = !!currentLead.convertedToClientId
 
@@ -847,6 +862,7 @@ router.put('/:id', auth(), async (req, res) => {
     res.json(createSuccessResponse(result));
   } catch (error: any) {
     console.error('[Leads] Erro ao atualizar lead:', error)
+    if (error.status === 400) return res.status(400).json(createErrorResponse(error.message, 400))
     if (error.code === 'P2025') {
       return res.status(404).json(createErrorResponse('Lead nÃ£o encontrado', 404))
     }
@@ -1035,12 +1051,13 @@ router.post('/:id/confirm-payment', auth(), async (req, res) => {
       }
 
       // Atualiza status do Lead para pago e move para o funil pós-venda ou similar se quiser
+      const closedStatus = await resolveOperationStage(tx, lead.companyId, lead.status, 'commercial', 'comercial_closed')
       const updatedLead = await tx.lead.update({
         where: { id },
         data: {
           isPaid: true,
           value: paidCents / 100,
-          status: 'comercial_closed', // Garantir que não volte pra trás devido a race condition do drag and drop
+          status: closedStatus ?? lead.status,
           closedAt: new Date(),
           subStatus: 'won'
         }

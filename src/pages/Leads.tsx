@@ -1,4 +1,5 @@
 import { loadAllPages } from '@/lib/funnel';
+import { stageBehavior } from '../../server/utils/funnel-stages';
 import { useState, useEffect, useRef } from 'react';
 import { cn, formatPhone } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -766,7 +767,7 @@ const Leads = () => {
           </div>
           <div className="pt-2">
             <div className="text-3xl font-extrabold text-amber-600 font-headline tracking-tight truncate">
-              {filteredLeads.filter(l => l.status === 'prospect_lead').length}
+              {filteredLeads.filter(l => stageBehavior(l.status) === 'prospect_lead').length}
             </div>
             <p className="text-[10px] text-slate-500 font-bold uppercase mt-1 tracking-wider">Aguardando</p>
           </div>

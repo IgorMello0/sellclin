@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { NewAppointmentModal } from '@/components/NewAppointmentModal';
 import { AppointmentQuickView } from '@/components/AppointmentQuickView';
 import { useAuth } from '@/contexts/AuthContext';
+import { stageBehavior } from '../../server/utils/funnel-stages';
 
 const Appointments = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -153,7 +154,7 @@ const Appointments = () => {
   const getStatusConfig = (apt: any) => {
     // Lead que compareceu (prospect_attended) ou consulta feita → verde mesmo
     const effectiveStatus =
-      (apt.leadStatus === 'prospect_attended' || apt.leadStatus === 'comercial_consult')
+      ['prospect_attended', 'comercial_consult'].includes(stageBehavior(apt.leadStatus))
         ? 'confirmado'
         : apt.status;
     switch (effectiveStatus) {

@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { prisma } from '../prisma.js'
 import { auth, requireModule } from '../middleware/auth.js'
 import { createErrorResponse, createSuccessResponse } from '../utils/response.js'
+import { COPIED_FUNNEL_PREFIX, ORIGINAL_FUNNEL_CODES, copiedFunnelCode, copiedStageCode, isOriginalFunnel, isReservedFunnelCode, operationKey, parseCopiedFunnel, parseCopiedStage } from '../utils/funnel-stages.js'
 
 export const router = Router()
 router.use(auth(), requireModule('funnel'))
@@ -34,6 +35,16 @@ const DEFAULT_FUNNELS = [
   }
 ]
 
+// Sales remains available as a template for clinics with only the two default tabs.
+const SALES_TEMPLATE = {
+  code: 'sales', label: 'Vendas', icon: 'payments',
+  stages: [
+    { code: 'sales_payment', label: 'Pagamento', color: 'bg-cyan-500', order: 0 },
+    { code: 'sales_contract', label: 'Contrato', color: 'bg-blue-600', order: 1 },
+    { code: 'sales_post', label: 'Pós-Venda', color: 'bg-purple-500', order: 2 },
+  ],
+}
+
 /**
  * GET / — Buscar os funis da empresa logada
  * Se não existirem, retorna os padrões e popula automaticamente
@@ -47,7 +58,7 @@ router.get('/', auth(), async (req, res) => {
 
     let funnels = await prisma.funnelConfig.findMany({
       where: { companyId, isActive: true },
-      orderBy: { order: 'asc' },
+      orderBy: [{ order: 'asc' }, { id: 'asc' }],
       include: {
         stages: {
           where: { isActive: true },
@@ -61,7 +72,7 @@ router.get('/', auth(), async (req, res) => {
       await seedDefaults(companyId)
       funnels = await prisma.funnelConfig.findMany({
         where: { companyId, isActive: true },
-        orderBy: { order: 'asc' },
+        orderBy: [{ order: 'asc' }, { id: 'asc' }],
         include: {
           stages: {
             where: { isActive: true },
@@ -92,11 +103,15 @@ router.post('/', auth(), async (req, res) => {
     if (!code || !label) {
       return res.status(400).json(createErrorResponse('Código e nome do funil são obrigatórios', 400))
     }
+    const normalizedCode = String(code).toLowerCase().replace(/\s+/g, '_')
+    if (isReservedFunnelCode(normalizedCode)) {
+      return res.status(400).json(createErrorResponse('Use a opção Duplicar funil original para criar uma cópia.', 400))
+    }
 
     const funnel = await prisma.funnelConfig.create({
       data: {
         companyId,
-        code: code.toLowerCase().replace(/\s+/g, '_'),
+        code: normalizedCode,
         label,
         icon: icon || 'filter_alt',
         order: order ?? 99
@@ -113,6 +128,54 @@ router.post('/', auth(), async (req, res) => {
   }
 })
 
+router.post('/duplicate', async (req, res) => {
+  const companyId = req.user?.companyId
+  const name = typeof req.body?.operationName === 'string' ? req.body.operationName.trim() : ''
+  const operation = operationKey(name)
+  const requested = req.body?.templates
+  if (!companyId || !operation || name.length > 60 || !Array.isArray(requested) ||
+      !requested.length || requested.length > ORIGINAL_FUNNEL_CODES.length ||
+      !requested.every(code => typeof code === 'string' && isOriginalFunnel(code))) {
+    return res.status(400).json(createErrorResponse('Informe o nome da operação e selecione os funis originais.', 400))
+  }
+
+  try {
+    const created = await prisma.$transaction(async tx => {
+      const funnels = await tx.funnelConfig.findMany({
+        where: { companyId },
+        include: { stages: { where: { isActive: true }, orderBy: { order: 'asc' } } },
+      })
+      const existing = new Set(funnels.map(funnel => funnel.code))
+      let order = Math.max(-1, ...funnels.map(funnel => funnel.order)) + 1
+      const copies = []
+      for (const template of ORIGINAL_FUNNEL_CODES) {
+        const code = copiedFunnelCode(operation, template)
+        if (!requested.includes(template) || existing.has(code)) continue
+        const configured = funnels.find(funnel => funnel.code === template && funnel.isActive && funnel.stages.length > 0)
+        const source = configured ?? [...DEFAULT_FUNNELS, SALES_TEMPLATE].find(funnel => funnel.code === template)!
+        copies.push(await tx.funnelConfig.create({
+          data: {
+            companyId, code, label: `${source.label} · ${name}`, icon: source.icon, order: order++,
+            stages: { create: source.stages.map(stage => ({
+              code: copiedStageCode(operation, template, stage.code),
+              label: stage.label, color: stage.color, order: stage.order,
+              isTransition: 'isTransition' in stage && stage.isTransition === true,
+            })) },
+          },
+          include: { stages: { orderBy: { order: 'asc' } } },
+        }))
+      }
+      return copies
+    })
+    if (!created.length) return res.status(409).json(createErrorResponse('Os funis selecionados já existem nessa operação.', 409))
+    res.status(201).json(createSuccessResponse(created))
+  } catch (error: any) {
+    if (error.code === 'P2002') return res.status(409).json(createErrorResponse('Uma cópia já foi criada nessa operação. Atualize a lista.', 409))
+    console.error('[FunnelConfig] Erro ao duplicar funis:', error)
+    res.status(500).json(createErrorResponse('Não foi possível duplicar os funis.', 500))
+  }
+})
+
 /**
  * PUT /:id — Atualizar um funil existente
  */
@@ -122,9 +185,12 @@ router.put('/:id', auth(), async (req, res) => {
     const { label, icon, order, isActive } = req.body
     const current = await prisma.funnelConfig.findFirst({
       where: { id, companyId: req.user!.companyId },
-      select: { id: true },
+      select: { id: true, code: true },
     })
     if (!current) return res.status(404).json(createErrorResponse('Funil não encontrado', 404))
+    if (parseCopiedFunnel(current.code) && isActive === false) {
+      return res.status(400).json(createErrorResponse('Remova a cópia depois de transferir os leads desse funil.', 400))
+    }
 
     const funnel = await prisma.funnelConfig.update({
       where: { id: current.id },
@@ -159,7 +225,7 @@ router.delete('/:id', auth(), async (req, res) => {
 
     // Buscar a primeira etapa do primeiro funil ativo da empresa (para mover leads órfãos)
     const firstFunnel = await prisma.funnelConfig.findFirst({
-      where: { companyId: companyId!, id: { not: id }, isActive: true },
+      where: { companyId: companyId!, id: { not: id }, isActive: true, NOT: { code: { startsWith: COPIED_FUNNEL_PREFIX } } },
       orderBy: { order: 'asc' },
       include: { stages: { orderBy: { order: 'asc' }, take: 1 } }
     })
@@ -168,6 +234,10 @@ router.delete('/:id', auth(), async (req, res) => {
 
     // Mover leads das etapas que serão deletadas
     const stageCodes = funnel.stages.map(s => s.code)
+    if (parseCopiedFunnel(funnel.code)) {
+      const occupied = await prisma.lead.count({ where: { companyId, status: { in: stageCodes } } })
+      if (occupied) return res.status(409).json(createErrorResponse('Transfira os leads antes de remover este funil.', 409))
+    }
     if (stageCodes.length > 0) {
       await prisma.lead.updateMany({
         where: { status: { in: stageCodes }, companyId },
@@ -200,14 +270,19 @@ router.post('/:funnelId/stages', auth(), async (req, res) => {
 
     const funnel = await prisma.funnelConfig.findFirst({
       where: { id: funnelId, companyId: req.user!.companyId },
-      select: { id: true },
+      select: { id: true, code: true },
     })
     if (!funnel) return res.status(404).json(createErrorResponse('Funil não encontrado', 404))
+    const normalizedCode = String(code).toLowerCase().replace(/\s+/g, '_')
+    if (isReservedFunnelCode(normalizedCode)) {
+      return res.status(400).json(createErrorResponse('Código de etapa reservado para cópias.', 400))
+    }
+    const copy = parseCopiedFunnel(funnel.code)
 
     const stage = await prisma.funnelStage.create({
       data: {
         funnelId,
-        code: code.toLowerCase().replace(/\s+/g, '_'),
+        code: copy ? copiedStageCode(copy.operation, copy.template, normalizedCode) : normalizedCode,
         label,
         color: color || 'bg-blue-500',
         order: order ?? 99,
@@ -234,9 +309,12 @@ router.put('/stages/:id', auth(), async (req, res) => {
     const { label, color, order, isTransition, isActive } = req.body
     const current = await prisma.funnelStage.findFirst({
       where: { id, funnel: { companyId: req.user!.companyId } },
-      select: { id: true },
+      select: { id: true, code: true },
     })
     if (!current) return res.status(404).json(createErrorResponse('Etapa não encontrada', 404))
+    if (parseCopiedStage(current.code) && isActive === false) {
+      return res.status(400).json(createErrorResponse('Para remover uma etapa da cópia, transfira os leads primeiro.', 400))
+    }
 
     const stage = await prisma.funnelStage.update({
       where: { id: current.id },
@@ -266,6 +344,9 @@ router.delete('/stages/:id', auth(), async (req, res) => {
     if (!stage) {
       return res.status(404).json(createErrorResponse('Etapa não encontrada', 404))
     }
+    if (parseCopiedStage(stage.code) && await prisma.lead.count({ where: { companyId, status: stage.code } })) {
+      return res.status(409).json(createErrorResponse('Transfira os leads antes de remover esta etapa.', 409))
+    }
 
     // Mover leads desta etapa para a primeira etapa do mesmo funil
     const fallbackStage = stage.funnel.stages.find(s => s.id !== id)
@@ -290,7 +371,11 @@ router.delete('/stages/:id', auth(), async (req, res) => {
  */
 router.put('/reorder/batch', auth(), async (req, res) => {
   try {
-    const { funnels } = req.body // Array de { id, order, stages: [{ id, order }] }
+    const companyId = req.user?.companyId
+    if (!companyId) {
+      return res.status(400).json(createErrorResponse('Empresa não identificada', 400))
+    }
+    const { funnels } = req.body // Array de { id, order?, stages?: [{ id, order }] }
 
     if (!funnels || !Array.isArray(funnels)) {
       return res.status(400).json(createErrorResponse('Dados de reordenação inválidos', 400))
@@ -304,10 +389,10 @@ router.put('/reorder/batch', auth(), async (req, res) => {
     )
     const [ownedFunnels, ownedStages] = await Promise.all([
       prisma.funnelConfig.count({
-        where: { id: { in: funnelIds }, companyId: req.user!.companyId },
+        where: { id: { in: funnelIds }, companyId },
       }),
       prisma.funnelStage.count({
-        where: { id: { in: stageIds }, funnel: { companyId: req.user!.companyId } },
+        where: { id: { in: stageIds }, funnel: { companyId } },
       }),
     ])
     if (ownedFunnels !== new Set(funnelIds).size || ownedStages !== new Set(stageIds).size) {
@@ -316,13 +401,15 @@ router.put('/reorder/batch', auth(), async (req, res) => {
 
     const operations = []
 
-    for (const funnel of funnels) {
-      operations.push(
-        prisma.funnelConfig.update({
-          where: { id: Number(funnel.id) },
-          data: { order: funnel.order }
-        })
-      )
+    for (const funnel of [...funnels].sort((first, second) => Number(first.id) - Number(second.id))) {
+      if (funnel.order !== undefined) {
+        operations.push(
+          prisma.funnelConfig.update({
+            where: { id: Number(funnel.id), companyId },
+            data: { order: funnel.order }
+          })
+        )
+      }
 
       if (funnel.stages) {
         for (const stage of funnel.stages) {
@@ -356,7 +443,7 @@ router.post('/seed', auth(), async (req, res) => {
     }
 
     // Deletar funis existentes
-    await prisma.funnelConfig.deleteMany({ where: { companyId } })
+    await prisma.funnelConfig.deleteMany({ where: { companyId, NOT: { code: { startsWith: COPIED_FUNNEL_PREFIX } } } })
 
     // Popular com padrões
     await seedDefaults(companyId)

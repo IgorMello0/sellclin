@@ -5,6 +5,7 @@ import type { Request, Response } from 'express'
 import { buildTeamFilter, parseDashboardQuery } from './dashboard-filters.js'
 import { createDashboardDetailsHandler } from './dashboard-details.js'
 import { createDashboardMetricsHandler } from './dashboard.js'
+import { copiedFunnelCode, copiedStageCode } from '../utils/funnel-stages.js'
 
 const now = new Date('2026-09-14T15:00:00Z')
 const custom = { filter: 'custom', startDate: '2026-09-01', endDate: '2026-09-14' }
@@ -69,7 +70,7 @@ const lead = (id: number, fields = {}) => ({
   closedAt: new Date('2026-09-08T12:00:00Z'), origin: 'Google', ...fields,
 })
 
-async function execute(options: { query?: any; user?: any; globalRole?: any; activeRole?: any; leads?: any[]; paymentGroups?: any[]; payments?: any[]; accessOverride?: boolean; detail?: boolean } = {}) {
+async function execute(options: { query?: any; user?: any; globalRole?: any; activeRole?: any; leads?: any[]; paymentGroups?: any[]; payments?: any[]; accessOverride?: boolean; detail?: boolean; funnels?: any[] } = {}) {
   const calls: Array<{ model: string; where: any }> = []
   const rows = options.leads || [lead(1), lead(2, { sdrId: 5 })]
   const queryRows = (where: any) => rows.filter(row => matches(row, where))
@@ -87,7 +88,7 @@ async function execute(options: { query?: any; user?: any; globalRole?: any; act
     empresa: { findUnique: async () => ({ ownerId: 1 }) },
     usuario: { findUnique: async () => ({ role: options.globalRole || { isManager: true, permissions: [] } }) },
     userCompanyAccess: { findUnique: async () => options.activeRole ? { role: options.activeRole } : null },
-    funnelConfig: { findMany: async () => [] },
+    funnelConfig: { findMany: async () => options.funnels || [] },
     lead: {
       findMany: async (args: any) => selectPage(queryRows(args.where), args),
       count: async ({ where }: any) => { calls.push({ model: 'lead', where }); return queryRows(where).length },
@@ -295,6 +296,19 @@ describe('dashboard access and metrics', () => {
 
 
 describe('dashboard details', () => {
+  it('counts copied prospecting leads only after the first stage and reconciles the card with the detail', async () => {
+    const first = copiedStageCode('social-selling', 'prospecting', 'prospect_lead')
+    const second = copiedStageCode('social-selling', 'prospecting', 'prospect_qualified')
+    const funnels = [{ code: copiedFunnelCode('social-selling', 'prospecting'), stages: [
+      { code: first, label: 'Novo' }, { code: second, label: 'Qualificado' },
+    ] }]
+    const leads = [lead(1, { status: 'prospect_lead' }), lead(2, { status: first }), lead(3, { status: second })]
+    const metrics = await execute({ leads, funnels })
+    const detail = await execute({ leads, funnels, detail: true, query: { ...custom, indicator: 'funil-contatados' } })
+    assert.equal(metrics.body.data.funil.contatados, 1)
+    assert.deepEqual(detail.body.data.rows.map(row => row.id), [3])
+  })
+
   it('requires a valid appointment for the scheduled funnel count and details', async () => {
     const appointment = { companyId: 2, professionalId: 1, status: 'agendado' }
     const leads = [

@@ -1048,6 +1048,8 @@ export const aiAgentsApi = {
 // Configuração de Funis
 export const funnelConfigApi = {
   getAll: async () => apiRequest<Array<any>>('/funnel-config'),
+  duplicate: async (data: { operationName: string; templates: string[] }) =>
+    apiRequest<Array<any>>('/funnel-config/duplicate', { method: 'POST', body: JSON.stringify(data) }),
   create: async (data: { code: string; label: string; icon?: string; order?: number }) =>
     apiRequest<any>('/funnel-config', { method: 'POST', body: JSON.stringify(data) }),
   update: async (id: number, data: any) =>
@@ -1060,7 +1062,7 @@ export const funnelConfigApi = {
     apiRequest<any>(`/funnel-config/stages/${stageId}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteStage: async (stageId: number) =>
     apiRequest<any>(`/funnel-config/stages/${stageId}`, { method: 'DELETE' }),
-  reorder: async (funnels: Array<{ id: number; order: number; stages?: Array<{ id: number; order: number }> }>) =>
+  reorder: async (funnels: Array<{ id: number; order?: number; stages?: Array<{ id: number; order: number }> }>) =>
     apiRequest<any>('/funnel-config/reorder/batch', { method: 'PUT', body: JSON.stringify({ funnels }) }),
   seedDefaults: async () =>
     apiRequest<any>('/funnel-config/seed', { method: 'POST' }),

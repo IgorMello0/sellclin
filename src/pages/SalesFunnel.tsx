@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/select";
 import { NewAppointmentModal } from '@/components/NewAppointmentModal';
 import { ConfirmPaymentModal } from '@/components/ConfirmPaymentModal';
-import { clientsApi, conversationsApi, leadsApi, tasksApi, usuariosApi } from '@/lib/api';
+import { catalogsApi, clientsApi, conversationsApi, funnelConfigApi, leadOriginsApi, leadsApi, leadStatusesApi, tasksApi, usuariosApi } from '@/lib/api';
 import { loadAllPages, requireApiSuccess } from '@/lib/funnel';
 import { loadDashboardTeam } from '@/lib/dashboard';
 import { useToast } from '@/hooks/use-toast';
@@ -60,6 +60,7 @@ import { ProposalDialog } from '@/components/funnel/ProposalDialog';
 import { FunnelSettingsDialog } from '@/components/funnel/FunnelSettingsDialog';
 import { LeadDetailsModal } from "@/components/LeadDetailsModal";
 import { FUNNELS, STAGES, QUICK_STATUSES, ORIGIN_OPTIONS } from '@/config/funnelConfig';
+import { isClosingStage, parseCopiedFunnel, stageBehavior } from '../../server/utils/funnel-stages';
 import { useNavigate } from 'react-router-dom';
 
 const safeFormatDate = (dateStr: any, formatStr: string = "dd/MM/yyyy") => {
@@ -415,7 +416,7 @@ const SalesFunnel = () => {
     archiveCutoff.setDate(archiveCutoff.getDate() - ARCHIVE_DAYS);
     
     result = result.filter(card => {
-      if (card.status === 'comercial_closed') {
+      if (stageBehavior(card.status) === 'comercial_closed') {
         const closedDate = card.closedAt ? new Date(card.closedAt) : new Date(card.rawDate || card.updatedAt || card.createdAt || 0);
         return closedDate > archiveCutoff; // só mostra se fechou nos últimos 15 dias
       }
@@ -499,7 +500,7 @@ const SalesFunnel = () => {
   };
 
   const leadsRequest = useRef(0);
-  const loadLeads = async () => {
+  const loadLeads = async (followLeadId?: string) => {
     const request = ++leadsRequest.current;
     if (!professional?.id) return;
     setIsLoading(true);
@@ -529,6 +530,13 @@ const SalesFunnel = () => {
           })
         }));
         setLeads(mappedLeads);
+        const operation = parseCopiedFunnel(activeFunnel)?.operation;
+        const movedLead = followLeadId && mappedLeads.find(lead => lead.id === followLeadId);
+        if (operation && movedLead) {
+          const destination = getFunnelOfStage(movedLead.status);
+          setActiveFunnel(current => parseCopiedFunnel(current)?.operation === operation &&
+            parseCopiedFunnel(destination)?.operation === operation ? destination : current);
+        }
       }
     } catch (error) {
       if (request === leadsRequest.current) toast({ title: "Erro ao carregar leads", description: error instanceof Error ? error.message : undefined, variant: "destructive" });
@@ -540,7 +548,6 @@ const SalesFunnel = () => {
   const loadFunnelConfigs = async () => {
     setIsLoadingFunnels(true);
     try {
-      const { funnelConfigApi } = await import('@/lib/api');
       const res = await funnelConfigApi.getAll();
       if (res.success && res.data && res.data.length > 0) {
         setDynamicFunnels(res.data);
@@ -558,7 +565,6 @@ const SalesFunnel = () => {
 
   const loadStatuses = async () => {
     try {
-      const { leadStatusesApi } = await import('@/lib/api');
       const res = await leadStatusesApi.getAll();
       if (res.success && res.data && res.data.length > 0) {
         setDynamicStatuses(res.data.map((s: any) => ({
@@ -575,7 +581,6 @@ const SalesFunnel = () => {
   const loadServices = async () => {
     if (!professional?.id) return;
     try {
-      const { catalogsApi } = await import('@/lib/api');
       const res = await catalogsApi.getAll({ professionalId: Number(professional.id) });
       if (res.success) setServices(res.data || []);
     } catch (e) {
@@ -587,7 +592,6 @@ const SalesFunnel = () => {
 
   const loadOrigins = async () => {
     try {
-      const { leadOriginsApi } = await import('@/lib/api');
       const res = await leadOriginsApi.getAll();
       if (res.success && res.data) {
         setOrigins(res.data);
@@ -721,19 +725,20 @@ const SalesFunnel = () => {
   const movingLeads = useRef(new Set<string>());
   const moveLead = async (leadId: string, newStatus: string, proposalId?: number) => {
     if (!allowAction('funnel', 'moverFases')) return;
-    if ((proposalId != null || ['comercial_closed', 'sales_payment', 'sales_contract', 'sales_post'].includes(newStatus)) && !allowAction('funnel', 'aprovarPropostas')) return;
+    const behavior = stageBehavior(newStatus);
+    if ((proposalId != null || isClosingStage(newStatus)) && !allowAction('funnel', 'aprovarPropostas')) return;
     const id = String(leadId);
     if (movingLeads.current.has(id)) return false;
     movingLeads.current.add(id);
     try {
       const updated = requireApiSuccess(await leadsApi.update(Number(id), { status: newStatus, ...(proposalId ? { proposalId } : {}) }));
       setLeads(prev => prev.map(lead => lead.id === id ? { ...lead, ...updated, id, lastUpdate: 'Agora mesmo' } : lead));
-      if (newStatus === 'prospect_scheduled') {
+      if (behavior === 'prospect_scheduled') {
         await handleScheduleAppointment({ ...updated, id });
-      } else if (newStatus === 'prospect_attended') {
+      } else if (behavior === 'prospect_attended') {
         setProposalLeadId(id);
         setIsCreatingProposal(true);
-      } else if (newStatus === 'comercial_closed' || newStatus.startsWith('sales_')) {
+      } else if (behavior === 'comercial_closed' || behavior.startsWith('sales_')) {
         setPaymentLead({ id, value: Number(updated.value) || 0, proposalId });
         setIsConfirmingPayment(true);
       }
@@ -752,7 +757,7 @@ const SalesFunnel = () => {
     const targetLead = leads.find(l => l.id == leadId.toString());
     if (!targetLead) return;
 
-    const isClosingStage = stageId === 'comercial_closed' || stageId.startsWith('sales_');
+    const closing = isClosingStage(stageId) || stageBehavior(stageId).startsWith('sales_');
 
     // Filtrar propostas ativas (não fechadas nem rejeitadas)
     const activeProposals = targetLead.proposals ? targetLead.proposals.filter((p: any) => 
@@ -763,7 +768,7 @@ const SalesFunnel = () => {
     ) : [];
 
     // Se está movendo para uma fase de fechamento e ele tem propostas ativas
-    if (isClosingStage && activeProposals.length > 0) {
+    if (closing && activeProposals.length > 0) {
       setLeadForProposalSelection({ ...targetLead, proposals: activeProposals });
       setTargetStageForSelection(stageId);
       setDraggedCardIdForSelection(cardId);
@@ -1018,7 +1023,12 @@ const SalesFunnel = () => {
   };
 
   const openAddLead = (stageId: string | null = null) => {
-    setNewLeadStage(stageId);
+    const defaultStage = parseCopiedFunnel(activeFunnel) ? activeStages[0]?.id : null;
+    if (!stageId && parseCopiedFunnel(activeFunnel) && !defaultStage) {
+      toast({ title: 'Adicione uma etapa a este funil para cadastrar um lead.', variant: 'destructive' });
+      return;
+    }
+    setNewLeadStage(stageId ?? defaultStage ?? null);
     setIsAddingLead(true);
   };
 
@@ -1894,7 +1904,7 @@ const SalesFunnel = () => {
         lead={leads.find(l => l.id === proposalLeadId)}
         professional={professional}
         services={services}
-        onSuccess={loadLeads}
+        onSuccess={() => loadLeads(proposalLeadId)}
       />
       {/* Appointment Modal */}
       <NewAppointmentModal
@@ -1987,7 +1997,7 @@ const SalesFunnel = () => {
         leadValue={paymentLead?.value || 0}
         proposalId={paymentLead?.proposalId || null}
         onSuccess={() => {
-          loadLeads();
+          loadLeads(paymentLead?.id ? String(paymentLead.id) : undefined);
         }}
       />
 
