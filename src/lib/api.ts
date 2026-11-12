@@ -1,3 +1,4 @@
+import type { DashboardDetailsResult } from './dashboard-details'
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:4000/api')
 
 export interface ApiResponse<T> {
@@ -15,6 +16,18 @@ export interface ApiResponse<T> {
     pageSize: number
     total: number
   }
+}
+
+export type EditableModulePermission = ModulePermission & { moduleId: number }
+
+export interface RoleInput {
+  name: string
+  permissions?: Array<{ moduleId: number; hasAccess: boolean; subPermissions?: Record<string, boolean> }>
+  isSpecialist?: boolean
+  isAdmin?: boolean
+  isManager?: boolean
+  isSDR?: boolean
+  isCloser?: boolean
 }
 
 export interface ModulePermission {
@@ -613,6 +626,8 @@ export const clientsApi = {
 
 // Dashboard
 export const dashboardApi = {
+  getDetails: (query: URLSearchParams, signal?: AbortSignal) =>
+    apiRequest<DashboardDetailsResult>(`/dashboard/details?${query}`, { signal }),
   getMetrics: async (filter: string = 'this_month', startDate?: string, endDate?: string, sdrId?: string, closerId?: string, signal?: AbortSignal) => {
     const query = new URLSearchParams({ filter })
     if (startDate) query.append('startDate', startDate)
@@ -703,7 +718,7 @@ export const usuariosApi = {
   },
   getById: async (id: number) => apiRequest<any>(`/usuarios/${id}`),
   login: async (email: string, password: string) => 
-    apiRequest<{ token: string }>('/usuarios/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+    apiRequest<{ token: string; user: any }>('/usuarios/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
   completeOnboarding: async (data: any) => apiRequest<any>('/usuarios/onboarding/complete', { method: 'POST', body: JSON.stringify(data) }),
   create: async (data: any) => apiRequest<any>('/usuarios', { method: 'POST', body: JSON.stringify(data) }),
   resendInvite: async (id: number) => apiRequest<{ sent: boolean }>(`/usuarios/${id}/resend-invite`, { method: 'POST' }),
@@ -804,13 +819,13 @@ export const modulesApi = {
 export const permissionsApi = {
   // Permissões de profissionais
   getProfessionalPermissions: async (professionalId: number) => 
-    apiRequest<Array<ModulePermission>>(`/permissions/professional/${professionalId}`),
+    apiRequest<Array<EditableModulePermission>>(`/permissions/professional/${professionalId}`),
   updateProfessionalPermissions: async (professionalId: number, permissions: Array<{ moduleId: number; hasAccess: boolean }>) => 
     apiRequest<any>(`/permissions/professional/${professionalId}`, { method: 'PUT', body: JSON.stringify({ permissions }) }),
   
   // Permissões de usuários
   getUserPermissions: async (userId: number) => 
-    apiRequest<Array<ModulePermission>>(`/permissions/user/${userId}`),
+    apiRequest<Array<EditableModulePermission>>(`/permissions/user/${userId}`),
   updateUserPermissions: async (userId: number, permissions: Array<{ moduleId: number; hasAccess: boolean }>) => 
     apiRequest<any>(`/permissions/user/${userId}`, { method: 'PUT', body: JSON.stringify({ permissions }) }),
   
@@ -883,8 +898,8 @@ export const goalsApi = {
 export const rolesApi = {
   getAll: async () => apiRequest<Array<any>>('/roles'),
   getById: async (id: number) => apiRequest<any>(`/roles/${id}`),
-  create: async (data: { name: string; value: string; permissions?: any[] }) => apiRequest<any>('/roles', { method: 'POST', body: JSON.stringify(data) }),
-  update: async (id: number, data: { name: string; permissions: any[] }) => apiRequest<any>(`/roles/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  create: async (data: RoleInput & { value: string }) => apiRequest<any>('/roles', { method: 'POST', body: JSON.stringify(data) }),
+  update: async (id: number, data: RoleInput) => apiRequest<any>(`/roles/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: async (id: number) => apiRequest<any>(`/roles/${id}`, { method: 'DELETE' }),
 }
 
@@ -1012,8 +1027,11 @@ export const conversationsApi = {
 }
 
 export const aiAgentsApi = {
+  getSettings: async () => apiRequest<any>('/agentes-ia/settings'),
+  saveSettings: async (data: any) => apiRequest<any>('/agentes-ia/settings', { method: 'PUT', body: JSON.stringify(data) }),
+  testSettings: async () => apiRequest<any>('/agentes-ia/settings/test-key', { method: 'POST' }),
   list: async () => apiRequest<any[]>('/agentes-ia?page=1&pageSize=100'),
-  create: async (data: { name: string; basePrompt: string; temperature?: number; mode?: string }) =>
+  create: async (data: { name: string; basePrompt: string; temperature?: number; mode?: string; template?: string }) =>
     apiRequest<any>('/agentes-ia', { method: 'POST', body: JSON.stringify(data) }),
   update: async (id: number, data: { name?: string; basePrompt?: string; temperature?: number; mode?: string; isActive?: boolean }) =>
     apiRequest<any>(`/agentes-ia/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -1030,6 +1048,8 @@ export const aiAgentsApi = {
 // Configuração de Funis
 export const funnelConfigApi = {
   getAll: async () => apiRequest<Array<any>>('/funnel-config'),
+  duplicate: async (data: { operationName: string; templates: string[] }) =>
+    apiRequest<Array<any>>('/funnel-config/duplicate', { method: 'POST', body: JSON.stringify(data) }),
   create: async (data: { code: string; label: string; icon?: string; order?: number }) =>
     apiRequest<any>('/funnel-config', { method: 'POST', body: JSON.stringify(data) }),
   update: async (id: number, data: any) =>
@@ -1042,7 +1062,7 @@ export const funnelConfigApi = {
     apiRequest<any>(`/funnel-config/stages/${stageId}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteStage: async (stageId: number) =>
     apiRequest<any>(`/funnel-config/stages/${stageId}`, { method: 'DELETE' }),
-  reorder: async (funnels: Array<{ id: number; order: number; stages?: Array<{ id: number; order: number }> }>) =>
+  reorder: async (funnels: Array<{ id: number; order?: number; stages?: Array<{ id: number; order: number }> }>) =>
     apiRequest<any>('/funnel-config/reorder/batch', { method: 'PUT', body: JSON.stringify({ funnels }) }),
   seedDefaults: async () =>
     apiRequest<any>('/funnel-config/seed', { method: 'POST' }),

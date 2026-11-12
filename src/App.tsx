@@ -20,6 +20,7 @@ const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const SelectPlan = lazy(() => import("./pages/SelectPlan"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const DashboardDetails = lazy(() => import("./pages/DashboardDetails"));
 const Appointments = lazy(() => import("./pages/Appointments"));
 const Clients = lazy(() => import("./pages/Clients"));
 const Conversations = lazy(() => import("./pages/Conversations"));
@@ -101,13 +102,15 @@ const App = () => (
                 <Route path="/seguranca" element={<LegalPage kind="security" />} />
                 <Route path="/" element={<AppLayout />}>
                   <Route path="painel" element={<Dashboard />} />
+                  <Route path="painel/detalhado" element={<ProtectedRoute moduleCode="dashboard" moduleName="Dashboard"><DashboardDetails /></ProtectedRoute>} />
                   <Route path="agenda" element={<ProtectedRoute moduleCode="agendamentos" moduleName="Agenda"><Appointments /></ProtectedRoute>} />
                   <Route path="pacientes" element={<ProtectedRoute moduleCode="clientes" moduleName="Clientes" subPermissionKey="verClientes"><Clients /></ProtectedRoute>} />
                   <Route path="appointments" element={<LegacyRedirect to="/agenda" />} />
                   <Route path="clients" element={<LegacyRedirect to="/pacientes" />} />
                   <Route path="oportunidades" element={<ProtectedRoute moduleCode="clientes" moduleName="Leads" subPermissionKey="verLeads"><Leads /></ProtectedRoute>} />
                   <Route path="conversas" element={<ProtectedRoute moduleCode="conversas" moduleName="Conversas"><Conversations /></ProtectedRoute>} />
-                  <Route path="bots" element={<ProtectedRoute moduleCode="conversas" moduleName="Bots de atendimento"><AtendimentoBots /></ProtectedRoute>} />
+                  <Route path="bots" element={<Navigate to="/fluxos" replace />} />
+                  <Route path="fluxos" element={<ProtectedRoute moduleCode="conversas" moduleName="Fluxos de atendimento"><Navigate to="/configuracoes?tab=atendimento" replace /></ProtectedRoute>} />
                   <Route path="modelos" element={<ProtectedRoute moduleCode="conversas" moduleName="Templates"><WhatsAppTemplates /></ProtectedRoute>} />
                   <Route path="modelos/novo" element={<ProtectedRoute moduleCode="conversas" moduleName="Templates"><WhatsAppTemplateCreate /></ProtectedRoute>} />
                   <Route path="configuracoes" element={<Settings />} />

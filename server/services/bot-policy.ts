@@ -12,7 +12,7 @@ export const botDecisionSchema = z.object({
 }).strict()
 export type BotDecision = z.infer<typeof botDecisionSchema>
 export type Slot = { serviceId: number; professionalId: number; specialistId?: number | null; label: string; start: string; end: string }
-export type BotState = { offers?: Slot[]; pending?: Slot; offeredAt?: string; collected?: Record<string, string>; appointmentId?: number }
+export type BotState = { offers?: Slot[]; pending?: Slot; offeredAt?: string; collected?: Record<string, string>; appointmentId?: number; flow?: { revision: string; nodeId: string; waiting: boolean } }
 export const normalizeBotText = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
 export function needsHuman(message: string, terms: string[] = []) {
   const text = normalizeBotText(message)

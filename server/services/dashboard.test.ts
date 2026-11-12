@@ -3,7 +3,9 @@ import { describe, it } from 'node:test'
 import type { PrismaClient } from '@prisma/client'
 import type { Request, Response } from 'express'
 import { buildTeamFilter, parseDashboardQuery } from './dashboard-filters.js'
+import { createDashboardDetailsHandler } from './dashboard-details.js'
 import { createDashboardMetricsHandler } from './dashboard.js'
+import { copiedFunnelCode, copiedStageCode } from '../utils/funnel-stages.js'
 
 const now = new Date('2026-09-14T15:00:00Z')
 const custom = { filter: 'custom', startDate: '2026-09-01', endDate: '2026-09-14' }
@@ -51,6 +53,9 @@ function matches(row: any, where: any): boolean {
     const value = row[key]
     if (condition === null) return value == null
     if (typeof condition !== 'object') return value === condition
+    if ('contains' in condition) return value?.toLowerCase().includes(condition.contains.toLowerCase()) ?? false
+    if ('not' in condition) return value !== condition.not
+    if ('notIn' in condition) return !condition.notIn.includes(value)
     if ('in' in condition) return condition.in.includes(value)
     if ('gte' in condition) return value >= condition.gte && value < condition.lt
     if ('some' in condition) return (value || []).some((item: any) => matches(item, condition.some))
@@ -59,13 +64,13 @@ function matches(row: any, where: any): boolean {
 }
 
 const lead = (id: number, fields = {}) => ({
-  id, professionalId: 1, companyId: 2, sdrId: 8, closerId: 9, proposals: [], value: 100,
+  id, name: `Lead ${id}`, professionalId: 1, companyId: 2, sdrId: 8, closerId: 9, proposals: [], value: 100,
   status: 'comercial_closed', isPaid: true, createdAt: new Date('2026-09-05T12:00:00Z'),
   attendedAt: new Date('2026-09-06T12:00:00Z'), proposalAt: new Date('2026-09-07T12:00:00Z'),
   closedAt: new Date('2026-09-08T12:00:00Z'), origin: 'Google', ...fields,
 })
 
-async function execute(options: { query?: any; user?: any; globalRole?: any; activeRole?: any; leads?: any[]; paymentGroups?: any[] } = {}) {
+async function execute(options: { query?: any; user?: any; globalRole?: any; activeRole?: any; leads?: any[]; paymentGroups?: any[]; payments?: any[]; accessOverride?: boolean; detail?: boolean; funnels?: any[] } = {}) {
   const calls: Array<{ model: string; where: any }> = []
   const rows = options.leads || [lead(1), lead(2, { sdrId: 5 })]
   const queryRows = (where: any) => rows.filter(row => matches(row, where))
@@ -73,13 +78,19 @@ async function execute(options: { query?: any; user?: any; globalRole?: any; act
   const sales = rows.flatMap(row => (row.sales || []).map((sale: any) => ({ ...sale, lead: row })))
   const queryProposals = (where: any) => proposals.filter(row => matches(row, where))
   const querySales = (where: any) => sales.filter(row => matches(row, where))
+  const queryPayments = (where: any) => (options.payments ?? []).filter(row => matches(row, where))
+  const selectPage = (rows: any[], { skip, take, select }: any) =>
+    rows.slice(skip, skip + take).map(row => Object.fromEntries(Object.keys(select).map(key => [key, row[key]])))
   const db = {
+    $transaction: async (read: (client: typeof db) => Promise<unknown>) => read(db),
+    userCompanyPermission: { findFirst: async () => options.accessOverride === undefined ? null : { hasAccess: options.accessOverride } },
     professional: { findMany: async () => [{ id: 1 }] },
     empresa: { findUnique: async () => ({ ownerId: 1 }) },
-    usuario: { findUnique: async () => ({ companyId: 2, role: options.globalRole || { isManager: true, permissions: [{ subPermissions: { verFaturamento: true } }] } }) },
+    usuario: { findUnique: async () => ({ companyId: 2, role: options.globalRole || { isManager: true, permissions: [{ hasAccess: true, subPermissions: { verFaturamento: true } }] } }) },
     userCompanyAccess: { findUnique: async () => options.activeRole ? { role: options.activeRole } : null },
-    funnelConfig: { findMany: async () => [] },
+    funnelConfig: { findMany: async () => options.funnels || [] },
     lead: {
+      findMany: async (args: any) => selectPage(queryRows(args.where), args),
       count: async ({ where }: any) => { calls.push({ model: 'lead', where }); return queryRows(where).length },
       aggregate: async ({ where }: any) => ({ _sum: { value: queryRows(where).reduce((sum, row) => sum + row.value, 0) } }),
       groupBy: async ({ where, by }: any) => {
@@ -90,26 +101,51 @@ async function execute(options: { query?: any; user?: any; globalRole?: any; act
       },
     },
     proposal: {
+      findMany: async (args: any) => {
+        calls.push({ model: 'proposal-select', where: args.select })
+        return selectPage(queryProposals(args.where), args)
+      },
       count: async ({ where }: any) => queryProposals(where).length,
       aggregate: async ({ where, _sum }: any) => {
         const selected = queryProposals(where)
-        return { _sum: Object.fromEntries(Object.keys(_sum).map(field => [field, selected.reduce((sum, row) => sum + Number(row[field] || 0), 0)])) }
+        return { _count: { id: selected.length }, _sum: _sum && Object.fromEntries(Object.keys(_sum).map(field => [field, selected.reduce((sum, row) => sum + Number(row[field] || 0), 0)])) }
       },
     },
     sale: {
+      findMany: async (args: any) => selectPage(querySales(args.where), args),
       count: async ({ where }: any) => querySales(where).length,
-      aggregate: async ({ where }: any) => ({ _sum: { amount: querySales(where).reduce((sum, row) => sum + Number(row.amount), 0) } }),
+      aggregate: async ({ where }: any) => ({ _count: { id: querySales(where).length }, _sum: { amount: querySales(where).reduce((sum, row) => sum + Number(row.amount), 0) } }),
     },
     appointment: { count: async ({ where }: any) => { calls.push({ model: 'appointment', where }); return 0 } },
-    payment: { groupBy: async ({ where, by }: any) => {
-      calls.push({ model: 'payment', where })
-      return by.includes('method') ? (options.paymentGroups || []) : []
-    } },
+    client: { findMany: async () => (options.payments ?? []).map(payment => payment.client) },
+    payment: {
+      count: async ({ where }: any) => queryPayments(where).length,
+      findMany: async (args: any) => selectPage(queryPayments(args.where), args),
+      aggregate: async ({ where }: any) => {
+        const rows = queryPayments(where)
+        return { _count: { id: rows.length }, _sum: { amount: rows.reduce((sum, row) => sum + row.amount, 0) } }
+      },
+      groupBy: async ({ where, by, skip, take }: any) => {
+        calls.push({ model: 'payment', where })
+        if (!options.payments) return by.includes('method') ? (options.paymentGroups || []) : []
+        const groups = new Map()
+        for (const payment of queryPayments(where)) {
+          const values = Object.fromEntries(by.map(key => [key, payment[key]]))
+          const key = JSON.stringify(values)
+          const group = groups.get(key) ?? { ...values, _count: { id: 0 }, _sum: { amount: 0 } }
+          group._count.id++
+          group._sum.amount += payment.amount
+          groups.set(key, group)
+        }
+        return [...groups.values()].slice(skip ?? 0, take == null ? undefined : (skip ?? 0) + take)
+      },
+    },
   }
   let status = 200
   let body: any
   const response = { status: (value: number) => { status = value; return response }, json: (value: any) => { body = value } }
-  await createDashboardMetricsHandler(db as unknown as PrismaClient)(
+  const handler = options.detail ? createDashboardDetailsHandler : createDashboardMetricsHandler
+  await handler(db as unknown as PrismaClient)(
     { query: options.query || custom, user: options.user || { id: 5, companyId: 2, type: 'usuario', role: 'sdr' } } as Request,
     response as Response,
   )
@@ -125,7 +161,7 @@ describe('dashboard access and metrics', () => {
   })
   it('counts a closed sale only after its payment method is confirmed', async () => {
     const confirmedAt = new Date('2026-09-08T12:00:00Z')
-    const { body } = await execute({ leads: [lead(1, { isPaid: false }), lead(2, { isPaid: true, sales: [{ amount: 100, confirmedAt, voidedAt: null }] })], activeRole: { isManager: true, permissions: [{ subPermissions: { verFaturamento: true } }] } })
+    const { body } = await execute({ leads: [lead(1, { isPaid: false }), lead(2, { isPaid: true, sales: [{ amount: 100, confirmedAt, voidedAt: null }] })], activeRole: { isManager: true, permissions: [{ hasAccess: true, subPermissions: { verFaturamento: true } }] } })
     assert.equal(body.data.contratos, 1)
     assert.equal(body.data.faturamentoFechado, 100)
     assert.equal(body.data.funil.fechados, 1)
@@ -143,7 +179,7 @@ describe('dashboard access and metrics', () => {
         { amount: 500, confirmedAt: createdAt, voidedAt: null },
       ],
     })]
-    const { body } = await execute({ leads: rows, activeRole: { isManager: true, permissions: [{ subPermissions: { verFaturamento: true } }] } })
+    const { body } = await execute({ leads: rows, activeRole: { isManager: true, permissions: [{ hasAccess: true, subPermissions: { verFaturamento: true } }] } })
     assert.equal(body.data.oportunidades, 3)
     assert.equal(body.data.faturamento, 1000)
     assert.equal(body.data.contratos, 2)
@@ -161,7 +197,7 @@ describe('dashboard access and metrics', () => {
       ],
       sales: [{ amount: 270, confirmedAt, voidedAt: null }],
     })]
-    const { body } = await execute({ leads: rows, activeRole: { isManager: true, permissions: [{ subPermissions: { verFaturamento: true } }] } })
+    const { body } = await execute({ leads: rows, activeRole: { isManager: true, permissions: [{ hasAccess: true, subPermissions: { verFaturamento: true } }] } })
     assert.equal(body.data.totalDiscount, 30)
   })
   it('calculates closed/proposals from contracts and proposals in their displayed periods', async () => {
@@ -173,14 +209,14 @@ describe('dashboard access and metrics', () => {
         { amount: 500, confirmedAt: createdAt, voidedAt: null },
       ],
     })]
-    const { body } = await execute({ leads: rows, activeRole: { isManager: true, permissions: [{ subPermissions: { verFaturamento: true } }] } })
+    const { body } = await execute({ leads: rows, activeRole: { isManager: true, permissions: [{ hasAccess: true, subPermissions: { verFaturamento: true } }] } })
     assert.equal(body.data.oportunidades, 1)
     assert.equal(body.data.contratos, 2)
     assert.equal(body.data.conversaoPropostas, '200.0')
   })
   it('keeps overdue installments in the payment-method totals', async () => {
     const { body } = await execute({
-      activeRole: { isManager: true, permissions: [{ subPermissions: { verFaturamento: true } }] },
+      activeRole: { isManager: true, permissions: [{ hasAccess: true, subPermissions: { verFaturamento: true } }] },
       paymentGroups: [
         { method: 'transferencia', status: 'atrasado', _sum: { amount: 599 } },
         { method: 'pix', status: 'pago', _sum: { amount: 400 } },
@@ -230,7 +266,7 @@ describe('dashboard access and metrics', () => {
     for (const model of ['appointment', 'payment']) assert(result.calls.find(call => call.model === model)?.where.AND.length)
   })
   it('allows the whole team for an active-clinic manager with a global SDR role', async () => {
-    const result = await execute({ globalRole: { isSDR: true, permissions: [] }, activeRole: { isManager: true, permissions: [{ subPermissions: { verFaturamento: true } }] } })
+    const result = await execute({ globalRole: { isSDR: true, permissions: [] }, activeRole: { isManager: true, permissions: [{ hasAccess: true, subPermissions: { verFaturamento: true } }] } })
     assert.equal(result.body.data.leads, 2)
   })
   it('restricts accounts without a role and preserves the clinic boundary', async () => {
@@ -239,8 +275,8 @@ describe('dashboard access and metrics', () => {
   })
   it('masks billing using the active role, including the legacy fallback', async () => {
     for (const roles of [
-      { activeRole: { isManager: true, permissions: [{ subPermissions: { verFaturamento: false } }] } },
-      { globalRole: { isManager: true, permissions: [{ subPermissions: { verFaturamento: false } }] } },
+      { activeRole: { isManager: true, permissions: [{ hasAccess: true, subPermissions: { verFaturamento: false } }] } },
+      { globalRole: { isManager: true, permissions: [{ hasAccess: true, subPermissions: { verFaturamento: false } }] } },
     ]) {
       const { body } = await execute(roles)
       assert.equal(body.data.leads, 2)
@@ -262,6 +298,149 @@ describe('dashboard access and metrics', () => {
     assert.equal(result.status, 400)
     assert.equal(result.calls.length, 0)
   })
+})
+
+
+describe('dashboard details', () => {
+  it('counts copied prospecting leads only after the first stage and reconciles the card with the detail', async () => {
+    const first = copiedStageCode('social-selling', 'prospecting', 'prospect_lead')
+    const second = copiedStageCode('social-selling', 'prospecting', 'prospect_qualified')
+    const funnels = [{ code: copiedFunnelCode('social-selling', 'prospecting'), stages: [
+      { code: first, label: 'Novo' }, { code: second, label: 'Qualificado' },
+    ] }]
+    const leads = [lead(1, { status: 'prospect_lead' }), lead(2, { status: first }), lead(3, { status: second })]
+    const metrics = await execute({ leads, funnels })
+    const detail = await execute({ leads, funnels, detail: true, query: { ...custom, indicator: 'funil-contatados' } })
+    assert.equal(metrics.body.data.funil.contatados, 1)
+    assert.deepEqual(detail.body.data.rows.map(row => row.id), [3])
+  })
+
+  it('requires a valid appointment for the scheduled funnel count and details', async () => {
+    const appointment = { companyId: 2, professionalId: 1, status: 'agendado' }
+    const leads = [
+      lead(1, { status: 'comercial_proposal', attendedAt: null }),
+      lead(2, { appointments: [appointment, appointment] }),
+      lead(3, { appointments: [{ ...appointment, status: 'cancelado' }] }),
+      lead(4, { appointments: [{ ...appointment, companyId: 3 }] }),
+    ]
+    const metrics = await execute({ leads })
+    const detail = await execute({ leads, detail: true, query: { ...custom, indicator: 'funil-agendados' } })
+    assert.equal(metrics.body.data.funil.agendamentos, 1)
+    assert.equal(detail.body.data.total, 1)
+    assert.deepEqual(detail.body.data.rows.map(row => row.id), [2])
+  })
+
+  it('exports all matching rows across pages and rejects oversized reports', async () => {
+    const leads = Array.from({ length: 40 }, (_, i) => lead(i + 1, {
+      sdrId: i < 32 ? 5 : 6, closerId: i < 30 ? 9 : 8,
+    }))
+    const query = { ...custom, indicator: 'leads', sdrId: '5', closerId: '9', page: '2', report: 'pdf' }
+    const report = await execute({ detail: true, leads, query })
+    assert.equal(report.status, 200)
+    assert.equal(report.body.data.page, 1)
+    assert.equal(report.body.data.rows.length, 30)
+    assert.equal(report.body.data.total, 30)
+    const oversized = await execute({
+      detail: true, query,
+      leads: Array.from({ length: 1001 }, (_, i) => lead(i + 1, { sdrId: 5, closerId: 9 })),
+    })
+    assert.equal(oversized.status, 413)
+    assert.equal(oversized.body.data, undefined)
+  })
+
+  it('matches the card with clinic and team filters and keeps totals outside search and pagination', async () => {
+    const leads = Array.from({ length: 30 }, (_, i) => lead(i + 1, { sdrId: 5 }))
+    leads.push(lead(100, { sdrId: 5, companyId: 3 }), lead(101, { sdrId: 6 }))
+    const query = { ...custom, sdrId: '5' }
+    const metrics = await execute({ query, leads })
+    const details = await execute({ query: { ...query, indicator: 'leads', page: '2' }, leads, detail: true })
+    assert.equal(details.status, 200)
+    assert.equal(details.body.data.total, metrics.body.data.leads)
+    assert.equal(details.body.data.rows.length, 5)
+    assert(!details.body.data.rows.some(row => row.id > 30))
+    const search = await execute({ query: { ...query, indicator: 'leads', search: 'Lead 25' }, leads, detail: true })
+    assert.equal(search.body.data.total, 30)
+    assert.equal(search.body.data.matching, 1)
+  })
+
+  it('groups normalized origin labels like the dashboard', async () => {
+    const leads = [
+      lead(1, { origin: ' Google ' }), lead(2, { origin: 'google' }), lead(3, { origin: null }),
+      lead(4, { origin: 'DESCONHECIDO' }), lead(5, { origin: ' ', companyId: 3 }),
+    ]
+    const metrics = await execute({ leads })
+    for (const { origin, count } of metrics.body.data.origem) {
+      const detail = await execute({ detail: true, leads, query: { ...custom, indicator: 'origem', origin } })
+      assert.equal(detail.body.data.total, count)
+    }
+  })
+
+  it('shows proposal authors independently of sales assignment and hides values without billing permission', async () => {
+    const createdAt = new Date('2026-09-05T12:00:00Z')
+    const leads = [lead(1, { proposals: [
+      { id: 1, title: 'Plano A', createdAt, value: 300, authorName: 'Ana', salesperson: { name: 'Bruno' } },
+      { id: 2, title: 'Plano B', createdAt, value: 700, authorName: null },
+    ] })]
+    const options = {
+      detail: true, leads, activeRole: { value: 'admin', isAdmin: true, permissions: [
+        { hasAccess: true, subPermissions: { verFaturamento: false } },
+      ] },
+    }
+    const detail = await execute({ ...options, query: { ...custom, indicator: 'propostas' } })
+    const withValues = await execute({ detail: true, leads, query: { ...custom, indicator: 'propostas' } })
+    assert.equal(withValues.body.data.columns[1].label, 'Valor da proposta')
+    assert.equal(withValues.body.data.columns[1].format, 'money')
+    assert.equal(withValues.body.data.rows[0].cells[1], 300)
+    assert.equal(withValues.body.data.rows[1].cells[1], 700)
+    assert(!detail.body.data.columns.some(column => column.format === 'money'))
+    assert.equal(detail.body.data.total, 2)
+    assert.equal(detail.body.data.summary.amount, undefined)
+    assert.equal(detail.calls.find(call => call.model === 'proposal-select')?.where.value, undefined)
+    assert(detail.body.data.rows[0].cells.includes('Ana'))
+    assert(detail.body.data.rows[0].cells.includes('Bruno'))
+    assert(detail.body.data.rows[1].cells.includes('Não registrado'))
+    const denied = await execute({ ...options, query: { ...custom, indicator: 'vendas' } })
+    assert.equal(denied.status, 403)
+    const override = await execute({ ...options, accessOverride: false, query: { ...custom, indicator: 'propostas' } })
+    assert.equal(override.status, 403)
+  })
+
+  it('keeps both conversion bases and excludes estornos from the sales list', async () => {
+    const createdAt = new Date('2026-09-05T12:00:00Z')
+    const leads = [lead(1, { proposals: [{ id: 1, title: 'Plano A', createdAt, value: 300 }], sales: [
+      { id: 1, amount: 200, confirmedAt: createdAt, voidedAt: null },
+      { id: 2, amount: 200, confirmedAt: createdAt, voidedAt: null },
+      { id: 3, amount: 900, confirmedAt: createdAt, voidedAt: createdAt },
+    ] })]
+    for (const base of ['propostas', 'vendas']) {
+      const result = await execute({ detail: true, leads, query: { ...custom, indicator: 'conversao-qtd', base } })
+      assert.deepEqual(result.body.data.summary, { numerator: 2, denominator: 1, value: 200 })
+      assert.equal(result.body.data.rows.length, base === 'vendas' ? 2 : 1)
+      assert(!result.body.data.rows.some(row => row.id === 3))
+    }
+  })
+
+  it('reconciles boleto totals and installments while excluding estornos and other clinics', async () => {
+    const createdAt = new Date('2026-09-05T12:00:00Z')
+    const payment = { professionalId: 1, companyId: 2, clientId: 10, saleId: 5, appointmentId: null,
+      method: 'transferencia', status: 'pendente', saleVoidedAt: null, amount: 150, createdAt, date: createdAt,
+      client: { id: 10, companyId: 2, name: 'Cliente' },
+    }
+    const payments = [
+      { ...payment, id: 1 }, { ...payment, id: 2, status: 'atrasado' }, { ...payment, id: 3, saleId: null },
+      { ...payment, id: 4, companyId: 3 }, { ...payment, id: 5, saleVoidedAt: createdAt },
+    ]
+    const metrics = await execute({ payments })
+    const groups = await execute({ detail: true, payments, query: { ...custom, indicator: 'parcelamento' } })
+    assert.deepEqual(groups.body.data.summary, { value: metrics.body.data.parcelamentoMedioBoleto, numerator: 3, denominator: 2 })
+    const group = await execute({ detail: true, payments, query: { ...custom, indicator: 'parcelamento', boletoGroup: '5:10:0' } })
+    assert.equal(group.body.data.total, 2)
+    assert.equal(group.body.data.summary.value, 300)
+    const boletos = await execute({ detail: true, payments, query: { ...custom, indicator: 'boleto' } })
+    assert.equal(boletos.body.data.summary.value, metrics.body.data.metodos.boleto.gerados)
+    assert.equal(boletos.body.data.total, 3)
+  })
+
 })
 
 describe('team assignment filters', () => {

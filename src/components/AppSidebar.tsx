@@ -54,13 +54,7 @@ const menuItems = [
     icon: 'text_snippet',
     moduleCode: 'conversas',
   },
-  {
-    title: 'Bots de atendimento',
-    url: '/bots',
-    icon: 'smart_toy',
-    moduleCode: 'conversas',
-    ownerOnly: true,
-  },
+
   {
     title: 'Metas',
     url: '/metas',

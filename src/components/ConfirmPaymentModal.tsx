@@ -273,10 +273,10 @@ export function ConfirmPaymentModal({ open, onOpenChange, leadId, leadValue, pro
           </div>
           <div>
             <DialogTitle className="text-xl font-bold text-slate-800 font-headline">
-              Confirmar Recebimento
+              Confirmar venda e pagamentos
             </DialogTitle>
             <p className="text-slate-500 text-sm mt-1">
-              Defina as formas de pagamento e as parcelas para o valor de <strong className="text-emerald-600">R$ {activeValue.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</strong>.
+              Para registrar a venda no faturamento, selecione uma proposta válida e informe as formas de pagamento e parcelas. Valor: <strong className="text-emerald-600">R$ {activeValue.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</strong>.
             </p>
           </div>
         </div>
@@ -290,7 +290,7 @@ export function ConfirmPaymentModal({ open, onOpenChange, leadId, leadValue, pro
                 Proposta Vinculada
               </Label>
               {proposals.length === 0 && !loadingProposals ? (
-                <p className="text-sm text-slate-500">Todas as propostas deste lead já foram fechadas ou rejeitadas. Crie uma nova proposta para registrar outra venda.</p>
+                <p role="alert" className="text-sm text-amber-800">Não há proposta disponível para confirmar esta venda. As propostas estão rejeitadas ou já possuem uma venda confirmada. Confira o histórico do lead: se a rejeição foi indevida, corrija a proposta; se já existe venda, consulte os pagamentos. Estar em Fechado não registra faturamento automaticamente.</p>
               ) : loadingProposals ? (
                 <div className="h-12 w-full flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-400 text-sm font-medium animate-pulse mt-2">
                   <span className="material-symbols-outlined animate-spin mr-2 text-[18px]">refresh</span>

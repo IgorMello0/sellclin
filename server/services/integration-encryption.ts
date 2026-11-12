@@ -13,6 +13,7 @@ export const credentialFields: Record<string, readonly string[]> = {
   WhatsAppConnection: ['accessToken', 'webhookVerifyToken'],
   GoogleCalendarConnection: ['accessToken', 'refreshToken'],
   BotConfiguracao: ['apiKey', 'n8nSecret'],
+  BotClinicSettings: ['apiKey'],
 }
 const allFields = new Set(Object.values(credentialFields).flat())
 // These are application/provider JSON values, not related credential records.

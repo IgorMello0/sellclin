@@ -197,6 +197,37 @@
     ]
   },
   {
+    "method": "GET",
+    "path": "/api/agentes-ia/settings",
+    "source": "server/routes/agentes-ia.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')",
+      "manage"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/agentes-ia/settings",
+    "source": "server/routes/agentes-ia.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')",
+      "manage"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/agentes-ia/settings/test-key",
+    "source": "server/routes/agentes-ia.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')",
+      "manage",
+      "aiLimit"
+    ]
+  },
+  {
     "method": "POST",
     "path": "/api/auth/change-password",
     "source": "server/routes/auth.ts",
@@ -829,6 +860,16 @@
   },
   {
     "method": "GET",
+    "path": "/api/dashboard/details",
+    "source": "server/routes/dashboard.ts",
+    "guards": [
+      "auth()",
+      "requireModule('dashboard')",
+      "createDashboardDetailsHandler(prisma)"
+    ]
+  },
+  {
+    "method": "GET",
     "path": "/api/dashboard/metrics",
     "source": "server/routes/dashboard.ts",
     "guards": [
@@ -1149,6 +1190,16 @@
       "requireModule('funnel')",
       "ownerConfiguration",
       "auth()"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/funnel-config/duplicate",
+    "source": "server/routes/funnelConfig.ts",
+    "guards": [
+      "auth()",
+      "requireModule('funnel')",
+      "ownerConfiguration"
     ]
   },
   {

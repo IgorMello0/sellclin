@@ -5,6 +5,10 @@ export type BotAIConfig = { provider: string; model: string; apiKey: string; pro
 export type BotHistory = { role: 'user' | 'assistant'; content: string }[]
 export class BotProviderError extends Error { constructor(public code: string, public httpStatus?: number) { super(code) } }
 export function providerErrorMessage(code: string) {
+  if (code === 'workflow_timeout') return 'O n8n excedeu o tempo de resposta. Ajuste o workflow para responder dentro do limite configurado.'
+  if (code === 'workflow_unavailable') return 'O webhook n8n está indisponível. Confira a URL de produção e se o workflow está publicado.'
+  if (code === 'workflow_configuration') return 'Confira a URL HTTPS de produção e o token salvo da conexão n8n.'
+  if (code === 'workflow_invalid_response') return 'O n8n não devolveu o JSON esperado. Configure Respond to Webhook para retornar action e reply, conforme o exemplo disponível na página.'
   if (code === 'workflow_auth') return 'O workflow recusou o token. Confira a credencial Header Auth no n8n.'
   if (code.startsWith('workflow_')) return 'O workflow não retornou uma decisão válida a tempo. Confira a URL de produção, a ativação e o formato da resposta no n8n.'
   if (code === 'credentials') return 'A chave ou o modelo foi recusado. Confira as permissões no provedor de IA.'

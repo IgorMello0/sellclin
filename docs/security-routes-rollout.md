@@ -8,7 +8,7 @@
 
 ## Matriz e barreira central
 
-`server/config/route-manifest.json` registra os 234 pares método/caminho atuais, arquivo de origem e middlewares declarados, incluindo transferência de leads e as novas rotas dos bots integradas da main. `scripts/security-route-inventory.mjs` extrai as declarações pela AST TypeScript, sem interpretar comentários como rotas. O teste compara a matriz com o código: alterações exigem revisão explícita do manifesto.
+`server/config/route-manifest.json` registra os 239 pares método/caminho atuais, arquivo de origem e middlewares declarados, incluindo transferência de leads e as novas rotas dos bots integradas da main. `scripts/security-route-inventory.mjs` extrai as declarações pela AST TypeScript, sem interpretar comentários como rotas. O teste compara a matriz com o código: alterações exigem revisão explícita do manifesto.
 
 `routePolicy` bloqueia endpoints `/api` fora do manifesto. Rotas privadas exigem sessão e clínica ativa antes de chegar ao handler. Autenticação repetida reutiliza somente o resultado da mesma requisição; a requisição seguinte revalida acesso no banco. HEAD usa a política de GET. CORS trata preflight antes dessa barreira.
 
@@ -64,7 +64,7 @@ As fixtures cobrem isolamento de mensagens inclusive dentro da mesma clínica, t
 
 ## Ensaio real PostgreSQL local
 
-`scripts/security-postgres-rehearsal.mjs` passou em 12/12 verificações no PostgreSQL 18.6. Cria um cluster descartável restrito a `127.0.0.1`, com senha aleatória, usando o schema anterior ao isolamento do commit `9c0495e` (inclui bots/n8n) e dados fictícios de três clínicas e dois proprietários. Sobrescreve as URLs herdadas com conexões locais; não aceita uma URL externa. O cluster é encerrado e removido ao final. A dependência do ensaio fica em `.security-check`, fora do Git e da imagem de produção.
+`scripts/security-postgres-rehearsal.mjs` passou em 12/12 verificações no PostgreSQL 18.6. Cria um cluster descartável restrito a `127.0.0.1`, com senha aleatória, usando o schema anterior ao isolamento do commit `548b5c6` (inclui bots/n8n e funis) e dados fictícios de três clínicas e dois proprietários. Sobrescreve as URLs herdadas com conexões locais; não aceita uma URL externa. O cluster é encerrado e removido ao final. A dependência do ensaio fica em `.security-check`, fora do Git e da imagem de produção.
 
 ```sh
 npm install --prefix .security-check/postgres-runtime --no-audit --no-fund --save-exact embedded-postgres@18.6.0-beta.19
@@ -82,3 +82,7 @@ Etapas 2–5 do plano (rotação de chaves, sessão por cookie/MFA, revisão amp
 ## Atualização local em 05/11/2026
 
 Integrada a main até `9c0495e` (bots nativos e n8n), preservando os commits locais de segurança. Conflitos de agentes/conversas resolvidos e manifesto atualizado para 234 rotas. Dependências sincronizadas com o lockfile e Prisma Client 6.18.0 regenerado. TypeScript, build, 174 testes gerais, 45 testes dos bots e as 12 verificações PostgreSQL passaram. O ensaio agora parte do schema `9c0495e`, anterior ao isolamento e já com os modelos dos bots. As migrações SQL dos bots e a migração de isolamento ainda precisam ser aplicadas no banco de destino conforme os respectivos procedimentos; nenhum banco externo foi alterado nesta atualização.
+
+## Atualização local em 11/11/2026
+
+Integrada a main até `548b5c6`, preservando os commits locais de segurança. Conflitos no schema, dashboard e configuração de testes resolvidos. As verificações de cargo da clínica e faturamento explícito foram preservadas no novo serviço dashboard-scope; os acessos aos detalhes sem concessão explícita são bloqueados. Manifesto atualizado para 239 rotas. TypeScript do backend, typecheck do frontend e build passaram. Testes gerais: 193/193; dashboard: 42/42; bots: 59/60 na primeira execução, com timeout de um teste de banco, e reexecução isolada do arquivo passou em 6/6. Ensaio PostgreSQL: 12/12 com schema base `548b5c6` e dados fictícios. Nenhum banco externo foi alterado e esta integração foi salva apenas localmente.

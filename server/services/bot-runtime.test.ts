@@ -18,6 +18,7 @@ beforeEach(() => {
   agent = { id: 3, companyId: 2, isActive: true, activatedAt: new Date(clock - 10000), updatedAt: tick(), basePrompt: 'Ajude', configuracao: { apiKey: 'test', verifiedAt: new Date(), dailyLimit: 200 } }
   let transactionTail = Promise.resolve()
   db = {
+    botClinicSettings: { findUnique: vi.fn().mockResolvedValue(null) },
     $queryRaw: vi.fn().mockResolvedValue([{ id: 10 }]),
     $transaction: (fn: any) => { const result = transactionTail.then(() => fn(db)); transactionTail = result.catch(() => {}); return result },
     botRun: {

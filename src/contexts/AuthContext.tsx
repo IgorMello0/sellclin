@@ -208,7 +208,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Tentar login como profissional primeiro
       const professionalResponse = await professionalsApi.login(email.trim().toLowerCase(), password);
-      let response = professionalResponse;
+      let response: Awaited<ReturnType<typeof professionalsApi.login>> | Awaited<ReturnType<typeof usuariosApi.login>> = professionalResponse;
       console.log('[Auth] Professional login response:', professionalResponse);
       
       // Professional e Usuario sao cadastros separados. O mesmo e-mail pode
@@ -235,7 +235,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       if (response.success && response.data) {
-        const { token, professional: profData, user: userData } = response.data as any;
+        const { token } = response.data;
+        const profData = 'professional' in response.data ? response.data.professional : undefined;
+        const userData = 'user' in response.data ? response.data.user : undefined;
         
         if ((!profData && !userData) || !token) {
           console.error('[Auth] Missing data in response:', response);

@@ -10,6 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { funnelConfigApi } from '@/lib/api';
+import { DuplicateFunnelsButton } from './DuplicateFunnelsButton';
+import { FunnelOrderControls, useFunnelOrder } from './FunnelOrderControls';
+import { stageBehavior } from '../../../server/utils/funnel-stages';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Loader2, Plus, Trash2, GripVertical, ChevronDown, ChevronUp, Pencil, RotateCcw } from 'lucide-react';
@@ -59,6 +62,7 @@ interface FunnelSettingsDialogProps {
 export function FunnelSettingsDialog({ open, onOpenChange, onSaved }: FunnelSettingsDialogProps) {
   const { toast } = useToast();
   const [funnels, setFunnels] = useState<any[]>([]);
+  const { isReordering, moveFunnel } = useFunnelOrder(funnels, setFunnels, onSaved);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedFunnel, setExpandedFunnel] = useState<number | null>(null);
   const [isAddingFunnel, setIsAddingFunnel] = useState(false);
@@ -222,6 +226,7 @@ export function FunnelSettingsDialog({ open, onOpenChange, onSaved }: FunnelSett
   };
 
   const handleMoveStage = async (funnelIdx: number, stageIdx: number, direction: 'up' | 'down') => {
+    if (isSaving || isReordering) return;
     const funnel = funnels[funnelIdx];
     const stages = [...funnel.stages];
     const targetIdx = direction === 'up' ? stageIdx - 1 : stageIdx + 1;
@@ -240,13 +245,14 @@ export function FunnelSettingsDialog({ open, onOpenChange, onSaved }: FunnelSett
       stages: stages.map((s, i) => ({ ...s, order: i }))
     };
     setFunnels(updatedFunnels);
+    setIsSaving(true);
 
     try {
-      await funnelConfigApi.reorder([{
+      const saved = await funnelConfigApi.reorder([{
         id: funnel.id,
-        order: funnel.order,
         stages: stages.map((s: any, i: number) => ({ id: s.id, order: i }))
       }]);
+      if (!saved.success) throw new Error(saved.error?.message);
       // Silently reload to ensure data integrity
       const res = await funnelConfigApi.getAll();
       if (res.success) {
@@ -255,13 +261,15 @@ export function FunnelSettingsDialog({ open, onOpenChange, onSaved }: FunnelSett
     } catch (e) {
       setFunnels(originalFunnels);
       toast({ title: 'Erro ao reordenar', variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleResetDefaults = () => {
     askConfirmation(
       'Restaurar Configurações',
-      'Isso vai RESTAURAR todos os funis para a configuração padrão. Tem certeza?',
+      'Restaurar a configuração original? As cópias por operação serão preservadas.',
       async () => {
         try {
           const res = await funnelConfigApi.seedDefaults();
@@ -278,7 +286,7 @@ export function FunnelSettingsDialog({ open, onOpenChange, onSaved }: FunnelSett
 
   // HTML5 Drag and Drop Handlers
   const handleDragStart = (e: React.DragEvent, funnelIdx: number, stageIdx: number) => {
-    if (editingStage !== null) {
+    if (editingStage !== null || isSaving || isReordering) {
       e.preventDefault();
       return;
     }
@@ -294,7 +302,7 @@ export function FunnelSettingsDialog({ open, onOpenChange, onSaved }: FunnelSett
 
   const handleDropStage = async (e: React.DragEvent, targetFunnelIdx: number, targetStageIdx: number) => {
     e.preventDefault();
-    if (!draggedStage || draggedStage.funnelIdx !== targetFunnelIdx) {
+    if (isSaving || isReordering || !draggedStage || draggedStage.funnelIdx !== targetFunnelIdx) {
       return;
     }
 
@@ -318,13 +326,14 @@ export function FunnelSettingsDialog({ open, onOpenChange, onSaved }: FunnelSett
       stages: stages.map((s, i) => ({ ...s, order: i }))
     };
     setFunnels(updatedFunnels);
+    setIsSaving(true);
 
     try {
-      await funnelConfigApi.reorder([{
+      const saved = await funnelConfigApi.reorder([{
         id: funnel.id,
-        order: funnel.order,
         stages: stages.map((s: any, i: number) => ({ id: s.id, order: i }))
       }]);
+      if (!saved.success) throw new Error(saved.error?.message);
       // Silently reload to ensure data integrity
       const res = await funnelConfigApi.getAll();
       if (res.success) {
@@ -333,6 +342,8 @@ export function FunnelSettingsDialog({ open, onOpenChange, onSaved }: FunnelSett
     } catch (err) {
       setFunnels(originalFunnels);
       toast({ title: 'Erro ao reordenar etapas', variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -386,7 +397,10 @@ export function FunnelSettingsDialog({ open, onOpenChange, onSaved }: FunnelSett
                         {funnel.stages?.length || 0} etapas
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+                      <FunnelOrderControls label={funnel.label} index={funnelIdx} count={funnels.length}
+                        disabled={isSaving || isReordering || draggedStage !== null}
+                        onMove={direction => void moveFunnel(funnel.id, direction)} />
                       {!SYSTEM_FUNNELS.includes(funnel.code) && (
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDeleteFunnel(funnel.id); }}
@@ -492,7 +506,7 @@ export function FunnelSettingsDialog({ open, onOpenChange, onSaved }: FunnelSett
                                 >
                                   <Pencil className="w-3.5 h-3.5" />
                                 </button>
-                                {!SYSTEM_STAGES.includes(stage.code) && (
+                                {!SYSTEM_STAGES.includes(stageBehavior(stage.code)) && (
                                   <button
                                     onClick={() => handleDeleteStage(stage.id)}
                                     className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all duration-200"
@@ -632,7 +646,8 @@ export function FunnelSettingsDialog({ open, onOpenChange, onSaved }: FunnelSett
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center gap-4 pt-2">
+                <div className="flex flex-wrap items-center gap-4 pt-2">
+                  <DuplicateFunnelsButton onSaved={() => { void loadFunnels(); onSaved(); }} />
                   <button
                     onClick={() => setIsAddingFunnel(true)}
                     className="flex-1 py-4 border border-dashed border-slate-300 hover:border-secondary/40 hover:bg-orange-50/30 rounded-2xl text-sm font-bold text-slate-400 hover:text-secondary transition-all duration-300 flex items-center justify-center gap-2 active:scale-[0.99]"

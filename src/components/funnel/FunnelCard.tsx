@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Loader2, Star } from 'lucide-react';
 import { leadsApi, tasksApi } from '@/lib/api';
+import { parseCopiedFunnel, stageBehavior } from '../../../server/utils/funnel-stages';
 
 interface Lead {
   sdrId?: number;
@@ -187,7 +188,7 @@ export function FunnelCard({
               {lead.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </div>
           )}
-          {activeFunnel === 'prospecting' && (
+          {(activeFunnel === 'prospecting' || parseCopiedFunnel(activeFunnel)?.template === 'prospecting') && (
             <div 
               onClick={(e) => e.stopPropagation()} 
               onMouseDown={(e) => e.stopPropagation()}
@@ -268,7 +269,7 @@ export function FunnelCard({
 
       {/* Stage specific actions */}
       <div className="flex flex-col gap-1 mt-2 pt-1.5 border-t border-slate-100">
-        {stageId === 'prospect_scheduled' && (
+        {stageBehavior(stageId) === 'prospect_scheduled' && (
           lead.isScheduled ? (() => {
             const lastAppt = lead.appointments && lead.appointments[0];
             const apptStatus = lastAppt?.status || 'agendado';
@@ -324,7 +325,7 @@ export function FunnelCard({
           )
         )}
 
-        {stageId === 'prospect_attended' && (
+        {stageBehavior(stageId) === 'prospect_attended' && (
           <button 
             onClick={(e) => { 
               e.stopPropagation(); 
@@ -337,11 +338,11 @@ export function FunnelCard({
           </button>
         )}
 
-        {stageId === 'comercial_closed' && (
+        {stageBehavior(stageId) === 'comercial_closed' && (
           <div className="flex flex-col gap-1.5">
             <div className="w-full py-2 bg-green-50 text-green-600 rounded-lg text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 border border-green-200">
               <span className="material-symbols-outlined text-xs">how_to_reg</span>
-              Cliente Ativo
+              {lead.isPaid ? 'Venda confirmada' : 'Fechado — confirmação pendente'}
             </div>
             {!lead.isPaid ? (
               <button
@@ -352,19 +353,19 @@ export function FunnelCard({
                 className="w-full py-2 bg-primary/10 hover:bg-primary text-primary hover:text-white rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-primary/20"
               >
                 <span className="material-symbols-outlined text-xs">payments</span>
-                Baixar Pagamento
+                Confirmar venda
               </button>
             ) : (
               <div className="w-full py-2 bg-green-500/10 text-green-600 rounded-lg text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 border border-green-200">
                 <span className="material-symbols-outlined text-xs">check_circle</span>
-                Pagamento Realizado
+                Venda confirmada
               </div>
             )}
 
           </div>
         )}
 
-        {stageId === 'sales_payment' && (
+        {stageBehavior(stageId) === 'sales_payment' && (
           <button
             onClick={(e) => {
               e.stopPropagation();

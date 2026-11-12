@@ -7,6 +7,7 @@ vi.mock('../utils/audit.js', () => ({ logAudit: vi.fn() }));
 vi.mock('../services/cadence.js', () => ({ triggerCadenceForLead: vi.fn().mockResolvedValue(undefined) }));
 import { router } from './leads';
 import { leadVisibility } from '../services/funnel-access';
+import { copiedFunnelCode, copiedStageCode } from '../utils/funnel-stages';
 
 const user = { id: 5, type: 'usuario', companyId: 2 };
 let lead: any;
@@ -16,6 +17,7 @@ let payments: any[];
 let sales: any[];
 let activities: any[];
 let failure: string | null;
+const socialStage = (template: 'prospecting' | 'commercial' | 'sales', stage: string) => copiedStageCode('social-selling', template, stage);
 const snapshot = () => structuredClone({ lead, proposals, clients, payments, sales, activities });
 function restore(s: ReturnType<typeof snapshot>) { ({ lead, proposals, clients, payments, sales, activities } = s); }
 async function call(method: string, path: string, body: any, proposalId = '101') {
@@ -71,6 +73,7 @@ beforeEach(() => {
     empresa: { findFirst: vi.fn().mockResolvedValue({ id: 2 }) },
     leadActivity: { create: vi.fn(async ({ data }) => { activities.push(data); return data; }) },
     appointment: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
+    funnelStage: { findFirst: vi.fn().mockResolvedValue(null) },
   });
 });
 
@@ -195,6 +198,73 @@ describe('funnel transactions and access', () => {
     await call('post', '/:id/confirm-payment', { proposalId: 101, payments: [{ amount: 350, date: '2026-09-14', method: 'pix' }] });
     await call('put', '/:id', { status: 'comercial_lost' });
     expect(lead.isPaid).toBe(true); expect(payments[0].saleVoidedAt).toBeUndefined();
+  });
+  it('creates a proposal without recording attendance or an appointment', async () => {
+    lead.status = 'prospect_lead';
+    lead.attendedAt = null;
+    const res = await call('post', '/:id/proposals/batch', {
+      proposals: [{ title: 'Proposta de avaliação anterior', value: 200, validUntil: '2026-10-01' }],
+    });
+    expect(res.result.success).toBe(true);
+    expect(lead.status).toBe('comercial_proposal');
+    expect(lead.proposalAt).toBeInstanceOf(Date);
+    expect(lead.attendedAt).toBeNull();
+    expect(state.db.appointment.updateMany).not.toHaveBeenCalled();
+  });
+  it('advances a copied lead from proposal through confirmed payment within the same operation', async () => {
+    lead.status = socialStage('prospecting', 'prospect_attended');
+    const proposalStage = socialStage('commercial', 'comercial_proposal');
+    const closedStage = socialStage('commercial', 'comercial_closed');
+    const paymentStage = socialStage('sales', 'sales_payment');
+    state.db.funnelStage.findFirst.mockImplementation(async ({ where }) => {
+      if (where.funnel.companyId !== user.companyId || ![proposalStage, closedStage, paymentStage].includes(where.code)) return null;
+      return { code: where.code, label: 'Etapa da operação' };
+    });
+    const response = await call('post', '/:id/proposals/batch', {
+      proposals: [{ title: 'Avaliação', value: 350, validUntil: '2026-10-01' }],
+    });
+    expect(response.code).toBe(201);
+    expect(lead.status).toBe(proposalStage);
+    const proposalId = response.result.data[0].id;
+    expect((await call('put', '/:id', { status: paymentStage, proposalId })).result.success).toBe(true);
+    expect(lead.status).toBe(paymentStage);
+    expect((await call('post', '/:id/confirm-payment', {
+      proposalId, payments: [{ amount: 350, date: '2026-09-14', method: 'pix' }],
+    })).result.success).toBe(true);
+    expect(lead).toMatchObject({ id: 1, status: closedStage, isPaid: true });
+    expect(sales).toHaveLength(1);
+    expect(clients).toHaveLength(1);
+    expect(state.db.funnelStage.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ code: closedStage, funnel: {
+        companyId: user.companyId, code: copiedFunnelCode('social-selling', 'commercial'), isActive: true,
+      } }),
+    }));
+  });
+  it('keeps a proposal with the copied lead when the matching commercial board has not been copied', async () => {
+    const status = socialStage('prospecting', 'prospect_attended');
+    lead.status = status;
+    const response = await call('post', '/:id/proposals/batch', {
+      proposals: [{ title: 'Avaliação', value: 200, validUntil: '2026-10-01' }],
+    });
+    expect(response.code).toBe(201);
+    expect(lead.status).toBe(status);
+    expect(proposals.some(p => p.title === 'Avaliação' && p.leadId === lead.id)).toBe(true);
+  });
+  it('rejects movement to a copied stage unavailable in the active clinic', async () => {
+    const before = snapshot();
+    expect((await call('put', '/:id', { status: socialStage('commercial', 'comercial_closed') })).code).toBe(400);
+    expect(snapshot()).toEqual(before);
+  });
+  it('records attendance on an explicit attendance stage and preserves it on later commercial moves', async () => {
+    lead.status = 'prospect_lead';
+    lead.attendedAt = null;
+    await call('put', '/:id', { status: 'comercial_proposal' });
+    expect(lead.attendedAt).toBeNull();
+    await call('put', '/:id', { status: 'prospect_attended' });
+    const attendedAt = lead.attendedAt;
+    expect(attendedAt).toBeInstanceOf(Date);
+    await call('put', '/:id', { status: 'comercial_follow' });
+    expect(lead.attendedAt).toEqual(attendedAt);
   });
   it('rolls back a partially failed proposal batch and can retry without duplication', async () => {
     const before = snapshot();

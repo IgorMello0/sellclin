@@ -4,7 +4,7 @@ import { CustomSelect } from '@/components/ui/CustomSelect';
 import { OnboardingWizard } from './OnboardingWizard';
 
 vi.mock('@/contexts/AuthContext', () => ({
-  useAuth: () => ({ professional: { role: 'profissional', company: { name: 'Clínica Teste' } }, completeOnboarding: vi.fn() }),
+  useAuth: () => ({ professional: { role: 'profissional', companyName: 'Clínica Teste' }, completeOnboarding: vi.fn() }),
 }));
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
@@ -50,6 +50,7 @@ it('repositions a menu on scroll and closes on Escape or an outside click', () =
 
 it('renders readable Portuguese across all three onboarding steps', async () => {
   render(<OnboardingWizard />);
+  expect(screen.getByDisplayValue('Clínica Teste')).toBeTruthy();
   expect(screen.getByText('Sua Clínica')).toBeTruthy();
   expect(screen.getByLabelText('Nome da Clínica / Empresa')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Próximo' }));

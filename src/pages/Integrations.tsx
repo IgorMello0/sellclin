@@ -195,7 +195,7 @@ const Integrations = () => {
   const navigate = useNavigate();
   const canManageIntegrations = professional?.role === 'admin' || professional?.role === 'profissional';
   const [selectedIntegration, setSelectedIntegration] = useState<IntegrationKey | null>(null);
-  const [workingKey, setWorkingKey] = useState<IntegrationKey | 'meta-save' | 'meta-disconnect' | 'uazapi-qr' | 'uazapi-pair' | 'uazapi-disconnect' | 'google-resync' | 'google-disconnect' | null>(null);
+  const [workingKey, setWorkingKey] = useState<IntegrationKey | 'meta-webhook-repair' | 'meta-save' | 'meta-disconnect' | 'uazapi-qr' | 'uazapi-pair' | 'uazapi-disconnect' | 'google-resync' | 'google-disconnect' | null>(null);
   const [metaStatus, setMetaStatus] = useState<MetaStatus | null>(null);
   const [metaForm, setMetaForm] = useState<MetaForm>(emptyMetaForm);
   const [uazapiStatus, setUazapiStatus] = useState<UazapiStatus | null>(null);

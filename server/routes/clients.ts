@@ -3,7 +3,7 @@ import { prisma } from '../prisma.js'
 import { auth, requireModule } from '../middleware/auth.js'
 import { createErrorResponse, createSuccessResponse, parsePagination } from '../utils/response.js'
 import { logAudit } from '../utils/audit.js'
-import { proposalInput, validateProposalTeam } from '../services/funnel-proposals.js'
+import { proposalAuthor, proposalInput, validateProposalTeam } from '../services/funnel-proposals.js'
 
 export const router = Router()
 router.use(auth(), actionPermissions('clientes'))
@@ -476,6 +476,7 @@ router.post('/:id/proposals', auth(), requireModule('clientes'), async (req, res
       return tx.proposal.create({
         data: {
           leadId,
+          ...await proposalAuthor(tx, req.user!),
           title: parsedProposal.title!,
           value: parsedProposal.value!,
           validUntil: parsedProposal.validUntil!,

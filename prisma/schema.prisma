@@ -213,6 +213,9 @@ model Proposal {
   discountApplied    Boolean  @default(false) @map("discount_applied")
   discountValue      Decimal? @map("discount_value")
   discountPercentage Decimal? @map("discount_percentage")
+  authorId           Int?     @map("author_id")
+  authorType         String?  @map("author_type")
+  authorName         String?  @map("author_name")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
   lead               Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
@@ -476,6 +479,7 @@ model Empresa {
   categories             Category[]
   catalogItems           CatalogItem[]
   fichaTemplates         FichaTemplate[]
+  botSettings BotClinicSettings?
   id                     Int       @id @default(autoincrement())
   ownerId                Int?      @map("owner_id")
   name                   String
@@ -736,6 +740,7 @@ model AgenteIa {
 }
 
 model BotConfiguracao {
+  flowDefinition Json? @map("flow_definition")
   executionMode String @default("native") @map("execution_mode")
   n8nWebhookUrl String? @map("n8n_webhook_url")
   n8nSecret String? @map("n8n_secret") @db.Text
@@ -760,6 +765,16 @@ model BotConfiguracao {
   agent         AgenteIa @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
   @@map("bot_configuracoes")
+}
+
+model BotClinicSettings {
+  companyId Int @id @map("company_id")
+  settings Json
+  apiKey String? @map("api_key") @db.Text
+  verifiedAt DateTime? @map("verified_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  company Empresa @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  @@map("bot_clinic_settings")
 }
 
 model BotSession {

@@ -17,6 +17,15 @@ beforeEach(() => {
   mocks.activate.mockResolvedValue(ok({ ...bot, isActive: true }))
 })
 afterEach(cleanup)
+it('shows a recoverable error instead of an empty list when loading fails', async () => {
+  mocks.list.mockResolvedValueOnce({ success: false, error: { message: 'Atualização do banco necessária.' } }).mockResolvedValueOnce(ok([bot]))
+  render(<AtendimentoBots />)
+  expect((await screen.findByRole('alert')).textContent).toContain('Atualização do banco necessária.')
+  expect(screen.queryByText(/Crie seu primeiro bot/)).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }))
+  expect(await screen.findByRole('button', { name: /Recepção/ })).toBeTruthy()
+  expect(screen.queryByRole('alert')).toBeNull()
+})
 it('shows workflow setup without requesting an AI key and keeps credentials masked', async () => {
   mocks.getConfig.mockResolvedValue(ok({ executionMode: 'n8n', n8nWebhookUrl: 'https://example.com/webhook/bot', hasN8nSecret: true, verifiedAt: null }))
   render(<AtendimentoBots />)
@@ -34,8 +43,8 @@ it('requires key validation, a playground conversation and cost approval before 
   fireEvent.click(await screen.findByRole('button', { name: /Recepção/ }))
   const activate = await screen.findByRole('button', { name: 'Ativar para esta clínica' }) as HTMLButtonElement
   expect(activate.disabled).toBe(true)
-  expect((screen.getByLabelText('Substituir chave salva (opcional)') as HTMLInputElement).value).toBe('')
-  fireEvent.click(screen.getByRole('button', { name: 'Testar chave e modelo' }))
+  expect(screen.getByRole('link', { name: 'Configurar atendimento e IA' }).getAttribute('href')).toBe('/configuracoes?tab=atendimento')
+  fireEvent.click(screen.getByRole('button', { name: 'Validar fluxo e conexão' }))
   await screen.findByText('Conexão validada')
   fireEvent.click(screen.getByRole('button', { name: 'Playground' }))
   fireEvent.change(screen.getByLabelText('Mensagem de teste'), { target: { value: 'Olá' } })
@@ -50,7 +59,7 @@ it('requires key validation, a playground conversation and cost approval before 
 it('blocks activation and playground while configuration contains unsaved changes', async () => {
   render(<AtendimentoBots />)
   fireEvent.click(await screen.findByRole('button', { name: /Recepção/ }))
-  fireEvent.change(await screen.findByLabelText('Modelo'), { target: { value: 'changed' } })
-  expect((screen.getByRole('button', { name: 'Testar chave e modelo' }) as HTMLButtonElement).disabled).toBe(true)
+  fireEvent.change(await screen.findByLabelText('Nome do fluxo'), { target: { value: 'changed' } })
+  expect((screen.getByRole('button', { name: 'Validar fluxo e conexão' }) as HTMLButtonElement).disabled).toBe(true)
   expect((screen.getByRole('button', { name: 'Ativar para esta clínica' }) as HTMLButtonElement).disabled).toBe(true)
 })

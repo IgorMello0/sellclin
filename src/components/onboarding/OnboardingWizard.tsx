@@ -40,7 +40,7 @@ export const OnboardingWizard = () => {
   const { professional, completeOnboarding } = useAuth();
 
   const [step, setStep] = useState(1);
-  const [companyName, setCompanyName] = useState(professional?.company?.name || '');
+  const [companyName, setCompanyName] = useState(professional?.companyName || '');
   const [faturamento, setFaturamento] = useState('');
   const [funcionarios, setFuncionarios] = useState('');
   const [clinicas, setClinicas] = useState('');

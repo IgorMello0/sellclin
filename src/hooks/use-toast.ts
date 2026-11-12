@@ -1,13 +1,14 @@
 // use-toast hook - simplified version without Radix Toast dependency
 import * as React from "react"
 
-type ToastVariant = "default" | "destructive"
+type ToastVariant = "default" | "destructive" | "success"
 
 interface Toast {
   id: string
   title?: string
   description?: string
   variant?: ToastVariant
+  duration?: number
 }
 
 interface ToastState {
@@ -34,11 +35,11 @@ function dispatch(toast: Omit<Toast, "id">) {
     toasts: [...memoryState.toasts.slice(-(MAX_VISIBLE_TOASTS - 1)), newToast],
   }
   listeners.forEach((l) => l(memoryState))
-  // Auto-remove after 5s
+  // Default to 5 seconds; callers can override the display duration.
   setTimeout(() => {
     memoryState = { toasts: memoryState.toasts.filter((t) => t.id !== id) }
     listeners.forEach((l) => l(memoryState))
-  }, 5000)
+  }, toast.duration ?? 5000)
 }
 
 function useToast() {
@@ -68,4 +69,4 @@ function useToast() {
   }
 }
 
-export { useToast, type Toast }
+export { useToast, dispatch as toast, type Toast }

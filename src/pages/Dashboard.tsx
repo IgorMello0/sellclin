@@ -1,4 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { ArrowRight, List } from 'lucide-react';
+import { buttonVariants } from '@/components/ui/button';
+import { dashboardFilterParams, dashboardIndicators, readDashboardFilters, type DashboardIndicator } from '@/lib/dashboard-details';
 import { useQuery } from '@tanstack/react-query';
 import { toZonedTime } from 'date-fns-tz';
 import { isValidDashboardRange, loadDashboardTeam, type DashboardFilter } from '@/lib/dashboard';
@@ -15,19 +19,19 @@ const Dashboard = () => {
   const { professional, hasPermission } = useAuth();
   const showBilling = hasPermission('dashboard', 'verFaturamento');
   const companyId = professional?.companyId;
-  const [filter, setFilter] = useState<DashboardFilter>('this_month');
+  const [params, setParams] = useSearchParams();
+  const { filter, start, end, sdrId: selectedSdrId, closerId: selectedCloserId } = readDashboardFilters(params);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [appliedRange, setAppliedRange] = useState(() => {
+  const [defaultRange] = useState(() => {
     const today = toZonedTime(new Date(), 'America/Sao_Paulo');
     return { start: format(subDays(today, 29), 'yyyy-MM-dd'), end: format(today, 'yyyy-MM-dd') };
   });
+  const appliedRange = filter === 'custom' ? { start, end } : defaultRange;
   const [customStartDate, setCustomStartDate] = useState(appliedRange.start);
   const [customEndDate, setCustomEndDate] = useState(appliedRange.end);
   const [rangeError, setRangeError] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [conversionMode, setConversionMode] = useState<'percent' | 'reais'>('percent');
-  const [selectedSdrId, setSelectedSdrId] = useState('all');
-  const [selectedCloserId, setSelectedCloserId] = useState('all');
 
   const metrics = useQuery({
     queryKey: ['dashboard-metrics', professional?.id, companyId, filter,
@@ -69,12 +73,9 @@ const Dashboard = () => {
         setRangeError('Informe datas válidas, com o início anterior ou igual ao fim.');
         return;
       }
-      setAppliedRange({ start, end });
     }
     setRangeError('');
-    setFilter(newFilter);
-    setSelectedSdrId(sdrId);
-    setSelectedCloserId(closerId);
+    setParams(dashboardFilterParams({ filter: newFilter, start: start ?? '', end: end ?? '', sdrId, closerId }), { replace: true });
     setDropdownOpen(false);
   };
 
@@ -115,6 +116,20 @@ const Dashboard = () => {
     return 'Personalizado';
   };
 
+  const detailsHref = (indicator?: DashboardIndicator, origin?: string) => {
+    const query = dashboardFilterParams({ filter, start, end, sdrId: selectedSdrId, closerId: selectedCloserId });
+    if (indicator) query.set('indicator', indicator);
+    if (origin !== undefined) query.set('origin', origin);
+    return `/painel/detalhado?${query}`;
+  };
+
+  const detailsLink = (indicator: DashboardIndicator) => (
+    <Link to={detailsHref(indicator)} aria-label={`Detalhar ${dashboardIndicators[indicator].label}`}
+      className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-4 hover:underline">
+      Ver detalhes <ArrowRight className="size-3" aria-hidden="true" />
+    </Link>
+  );
+
   const hasMultipleClinics = Array.isArray(professional?.companies) && professional?.companies.length > 1;
   const activeCompany = Array.isArray(professional?.companies) ? professional?.companies?.find(c => c.id === professional?.companyId) : null;
 
@@ -123,13 +138,18 @@ const Dashboard = () => {
 
       {/* Header Section */}
       <div className="flex flex-col gap-4 sm:gap-6 relative z-30">
-        <div>
-          <h2 className="text-xl sm:text-3xl font-extrabold text-primary font-headline tracking-tight">Dashboard de Vendas</h2>
-          <p className="text-on-surface-variant text-xs sm:text-sm mt-1">
-            {hasMultipleClinics && activeCompany
-              ? `Dados da clínica: ${activeCompany.name}`
-              : 'Bem-vindo ao centro de comando SellClin.'}
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl sm:text-3xl font-extrabold text-primary font-headline tracking-tight">Dashboard de Vendas</h2>
+            <p className="text-on-surface-variant text-xs sm:text-sm mt-1">
+              {hasMultipleClinics && activeCompany
+                ? `Dados da clínica: ${activeCompany.name}`
+                : 'Bem-vindo ao centro de comando SellClin.'}
+            </p>
+          </div>
+          <Link to={detailsHref()} className={buttonVariants({ variant: 'outline' })}>
+            <List aria-hidden="true" /> Dashboard detalhado
+          </Link>
         </div>
         
         <div className="flex flex-col xl:flex-row xl:items-center gap-4">
@@ -347,6 +367,7 @@ const Dashboard = () => {
             <h3 className="stats-value">{counters.leads}</h3>
           </div>
           
+          {detailsLink('leads')}
         </Card>
 
         {/* Card 2: Avaliação Agendada */}
@@ -363,6 +384,7 @@ const Dashboard = () => {
             <p className="text-xs text-on-surface-variant">Marcações feitas no período, exceto canceladas e faltas.</p>
           </div>
           
+          {detailsLink('agendadas')}
         </Card>
 
         {/* Card 3: Avaliação Comparada */}
@@ -378,6 +400,7 @@ const Dashboard = () => {
             <h3 className="stats-value">{counters.comparada}</h3>
           </div>
           
+          {detailsLink('comparecidas')}
         </Card>
 
         {/* Card 4: Propostas */}
@@ -402,6 +425,7 @@ const Dashboard = () => {
               </h3>
             )}
           </div>
+          {detailsLink('propostas')}
         </Card>
       </div>
 
@@ -423,6 +447,7 @@ const Dashboard = () => {
                   {counters.contratos} {counters.contratos === 1 ? 'contrato fechado' : 'contratos fechados'}
                 </p>
               </div>
+              {detailsLink('vendas')}
             </Card>
 
             {/* Card 6: Ticket (Orçado) */}
@@ -437,6 +462,7 @@ const Dashboard = () => {
                 <h4 className="stats-value text-xl font-bold">{formatCurrency(counters.ticketOrcado)}</h4>
                 <p className="text-slate-400 text-[11px] font-medium mt-1">média por proposta</p>
               </div>
+              {detailsLink('ticket-orcado')}
             </Card>
 
             {/* Card 7: Ticket (Fechado) */}
@@ -451,6 +477,7 @@ const Dashboard = () => {
                 <h4 className="stats-value text-xl font-bold">{formatCurrency(counters.ticketFechado)}</h4>
                 <p className="text-slate-400 text-[11px] font-medium mt-1">média por fechamento</p>
               </div>
+              {detailsLink('ticket-fechado')}
             </Card>
 
             {/* Card 8: Parcelamento Médio de Boleto */}
@@ -465,6 +492,7 @@ const Dashboard = () => {
                 <h4 className="stats-value text-xl font-bold text-accent">{counters.parcelamentoMedioBoleto}x</h4>
                 <p className="text-slate-400 text-[11px] font-medium mt-1">parcelas por boleto</p>
               </div>
+              {detailsLink('parcelamento')}
             </Card>
 
             {/* Card 8.5: Desconto Concedido */}
@@ -479,6 +507,7 @@ const Dashboard = () => {
                 <h4 className="stats-value text-xl font-bold text-red-500">{formatCurrency(counters.totalDiscount)}</h4>
                 <p className="text-slate-400 text-[11px] font-medium mt-1">acumulado no período</p>
               </div>
+              {detailsLink('descontos')}
             </Card>
           </>
         )}
@@ -522,6 +551,7 @@ const Dashboard = () => {
             </p>
             <p className="text-[10px] text-on-surface-variant">Pode superar 100% ao fechar propostas de períodos anteriores.</p>
           </div>
+          {detailsLink(showBilling && conversionMode === 'reais' ? 'conversao-valor' : 'conversao-qtd')}
         </Card>
       </div>
 
@@ -534,10 +564,10 @@ const Dashboard = () => {
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {[
-              { label: 'Boletos Gerados', value: extraData.metodos.boleto?.gerados || 0 },
-              { label: 'Cartão', value: extraData.metodos.cartao },
-              { label: 'Pix / Débito', value: extraData.metodos.pix },
-              { label: 'Dinheiro', value: extraData.metodos.dinheiro },
+              { indicator: 'boleto' as const, label: 'Boletos Gerados', value: extraData.metodos.boleto?.gerados || 0 },
+              { indicator: 'cartao' as const, label: 'Cartão', value: extraData.metodos.cartao },
+              { indicator: 'pix' as const, label: 'Pix / Débito', value: extraData.metodos.pix },
+              { indicator: 'dinheiro' as const, label: 'Dinheiro', value: extraData.metodos.dinheiro },
             ].map((item) => (
               <Card key={item.label} className="p-6 flex flex-col justify-between hover-card">
                 <div className="flex items-center gap-2 mb-4">
@@ -545,6 +575,7 @@ const Dashboard = () => {
                   <span className="text-primary text-[10px] sm:text-xs font-bold uppercase tracking-tight">{item.label}</span>
                 </div>
                 <h5 className="text-lg sm:text-2xl font-bold text-primary font-headline">{formatCurrency(item.value)}</h5>
+                {detailsLink(item.indicator)}
               </Card>
             ))}
           </div>
@@ -562,15 +593,15 @@ const Dashboard = () => {
           </div>
           <div className="flex flex-col gap-4">
             {[
-              { label: 'Novos', val: extraData.funil.novos || 0, color: 'bg-primary' },
-              { label: 'Contatados', val: extraData.funil.contatados || 0, color: 'bg-secondary' },
-              { label: 'Agendados', val: extraData.funil.agendamentos || 0, color: 'bg-secondary' },
-              { label: 'Fechados', val: extraData.funil.fechados || 0, color: 'bg-secondary' },
+              { indicator: 'funil-novos' as const, label: 'Novos', val: extraData.funil.novos || 0, color: 'bg-primary' },
+              { indicator: 'funil-contatados' as const, label: 'Contatados', val: extraData.funil.contatados || 0, color: 'bg-secondary' },
+              { indicator: 'funil-agendados' as const, label: 'Agendados', val: extraData.funil.agendamentos || 0, color: 'bg-secondary' },
+              { indicator: 'funil-fechados' as const, label: 'Fechados', val: extraData.funil.fechados || 0, color: 'bg-secondary' },
             ].map((item, index, arr) => {
               const maxVal = Math.max(...arr.map(a => a.val)) || 1;
               const percent = Math.round((item.val / maxVal) * 100);
               return (
-              <div key={item.label} className="flex items-center gap-6">
+              <Link key={item.label} to={detailsHref(item.indicator)} className="flex items-center gap-3 sm:gap-6 rounded-lg hover:bg-muted/50">
                 <div className="w-24 text-right text-xs font-bold text-on-surface-variant">{item.label}</div>
                 {/* Removed overflow-hidden so the shadow can glow outside */}
                 <div className="flex-1 h-12 bg-muted rounded-xl relative group">
@@ -593,7 +624,7 @@ const Dashboard = () => {
                 <div className={`w-16 text-xs font-bold ${percent === 100 ? 'text-secondary' : 'text-on-surface-variant'}`}>
                   {percent}%
                 </div>
-              </div>
+              </Link>
             )})}
           </div>
         </Card>
@@ -627,7 +658,7 @@ const Dashboard = () => {
               const isInstagram = item.origin?.toLowerCase().includes('instagram');
 
               return (
-              <div key={item.origin} className="flex items-center gap-4 group cursor-default">
+              <Link key={item.origin} to={detailsHref('origem', item.origin)} className="flex items-center gap-4 group rounded-lg hover:bg-muted/50">
                 <div className={cn(
                   "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform overflow-hidden shadow-sm",
                   isInstagram ? "bg-transparent p-0 shadow-none border border-slate-100" : `${bg} p-2`
@@ -643,7 +674,7 @@ const Dashboard = () => {
                     <div className="h-full bg-secondary rounded-full progress-bar-fill" style={{ width: `${percent}%` }}></div>
                   </div>
                 </div>
-              </div>
+              </Link>
             )}) : (
               <div className="text-center text-sm text-on-surface-variant py-8">
                 Nenhum dado de origem registrado no período.

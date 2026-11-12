@@ -12,6 +12,8 @@ import {
 import { logAudit } from '../utils/audit.js'
 import { deleteAppointmentFromGoogle, syncAppointmentToGoogle } from '../services/google-calendar.js'
 import { actionPermissions, hasActionPermission } from '../middleware/action-permissions.js'
+import { resolveOperationStage } from '../services/funnel-operations.js'
+import { stageBehavior } from '../utils/funnel-stages.js'
 
 export const router = Router()
 router.use(auth(), actionPermissions('agendamentos'))
@@ -610,8 +612,10 @@ router.put('/:id', auth(), requireModule('agendamentos'), async (req, res) => {
         'prospect_attended', 'comercial_consult', 'comercial_proposal', 'comercial_follow',
         'comercial_negotiation', 'comercial_closed', 'sales_payment', 'sales_contract', 'sales_post',
       ]);
-      if (!stagesAtOrAfterAttendance.has(updated.lead?.status || '')) {
-        leadUpdateData.status = 'prospect_attended';
+      const currentStatus = updated.lead?.status || ''
+      if (!stagesAtOrAfterAttendance.has(stageBehavior(currentStatus))) {
+        const attendedStatus = await resolveOperationStage(prisma, req.user.companyId!, currentStatus, 'prospecting', 'prospect_attended')
+        if (attendedStatus) leadUpdateData.status = attendedStatus
       }
       if (!updated.lead?.attendedAt) leadUpdateData.attendedAt = new Date();
     }
@@ -625,7 +629,17 @@ router.put('/:id', auth(), requireModule('agendamentos'), async (req, res) => {
       leadUpdateData.isScheduled = true;
     }
 
-    if (Object.keys(leadUpdateData).length > 0) {
+    if (leadUpdateData.status && updated.lead) {
+      const { status: nextStage, ...milestones } = leadUpdateData
+      // A manual move during calendar sync takes priority over an automatic stage change.
+      const moved = await prisma.lead.updateMany({
+        where: { id: updated.leadId, status: updated.lead.status },
+        data: { ...milestones, status: nextStage },
+      })
+      if (moved.count === 0) {
+        await prisma.lead.update({ where: { id: updated.leadId }, data: milestones })
+      }
+    } else if (Object.keys(leadUpdateData).length > 0) {
       await prisma.lead.update({ 
         where: { id: updated.leadId }, 
         data: leadUpdateData 

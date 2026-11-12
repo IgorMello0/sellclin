@@ -337,13 +337,13 @@ export function LeadDetailsModal({ lead, isOpen, onClose, onUpdate, funnels, all
     onUpdate(); // Simply invoke the parent's update
   };
 
-  const safeFormatDate = (dateStr) => {
+  const safeFormatDate = (dateStr: string, formatStr = "dd/MM/yyyy 'às' HH:mm") => {
     try {
       if (!dateStr) return '';
       const date = new Date(dateStr);
       // check if valid
       if (isNaN(date.getTime())) return dateStr;
-      return format(date, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+      return format(date, formatStr, { locale: ptBR });
     } catch {
       return dateStr;
     }

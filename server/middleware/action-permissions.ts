@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express'
 import { requirePermission, requireCompanyOwner } from './auth.js'
 import { prisma } from '../prisma.js'
+import { isClosingStage, isReservedFunnelCode } from '../utils/funnel-stages.js'
 
 export async function hasActionPermission(req: Request, module: string, key: string) {
   let allowed = false
@@ -59,7 +60,11 @@ export function actionPermissions(module: string) {
       if (path.endsWith('/confirm-payment')) check('aprovarPropostas')
       if ((method === 'PUT' || method === 'PATCH') && /^\/\d+\/?$/.test(path)) {
         if (body.status !== undefined) check('moverFases')
-        if (['comercial_closed', 'sales_payment', 'sales_contract', 'sales_post'].includes(body.status) || body.proposalId != null) check('aprovarPropostas')
+        if (isClosingStage(body.status) || body.proposalId != null) check('aprovarPropostas')
+      }
+      if (method === 'POST' && (path === '/' || path === '/import') &&
+          [body.status, body.defaultStage].some(code => isReservedFunnelCode(code) && isClosingStage(code))) {
+        check('aprovarPropostas')
       }
     }
     if (module === 'tarefas' && write) {
