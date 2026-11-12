@@ -16,8 +16,8 @@ it('validates the saved connection on first send and enables activation only aft
   fireEvent.change(await screen.findByLabelText('Mensagem de teste'), { target: { value: 'Olá' } })
   fireEvent.click(screen.getByRole('button', { name: 'Enviar teste' }))
   await screen.findByText('Olá, conexão funcionando!', { exact: false })
-  expect(api.testKey).toHaveBeenCalledWith(5)
-  expect(api.playground).toHaveBeenCalledWith(5, 'Olá', [], {})
+  expect(api.testKey).toHaveBeenCalledWith(5, undefined)
+  expect(api.playground).toHaveBeenCalledWith(5, 'Olá', [], {}, undefined)
   const activate = screen.getByRole('button', { name: 'Ativar atendimento n8n' }) as HTMLButtonElement
   expect(activate.disabled).toBe(true)
   fireEvent.click(screen.getByRole('checkbox', { name: /Revisei o teste/ }))

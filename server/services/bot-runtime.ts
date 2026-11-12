@@ -78,7 +78,7 @@ export async function processBotRun(id: number, deps = botDependencies) {
     const history = recent.reverse().map((m: any) => ({ role: m.sender === 'cliente' ? 'user' as const : 'assistant' as const, content: m.content }))
     const media = message.rawJson?.mediaType || message.rawJson?.providerMediaType
     const prepared = media ? { reply: 'Recebi seu arquivo. Vou encaminhá-lo para a equipe da clínica.', handoff: 'media_requires_human', state: {}, fields: {}, confirmSlot: null, inputTokens: 0, outputTokens: 0, httpStatus: undefined, decisionAction: 'handoff' }
-      : await deps.prepare({ agent, config, companyId: run.companyId, conversationId: run.conversationId, eventId: `bot-run-${run.id}`, mode: 'live', contact: { phone: conversation.phone || undefined }, message: message.content, history, state: conversation.botSession?.state || {}, responseCount: conversation.botSession?.responseCount || 0 })
+      : await deps.prepare({ agent, config, companyId: run.companyId, conversationId: run.conversationId, eventId: `bot-run-${run.id}`, mode: 'live', providerMessageId: message.providerMessageId || undefined, timestamp: message.createdAt.toISOString(), contact: { phone: conversation.phone || undefined }, message: message.content, history, state: conversation.botSession?.state || {}, responseCount: conversation.botSession?.responseCount || 0 })
     let appointmentId: number | undefined
     const expectedSession = await db.$transaction(async (tx: any) => {
       await lockBotConversation(tx, run.companyId, run.conversationId)

@@ -16,6 +16,21 @@ export function botConnectionReady(config: any) {
   }
   return Boolean(config && (config.executionMode === 'n8n' ? config.n8nSecret && config.n8nWebhookUrl : config.apiKey))
 }
+export function workflowPayload(payload: Record<string, any>, eventId: string) {
+  const sentAt = new Date().toISOString()
+  const phone = payload.contact?.phone
+  const chatId = phone ? `${phone}@s.whatsapp.net` : payload.conversation?.id || `test:${eventId}`
+  return { ...payload, eventId, schemaVersion: '1.0', sentAt,
+    telefone: chatId, body: { event: 'messages.upsert' },
+    message: { ...payload.message,
+      message_id: payload.message?.message_id || eventId,
+      chat_id: chatId, content_type: 'text',
+      content: payload.message?.text || '',
+      timestamp: payload.message?.timestamp || sentAt,
+      content_url: '', event: 'incoming',
+    },
+  }
+}
 export async function callBotWorkflow(config: any, payload: Record<string, unknown>) {
   if (!validWorkflowUrl(config.n8nWebhookUrl || '') || !config.n8nSecret) throw new BotProviderError('workflow_configuration')
   const eventId = String(payload.eventId || `test-${randomUUID()}`)
@@ -25,7 +40,7 @@ export async function callBotWorkflow(config: any, payload: Record<string, unkno
     const response = await integrationHttpClient.fetch(config.n8nWebhookUrl, {
       method: 'POST', signal,
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.n8nSecret}`, 'X-SellClin-Event-Id': eventId, 'X-SellClin-Schema-Version': '1.0' },
-      body: JSON.stringify({ ...payload, eventId, schemaVersion: '1.0', sentAt: new Date().toISOString() }),
+      body: JSON.stringify(workflowPayload(payload, eventId)),
     }, undefined, { publicOnly: true, maxResponseBytes: 65536 })
     if (!response.ok) throw new BotProviderError(response.status === 401 || response.status === 403 ? 'workflow_auth' : 'workflow_unavailable', response.status)
     const text = await response.text()
