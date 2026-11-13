@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
 import { getJwtSecret } from '../config/security.js'
 
 export const MEDIA_LINK_SECONDS = 24 * 60 * 60
-const mediaPattern = /^\/uploads\/media\/([1-9]\d*)\/([a-zA-Z0-9_-]+\.(?:jpg|jpeg|png|gif|webp|mp4|3gp|m4a|mp3|aac|ogg|opus|webm|wav))$/
+const mediaPattern = /^\/uploads\/media\/([1-9]\d*)\/([a-zA-Z0-9_-]+\.(?:jpg|jpeg|png|gif|webp|mp4|3gp|m4a|mp3|aac|ogg|opus|webm|wav|pdf|amr))$/
 
 export function localMediaPath(value: string): { path: string; companyId: number } | null {
   let pathname = value

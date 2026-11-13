@@ -19,7 +19,6 @@ export default function N8nSettings() {
   const [actionError, setActionError] = useState('')
   const [dirty, setDirty] = useState(false)
   const [approved, setApproved] = useState(false)
-  const [testPhone, setTestPhone] = useState('')
   const [message, setMessage] = useState('')
   const [chat, setChat] = useState<{ role: string; content: string }[]>([])
   const [state, setState] = useState({})
@@ -61,10 +60,10 @@ export default function N8nSettings() {
     await act(async () => {
       const text = message.trim()
       if (!config.verifiedAt) {
-        unwrap(await aiAgentsApi.testKey(agent.id, testPhone || undefined))
+        unwrap(await aiAgentsApi.testKey(agent.id))
         setConfig((c: any) => ({ ...c, verifiedAt: new Date().toISOString() }))
       }
-      const result = unwrap(await aiAgentsApi.playground(agent.id, text, chat, state, testPhone || undefined))
+      const result = unwrap(await aiAgentsApi.playground(agent.id, text, chat, state))
       setChat([...chat, { role: 'user', content: text }, { role: 'assistant', content: result.reply }])
       setState(result.state || {}); setHandoff(Boolean(result.handoff)); setMessage('')
       setConfig((c: any) => ({ ...c, playgroundAt: new Date().toISOString() }))
@@ -78,7 +77,6 @@ export default function N8nSettings() {
       <WorkflowConnection config={config} dirty={dirty} busy={busy} n8nOnly change={change} test={() => void act(async () => { unwrap(await aiAgentsApi.testKey(agent.id)); setConfig((c: any) => ({ ...c, verifiedAt: new Date().toISOString() })); toast({ title: 'Workflow validado' }) })} />
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4"><p className="text-sm text-muted-foreground">{dirty ? 'Alterações não salvas. Salvar desativa este atendimento até você validá-lo novamente.' : 'O token salvo não volta a ser exibido.'}</p><Button disabled={busy || !config.n8nWebhookUrl || (!config.hasN8nSecret && !config.n8nSecret) || (!dirty && Boolean(agent))} onClick={() => void act(save)}><Save className="mr-2 h-4 w-4" />Salvar conexão</Button></div>
       <section className="space-y-4 rounded-xl border bg-card p-5"><h3 className="flex items-center gap-2 font-semibold"><FlaskConical className="h-4 w-4" />Teste de conversa</h3><p className="text-sm text-muted-foreground">Depois de salvar, envie uma mensagem. A conexão será validada automaticamente no primeiro envio. Esta simulação não envia WhatsApp nem altera o CRM. O workflow deve respeitar o modo de teste.</p>
-        <label className="grid gap-2 text-sm">Telefone de teste (opcional)<Input aria-label="Telefone de teste" inputMode="tel" value={testPhone} maxLength={15} placeholder="DDI + DDD + número, somente dígitos" disabled={busy} onChange={e => { setTestPhone(e.target.value.replace(/\D/g, '')); resetChat() }} /><span className="text-xs text-muted-foreground">Usado somente na simulação. O workflow deve respeitar o modo de teste e não enviar WhatsApp.</span></label>
         <div aria-live="polite" className="max-h-80 min-h-24 space-y-3 overflow-auto rounded-lg bg-muted/30 p-3">{chat.length === 0 && <p className="text-sm text-muted-foreground">Envie uma mensagem para conferir o retorno do workflow.</p>}{chat.map((m, i) => <p key={i} className={`whitespace-pre-wrap rounded-lg border p-3 text-sm ${m.role === 'user' ? 'ml-8 bg-primary/5' : 'mr-8 bg-background'}`}><strong>{m.role === 'user' ? 'Você' : 'n8n'}: </strong>{m.content}</p>)}</div>
         {handoff && <p className="text-sm text-amber-700">O workflow transferiu esta conversa à equipe. Reinicie para testar novamente.</p>}
         {testBlocked && <p role="status" className="text-sm text-amber-700">{testBlocked}</p>}<form className="flex gap-2" onSubmit={e => { e.preventDefault(); void testConversation() }}><Input aria-label="Mensagem de teste" value={message} onChange={e => setMessage(e.target.value)} maxLength={4000} placeholder="Digite uma mensagem de teste" /><Button type="submit" disabled={busy || Boolean(testBlocked) || !message.trim()}><Send className="h-4 w-4" /><span className="sr-only">Enviar teste</span></Button></form><Button variant="ghost" onClick={resetChat}>Reiniciar teste</Button>

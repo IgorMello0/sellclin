@@ -4,9 +4,10 @@ import { botCatalog, botSpecialists, availableBotSlots } from './bot-agenda.js'
 import { prisma } from '../prisma.js'
 import { callBotWorkflow } from './bot-n8n.js'
 import { advanceBotFlow } from './bot-flow-runtime.js'
+import type { BotMedia } from './bot-media.js'
 import { botIdentity } from './bot-identity.js'
 
-export async function prepareBotTurn(input: { agent: any; config: any; companyId: number; message: string; history: BotHistory; state: BotState; responseCount: number; eventId?: string; mode?: string; conversationId?: number; providerMessageId?: string; timestamp?: string; contact?: { name?: string; phone?: string } },
+export async function prepareBotTurn(input: { agent: any; config: any; companyId: number; message: string; history: BotHistory; state: BotState; responseCount: number; eventId?: string; mode?: string; conversationId?: number; providerMessageId?: string; timestamp?: string; media?: BotMedia; contact?: { name?: string; phone?: string } },
   deps = { db: prisma as any, generate: generateBotDecision }) {
   const { agent, config, companyId, message, history, responseCount } = input
   const state = { ...input.state }
@@ -21,7 +22,7 @@ export async function prepareBotTurn(input: { agent: any; config: any; companyId
     const answer = await prepareBotTurn({ ...input, state: step.state, config: { ...config, flowDefinition: null } }, deps)
     return { ...answer, reply: [step.reply, answer.reply].filter(Boolean).join('\n\n'), state: { ...answer.state, flow: step.state.flow }, fields: { ...step.fields, ...answer.fields } }
   }
-  const booking = bookingInput(message, state)
+  const booking = input.media ? { kind: 'message' as const } : bookingInput(message, state)
   if (booking.kind === 'cancel' || booking.kind === 'expired') return { ...result, state: { collected: state.collected || {} }, reply: booking.kind === 'cancel' ? 'Seleção cancelada. Qual serviço e data você prefere?' : 'Vou consultar a disponibilidade novamente. Qual serviço e data você prefere?' }
   if (config.bookingEnabled && booking.kind === 'select') return { ...result, state: { ...state, pending: booking.slot, offers: undefined }, reply: `Você escolheu: ${booking.slot.label}. Para reservar, responda CONFIRMAR. Para mudar, responda CANCELAR.` }
   if (config.bookingEnabled && booking.kind === 'confirm') return { ...result, confirmSlot: booking.slot }
@@ -34,7 +35,7 @@ export async function prepareBotTurn(input: { agent: any; config: any; companyId
     bot: { name: agent.name, instructions: `${config.instructions || ''}\n${agent.basePrompt}`, knowledge: config.knowledge },
     clinic: { timezone: config.timezone, currentDate: new Intl.DateTimeFormat('en-CA', { timeZone: config.timezone || 'America/Sao_Paulo' }).format(new Date()) },
     ...botIdentity(companyId, agent.id, input.mode || 'playground', input.contact?.phone, input.conversationId),
-    message: { text: message.slice(0, 4000), message_id: input.providerMessageId, timestamp: input.timestamp },
+    message: { text: message.slice(0, 4000), message_id: input.providerMessageId, timestamp: input.timestamp, ...(input.media || {}) },
     history: history.slice(-14).map(m => ({ role: m.role === 'user' ? 'customer' : 'assistant', content: m.content.slice(0, 4000) })),
     state: { collected: state.collected || {}, pendingAppointment: state.pending || null },
     capabilities: { qualification: Boolean(config.qualifyEnabled), booking: Boolean(config.bookingEnabled), handoff: true },

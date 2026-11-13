@@ -6,6 +6,7 @@ import { confirmBotAppointment } from './bot-agenda.js'
 import { syncAppointmentToGoogle } from './google-calendar.js'
 import { BotProviderError } from './bot-provider.js'
 import { botConnectionReady } from './bot-n8n.js'
+import { resolveBotMedia, botMediaType } from './bot-media.js'
 import { effectiveBotConfig } from './bot-clinic-settings.js'
 
 export async function lockBotConversation(tx: any, companyId: number, id: number) {
@@ -32,7 +33,7 @@ export async function setConversationBot(companyId: number, conversationId: numb
   })
 }
 
-export const botDependencies = { db: prisma as any, prepare: prepareBotTurn, send: sendBotWhatsApp, access: canCompanyAccessModule, sync: syncAppointmentToGoogle }
+export const botDependencies = { db: prisma as any, prepare: prepareBotTurn, send: sendBotWhatsApp, access: canCompanyAccessModule, sync: syncAppointmentToGoogle, media: resolveBotMedia }
 export async function processBotRun(id: number, deps = botDependencies) {
   const { db } = deps
   const started = Date.now()
@@ -64,7 +65,7 @@ export async function processBotRun(id: number, deps = botDependencies) {
     if (config.qualifyEnabled && !(await deps.access(run.companyId, 'funnel')).hasAccess) config.qualifyEnabled = false
     // Coalesce a burst without discarding its content: the latest event reads the recent conversation.
     const newer = await db.botRun.findFirst({ where: { conversationId: run.conversationId, status: 'pending', id: { gt: id } }, orderBy: { id: 'desc' }, select: { id: true } })
-    if (newer) {
+    if (newer && config.executionMode !== 'n8n') {
       await db.botRun.updateMany({ where: { conversationId: run.conversationId, status: 'pending', id: { lt: newer.id } }, data: { status: 'skipped', errorCode: 'coalesced' } })
       await db.botRun.update({ where: { id }, data: { status: 'skipped', errorCode: 'coalesced' } }); return
     }
@@ -76,9 +77,10 @@ export async function processBotRun(id: number, deps = botDependencies) {
     if (limited) throw new Error('daily_limit')
     const recent = await db.mensagem.findMany({ where: { conversationId: run.conversationId, id: { lt: message.id } }, orderBy: { id: 'desc' }, take: 14 })
     const history = recent.reverse().map((m: any) => ({ role: m.sender === 'cliente' ? 'user' as const : 'assistant' as const, content: m.content }))
-    const media = message.rawJson?.mediaType || message.rawJson?.providerMediaType
-    const prepared = media ? { reply: 'Recebi seu arquivo. Vou encaminhá-lo para a equipe da clínica.', handoff: 'media_requires_human', state: {}, fields: {}, confirmSlot: null, inputTokens: 0, outputTokens: 0, httpStatus: undefined, decisionAction: 'handoff' }
-      : await deps.prepare({ agent, config, companyId: run.companyId, conversationId: run.conversationId, eventId: `bot-run-${run.id}`, mode: 'live', providerMessageId: message.providerMessageId || undefined, timestamp: message.createdAt.toISOString(), contact: { phone: conversation.phone || undefined }, message: message.content, history, state: conversation.botSession?.state || {}, responseCount: conversation.botSession?.responseCount || 0 })
+    const rawMedia = botMediaType(message)
+    const media = config.executionMode === 'n8n' ? await (deps.media || resolveBotMedia)(message, run.companyId, db).catch(() => { throw new BotProviderError('workflow_media_unavailable') }) : null
+    const prepared = rawMedia && config.executionMode !== 'n8n' ? { reply: 'Recebi seu arquivo. Vou encaminhá-lo para a equipe da clínica.', handoff: 'media_requires_human', state: {}, fields: {}, confirmSlot: null, inputTokens: 0, outputTokens: 0, httpStatus: undefined, decisionAction: 'handoff' }
+      : await deps.prepare({ agent, config, companyId: run.companyId, conversationId: run.conversationId, eventId: `bot-run-${run.id}`, mode: 'live', providerMessageId: message.providerMessageId || undefined, timestamp: message.createdAt.toISOString(), media: media || undefined, contact: { phone: conversation.phone || undefined }, message: media && message.content === '(midia)' ? '' : message.content, history, state: conversation.botSession?.state || {}, responseCount: conversation.botSession?.responseCount || 0 })
     let appointmentId: number | undefined
     const expectedSession = await db.$transaction(async (tx: any) => {
       await lockBotConversation(tx, run.companyId, run.conversationId)

@@ -16,8 +16,8 @@ it('validates the saved connection on first send and enables activation only aft
   fireEvent.change(await screen.findByLabelText('Mensagem de teste'), { target: { value: 'Olá' } })
   fireEvent.click(screen.getByRole('button', { name: 'Enviar teste' }))
   await screen.findByText('Olá, conexão funcionando!', { exact: false })
-  expect(api.testKey).toHaveBeenCalledWith(5, undefined)
-  expect(api.playground).toHaveBeenCalledWith(5, 'Olá', [], {}, undefined)
+  expect(api.testKey).toHaveBeenCalledWith(5)
+  expect(api.playground).toHaveBeenCalledWith(5, 'Olá', [], {})
   const activate = screen.getByRole('button', { name: 'Ativar atendimento n8n' }) as HTMLButtonElement
   expect(activate.disabled).toBe(true)
   fireEvent.click(screen.getByRole('checkbox', { name: /Revisei o teste/ }))
@@ -59,4 +59,13 @@ it('reuses an existing connection and blocks tests after an unsaved edit', async
   fireEvent.change(input, { target: { value: 'https://other.example/webhook/clinic' } })
   expect((screen.getByRole('button', { name: 'Testar workflow' }) as HTMLButtonElement).disabled).toBe(true)
   expect(api.create).not.toHaveBeenCalled()
+})
+
+it('uses the automatic test identity without requesting a phone', async () => {
+  api.list.mockResolvedValue(ok([{ id: 5, name: 'Existing', isActive: false }]))
+  render(<N8nSettings />)
+  await screen.findByLabelText('Mensagem de teste')
+  expect(screen.queryByLabelText('Telefone de teste')).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Testar workflow' }))
+  await waitFor(() => expect(api.testKey).toHaveBeenCalledWith(5))
 })

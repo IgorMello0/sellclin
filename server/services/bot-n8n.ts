@@ -24,10 +24,10 @@ export function workflowPayload(payload: Record<string, any>, eventId: string) {
     telefone: chatId, body: { event: 'messages.upsert' },
     message: { ...payload.message,
       message_id: payload.message?.message_id || eventId,
-      chat_id: chatId, content_type: 'text',
+      chat_id: chatId, content_type: payload.message?.content_type || 'text',
       content: payload.message?.text || '',
       timestamp: payload.message?.timestamp || sentAt,
-      content_url: '', event: 'incoming',
+      content_url: payload.message?.content_url || '', event: 'incoming',
     },
   }
 }

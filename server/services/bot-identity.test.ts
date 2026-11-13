@@ -8,9 +8,9 @@ it('keeps the same customer memory across messages and scopes it by clinic', () 
   expect(botIdentity(5, 7, 'live', '5531999999999', 18).conversation.memoryKey).not.toBe(first.conversation.memoryKey)
   expect(first.conversation.id).toBe('clinic:4:conversation:18')
 })
-it('separates test history and never invents a real customer phone', () => {
+it('uses a fixed fictional test phone and separate history', () => {
   const test = botIdentity(4, 7, 'connection_test')
-  expect(test.contact.phone).toBeNull()
+  expect(test.contact.phone).toBe('5500000000000')
   expect(test.conversation.isTest).toBe(true)
   expect(test.conversation.memoryKey).toBe('test:clinic:4:bot:7:connection_test')
   expect(botIdentity(4, 7, 'playground').conversation.memoryKey).not.toBe(test.conversation.memoryKey)

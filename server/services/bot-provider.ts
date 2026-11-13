@@ -5,6 +5,7 @@ export type BotAIConfig = { provider: string; model: string; apiKey: string; pro
 export type BotHistory = { role: 'user' | 'assistant'; content: string }[]
 export class BotProviderError extends Error { constructor(public code: string, public httpStatus?: number) { super(code) } }
 export function providerErrorMessage(code: string) {
+  if (code === 'workflow_media_unavailable') return 'Não foi possível preparar a mídia recebida para o n8n. Confira o arquivo e a conexão WhatsApp da clínica.'
   if (code === 'workflow_timeout') return 'O n8n excedeu o tempo de resposta. Ajuste o workflow para responder dentro do limite configurado.'
   if (code === 'workflow_unavailable') return 'O webhook n8n está indisponível. Confira a URL de produção e se o workflow está publicado.'
   if (code === 'workflow_configuration') return 'Confira a URL HTTPS de produção e o token salvo da conexão n8n.'

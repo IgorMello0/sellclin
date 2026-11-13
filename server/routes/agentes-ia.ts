@@ -26,7 +26,6 @@ const configSchema = z.object({ provider: z.enum(['openai', 'anthropic']).defaul
   qualifyEnabled: z.boolean().default(true), bookingEnabled: z.boolean().default(true), timezone: z.string().refine(v => { try { new Intl.DateTimeFormat('pt-BR', { timeZone: v }); return true } catch { return false } }).default('America/Sao_Paulo'),
   workingDays: z.array(z.number().int().min(0).max(6)).min(1).max(7).default([1, 2, 3, 4, 5]),
 }).refine(c => c.executionMode === 'n8n' ? validWorkflowUrl(c.n8nWebhookUrl || '') : Boolean(c.model || c.flowDefinition), 'Confira a conexão do bot')
-const testPhoneSchema = z.string().trim().regex(/^\d{8,15}$/, 'Informe DDI, DDD e número, somente dígitos.').optional()
 const historySchema = z.array(z.object({ role: z.enum(['user', 'assistant']), content: z.string().max(4000) })).max(16)
 const clinic = (req: any) => Number(req.user?.companyId) || -1
 const safeConfig = (c: any) => c ? { provider: c.provider, model: c.model, knowledge: c.knowledge, maxResponses: c.maxResponses, dailyLimit: c.dailyLimit,
@@ -156,14 +155,12 @@ router.put('/:id/configuracao', manage, async (req, res) => {
   res.json(createSuccessResponse({ saved: true }))
 })
 router.post('/:id/test-key', manage, aiLimit, async (req, res) => {
-  const phone = testPhoneSchema.safeParse(req.body?.testPhone)
-  if (!phone.success) return res.status(400).json(createErrorResponse('Telefone de teste inválido. Use DDI, DDD e número, somente dígitos.', 400))
   const config = await effectiveBotConfig(clinic(req), await prisma.botConfiguracao.findUnique({ where: { agentId: res.locals.bot.id } }))
   if (config?.executionMode !== 'n8n' && config?.flowDefinition && validateFlow(config.flowDefinition).length) return res.status(400).json(createErrorResponse(validateFlow(config.flowDefinition).join(' '), 400))
   if (!botConnectionReady(config)) return res.status(409).json(createErrorResponse('Salve a conexão e a credencial primeiro.', 409))
   try {
     const usage = config.executionMode === 'n8n'
-      ? await callBotWorkflow(config, { mode: 'connection_test', bot: { name: res.locals.bot.name, instructions: 'Teste de conexão', knowledge: '' }, ...botIdentity(clinic(req), res.locals.bot.id, 'connection_test', phone.data), message: { text: 'Olá' }, history: [], state: {}, services: [], specialists: [], capabilities: { qualification: false, booking: false, handoff: true } })
+      ? await callBotWorkflow(config, { mode: 'connection_test', bot: { name: res.locals.bot.name, instructions: 'Teste de conexão', knowledge: '' }, ...botIdentity(clinic(req), res.locals.bot.id, 'connection_test'), message: { text: 'Olá' }, history: [], state: {}, services: [], specialists: [], capabilities: { qualification: false, booking: false, handoff: true } })
       : config.flowDefinition && !config.flowDefinition.nodes.some((n: any) => n.type === 'ai') ? { inputTokens: 0, outputTokens: 0 }
       : await generateBotDecision({ ...config, apiKey: config.apiKey, prompt: 'Teste de conexão', knowledge: '' }, [{ role: 'user', content: 'Olá' }])
     await prisma.botRun.create({ data: { companyId: res.locals.bot.companyId, agentId: config.agentId, executionMode: config.executionMode || 'native', httpStatus: 'httpStatus' in usage ? Number(usage.httpStatus) : undefined, mode: 'key_test', status: 'sent', inputTokens: usage.inputTokens, outputTokens: usage.outputTokens } })
@@ -173,8 +170,6 @@ router.post('/:id/test-key', manage, aiLimit, async (req, res) => {
   } catch (error) { res.status(502).json({ success: false, error: { code: 502, reason: error instanceof BotProviderError ? error.code : 'provider_error', message: providerErrorMessage(error instanceof BotProviderError ? error.code : '') } }) }
 })
 router.post('/:id/playground', manage, aiLimit, async (req, res) => {
-  const phone = testPhoneSchema.safeParse(req.body?.testPhone)
-  if (!phone.success) return res.status(400).json(createErrorResponse('Telefone de teste inválido. Use DDI, DDD e número, somente dígitos.', 400))
   const message = z.string().trim().min(1).max(4000).safeParse(req.body.message)
   const history = historySchema.safeParse(req.body.history || [])
   if (!message.success || !history.success || JSON.stringify(req.body.state || {}).length > 16000) return res.status(400).json(createErrorResponse('Mensagem ou histórico inválido.', 400))
@@ -184,7 +179,7 @@ router.post('/:id/playground', manage, aiLimit, async (req, res) => {
   if (config.qualifyEnabled && !(await canCompanyAccessModule(clinic(req), 'funnel')).hasAccess) config.qualifyEnabled = false
   const started = Date.now()
   try {
-    const result = await prepareBotTurn({ agent: res.locals.bot, config, companyId: clinic(req), message: message.data, history: history.data.map(h => ({ role: h.role!, content: h.content! })), contact: { phone: phone.data }, state: req.body.state || {}, responseCount: history.data.filter(h => h.role === 'assistant').length })
+    const result = await prepareBotTurn({ agent: res.locals.bot, config, companyId: clinic(req), message: message.data, history: history.data.map(h => ({ role: h.role!, content: h.content! })), state: req.body.state || {}, responseCount: history.data.filter(h => h.role === 'assistant').length })
     if (result.confirmSlot) { result.reply = `[Simulação] Agendamento confirmado: ${result.confirmSlot.label}. Nenhum agendamento foi gravado.`; result.state = {} }
     await prisma.botRun.create({ data: { companyId: clinic(req), agentId: res.locals.bot.id, executionMode: config.executionMode || 'native', httpStatus: result.httpStatus, decisionAction: result.decisionAction, mode: 'playground', status: 'sent', inputTokens: result.inputTokens, outputTokens: result.outputTokens, durationMs: Date.now() - started, errorCode: result.handoff } })
     await prisma.botConfiguracao.updateMany({ where: { agentId: config.agentId, updatedAt: config.updatedAt }, data: { playgroundAt: new Date() } })

@@ -611,3 +611,23 @@ test('WhatsApp Nao Oficial salva mensagem enviada pelo celular e ignora eco da A
   assert.equal(state.messages[0].sender, 'profissional')
   assert.equal(apiResult.reason, 'sent_by_api')
 })
+
+test('WhatsApp Oficial baixa PDF e preserva o tipo para o workflow', async () => {
+  const { db, state } = createFakeDatabase()
+  const payload: any = metaInboundImagePayload('wamid.pdf-1')
+  const message = payload.entry[0].changes[0].value.messages[0]
+  delete message.image
+  message.type = 'document'
+  message.document = { id: 'pdf-media-1', mime_type: 'application/pdf', caption: 'Meu documento' }
+  const requested: any[] = []
+  await handleMetaMessages(payload, { id: 5, ownerId: 10, name: 'Clinica' }, db, {
+    resolveMedia: async input => {
+      requested.push(input)
+      return { mediaUrl: '/uploads/media/5/document.pdf', mediaType: 'document', mimeType: 'application/pdf', size: 512 }
+    },
+  })
+  assert.equal(requested[0].mediaType, 'document')
+  assert.equal(requested[0].mediaId, 'pdf-media-1')
+  assert.equal(state.messages[0].rawJson.mediaType, 'document')
+  assert.equal(state.messages[0].rawJson.mediaUrl, '/uploads/media/5/document.pdf')
+})

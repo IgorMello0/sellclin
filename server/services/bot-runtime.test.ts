@@ -103,3 +103,34 @@ it('rejects a foreign or inactive bot when resuming a conversation', async () =>
   expect(db.agenteIa.findFirst.mock.calls[0][0].where).toEqual({ id: 999, companyId: 2, isActive: true })
   expect(db.conversa.update).not.toHaveBeenCalled()
 })
+
+it('sends audio metadata to n8n instead of handing off or dropping it for a newer message', async () => {
+  agent.configuracao = { ...agent.configuracao, executionMode: 'n8n', n8nSecret: 'workflow-test', n8nWebhookUrl: 'https://workflow.example.com/hook' }
+  const media = { content_type: 'audio', content_url: 'https://sellclin.com/voice.mp3?signed=test', mime_type: 'audio/mpeg', file_name: 'voice.mp3' }
+  deps.media = vi.fn().mockResolvedValue(media)
+  db.mensagem.findFirst.mockResolvedValue({ id: 20, content: '(midia)', createdAt: new Date(clock), rawJson: { mediaType: 'audio' } })
+  db.botRun.findFirst.mockResolvedValue({ id: 2 })
+  await processBotRun(1, deps)
+  expect(deps.media).toHaveBeenCalledWith(expect.objectContaining({ id: 20 }), 2, db)
+  expect(deps.prepare).toHaveBeenCalledWith(expect.objectContaining({ media, mode: 'live' }))
+  expect(deps.send).toHaveBeenCalledTimes(1)
+  expect(run.status).toBe('sent')
+})
+
+it('keeps native media on human handoff without making provider downloads', async () => {
+  db.mensagem.findFirst.mockResolvedValue({ id: 20, content: '(midia)', createdAt: new Date(clock), rawJson: { mediaType: 'audio' } })
+  deps.media = vi.fn()
+  await processBotRun(1, deps)
+  expect(deps.media).not.toHaveBeenCalled()
+  expect(deps.prepare).not.toHaveBeenCalled()
+  expect(run.errorCode).toBe('media_requires_human')
+})
+
+it('records a safe failure when audio cannot be prepared and never sends a fake text reply', async () => {
+  agent.configuracao = { ...agent.configuracao, executionMode: 'n8n', n8nSecret: 'workflow-test', n8nWebhookUrl: 'https://workflow.example.com/hook' }
+  deps.media = vi.fn().mockRejectedValue(new Error('private provider response'))
+  await processBotRun(1, deps)
+  expect(deps.prepare).not.toHaveBeenCalled()
+  expect(deps.send).not.toHaveBeenCalled()
+  expect(run.errorCode).toBe('workflow_media_unavailable')
+})

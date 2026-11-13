@@ -232,7 +232,7 @@ type WhatsAppPersistence = Pick<
   'empresa' | 'usuario' | 'lead' | 'conversa' | 'mensagem' | 'leadActivity' | 'whatsAppWebhookEvent'
 >
 
-type IncomingMediaType = 'image' | 'video' | 'audio'
+type IncomingMediaType = 'image' | 'video' | 'audio' | 'document'
 
 type MetaMediaAttachment = {
   mediaUrl: string
@@ -251,6 +251,7 @@ type MetaMediaResolver = (input: {
 const META_GRAPH_VERSION = String(process.env.META_GRAPH_VERSION || 'v19.0').replace(/^v?/, 'v')
 const META_GRAPH_BASE_URL = `https://graph.facebook.com/${META_GRAPH_VERSION}`
 const META_MEDIA_TYPES = new Map<string, { extension: string; mediaType: IncomingMediaType; maxBytes: number }>([
+  ['application/pdf', { extension: 'pdf', mediaType: 'document', maxBytes: 16 * 1024 * 1024 }],
   ['image/jpeg', { extension: 'jpg', mediaType: 'image', maxBytes: 5 * 1024 * 1024 }],
   ['image/png', { extension: 'png', mediaType: 'image', maxBytes: 5 * 1024 * 1024 }],
   ['image/webp', { extension: 'webp', mediaType: 'image', maxBytes: 5 * 1024 * 1024 }],
@@ -339,7 +340,7 @@ function getMetaMediaDescriptor(message: any) {
       ? 'video'
       : requestedType === 'audio'
         ? 'audio'
-        : null
+        : requestedType === 'document' ? 'document' : null
   if (!mediaType) return null
 
   const media = requestedType === 'sticker' ? message?.sticker : message?.[mediaType]

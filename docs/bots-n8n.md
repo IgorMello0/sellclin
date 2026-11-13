@@ -14,7 +14,7 @@ O teste de conexão envia dados fictícios. O Playground envia o texto digitado,
 
 ## Contrato 1.0
 
-POST JSON autenticado. Cabeçalhos `X-SellClin-Event-Id` e `X-SellClin-Schema-Version`. O corpo contém `schemaVersion`, `eventId`, `sentAt`, `mode` (live/playground/connection_test), `bot` (name/instructions/knowledge), `clinic` (timezone/currentDate), `contact` (phone quando atendimento real), `message.text`, `history` (até 14 mensagens com role customer/assistant), `state`, `capabilities`, `qualificationFields`, `services` e `specialists`. Campos opcionais podem estar ausentes no teste de conexão. Não há credenciais ou identificador de outra clínica no corpo.
+POST JSON autenticado. Cabeçalhos `X-SellClin-Event-Id` e `X-SellClin-Schema-Version`. O corpo contém `schemaVersion`, `eventId`, `sentAt`, `mode` (live/playground/connection_test), `bot` (name/instructions/knowledge), `clinic` (timezone/currentDate), `contact` (phone real em live e fictício nos testes), `message.text`, `history` (até 14 mensagens com role customer/assistant), `state`, `capabilities`, `qualificationFields`, `services` e `specialists`. Campos opcionais podem estar ausentes no teste de conexão. Não há credenciais ou identificador de outra clínica no corpo.
 
 Retorne HTTP 200 com um objeto JSON, sem envelope, HTML, array ou bloco Markdown. Resposta máxima: 64 KiB. Campos extras são rejeitados.
 
