@@ -471,7 +471,7 @@ const Conversations = () => {
         ? current
         : requestedConversationId && items.some((item) => item.id === requestedConversationId)
           ? requestedConversationId
-          : items[0]?.id ?? null);
+          : null);
       setLoadError(null);
     } catch (error: any) {
       if (requestVersion !== conversationsRequestVersion.current) return;
