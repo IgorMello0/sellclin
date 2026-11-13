@@ -5,9 +5,9 @@ export function botIdentity(companyId: number, agentId: number, mode: string, ph
   const normalized = /^\d{8,15}$/.test(digits) ? digits : null
   const live = mode === 'live'
   const conversationKey = Number.isSafeInteger(conversationId) && conversationId! > 0 ? `clinic:${companyId}:conversation:${conversationId}` : null
-  const contactId = live ? normalized ? `clinic:${companyId}:phone:${normalized}` : conversationKey : `test:clinic:${companyId}:bot:${agentId}:${mode}`
+  const contactId = live ? normalized ? `clinic:${companyId}:phone:${normalized}` : conversationKey : `test:clinic:${companyId}:bot:${agentId}:${mode}${normalized ? ':phone:' + normalized : ''}`
   return {
-    contact: { id: contactId, phone: live ? normalized : null },
+    contact: { id: contactId, phone: normalized },
     conversation: { id: live ? conversationKey : contactId, memoryKey: contactId, isTest: !live },
   }
 }

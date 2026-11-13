@@ -10,10 +10,29 @@ evitando colisão entre clínicas. `eventId` identifica uma execução/mensagem,
 não uma conversa. `conversation.id` identifica a conversa do CRM.
 
 `connection_test` e `playground` usam identificadores com prefixo `test:` e
-telefone nulo; não são clientes reais. Filtre esses modos no workflow para não
+telefone nulo por padrão; a página permite informar um telefone de simulação.
+Mesmo com telefone informado, a chave de memória continua separada da produção.
+Filtre esses modos no workflow para não
 enviar WhatsApp nem executar efeitos externos. O telefone real é enviado pelo
 worker em mensagens `live`. Quando não existe telefone válido, a chave de
 memória usa o identificador da conversa; um LID não é convertido em telefone.
+
+### Campos compatíveis com workflows de texto existentes
+
+Além de `message.text`, o payload oferece `message.message_id`,
+`message.chat_id`, `message.content_type` (`text`), `message.content`,
+`message.timestamp`, `message.content_url` (vazio para texto),
+`message.event` (`incoming`), `body.event` (`messages.upsert`) e `telefone`
+(mesmo valor de `message.chat_id`). No modo live são usados o identificador
+do provedor e a data da mensagem, quando disponíveis. Sem telefone de teste,
+o chat usa um identificador sintético claramente marcado como teste.
+
+Após o Webhook n8n, leia `{{$json.body.message.content}}`,
+`{{$json.body.message.chat_id}}` e `{{$json.body.telefone}}`. O campo de evento
+compatível aninhado é `{{$json.body.body.event}}`. O envelope de entrada
+do n8n adiciona o primeiro `body`; ele não deve ser confundido com o payload.
+Não são enviados `evoDomain`, `evoInstance` ou `evoAPIKey`: os envios permanecem
+sob responsabilidade do SellClin, pelo provedor da clínica.
 
 ## Interface disponível nesta fase
 

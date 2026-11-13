@@ -1039,10 +1039,10 @@ export const aiAgentsApi = {
   delete: async (id: number) => apiRequest<any>(`/agentes-ia/${id}`, { method: 'DELETE' }),
   getConfig: async (id: number) => apiRequest<any>(`/agentes-ia/${id}/configuracao`),
   saveConfig: async (id: number, data: any) => apiRequest<any>(`/agentes-ia/${id}/configuracao`, { method: 'PUT', body: JSON.stringify(data) }),
-  testKey: async (id: number) => apiRequest<any>(`/agentes-ia/${id}/test-key`, { method: 'POST' }),
+  testKey: async (id: number, testPhone?: string) => apiRequest<any>(`/agentes-ia/${id}/test-key`, { method: 'POST', body: JSON.stringify({ testPhone }) }),
   activate: async (id: number) => apiRequest<any>(`/agentes-ia/${id}/ativar`, { method: 'POST', body: JSON.stringify({ approveCosts: true }) }),
   usage: async (id: number) => apiRequest<any>(`/agentes-ia/${id}/usage`),
-  playground: async (id: number, message: string, history: { role: string; content: string }[] = [], state: any = {}) => apiRequest<any>(`/agentes-ia/${id}/playground`, { method: 'POST', body: JSON.stringify({ message, history: history.slice(-16), state }) }),
+  playground: async (id: number, message: string, history: { role: string; content: string }[] = [], state: any = {}, testPhone?: string) => apiRequest<any>(`/agentes-ia/${id}/playground`, { method: 'POST', body: JSON.stringify({ message, history: history.slice(-16), state, testPhone }) }),
 }
 
 // Configuração de Funis
