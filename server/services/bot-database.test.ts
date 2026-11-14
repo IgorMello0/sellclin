@@ -15,6 +15,11 @@ beforeAll(async () => {
     INSERT INTO mensagens(conversation_id,sender,provider_message_id) VALUES(44,'profissional','old-human');`)
   const sql = await readFile(new URL('../../database/bot-configuracoes.sql', import.meta.url), 'utf8')
   await db.exec(sql)
+  // Prisma @updatedAt columns can exist without a SQL default. Reproduce the
+  // production schema before rerunning the migration and exercising triggers.
+  await db.exec(`ALTER TABLE bot_sessions ALTER COLUMN updated_at DROP DEFAULT;
+    ALTER TABLE bot_runs ALTER COLUMN updated_at DROP DEFAULT;
+    DELETE FROM bot_sessions;`)
   await db.exec(sql)
   const flows = await readFile(new URL('../../database/bot-flows.sql', import.meta.url), 'utf8')
   await db.exec(flows)
@@ -24,6 +29,7 @@ afterAll(async () => { await db.close() })
 it('is repeatable and does not activate old agents or steal ongoing human conversations', async () => {
   expect((await db.query('SELECT count(*)::int AS n FROM agentes_ia WHERE is_active')).rows).toEqual([{ n: 0 }])
   expect((await db.query('SELECT paused,reason FROM bot_sessions WHERE conversation_id=44')).rows).toEqual([{ paused: true, reason: 'manual' }])
+  expect((await db.query('SELECT updated_at IS NOT NULL AS filled FROM bot_sessions WHERE conversation_id=44')).rows).toEqual([{ filled: true }])
 })
 it('guarantees one active bot per clinic even with competing writes', async () => {
   const results = await Promise.allSettled([db.query('UPDATE agentes_ia SET is_active=true, activated_at=CURRENT_TIMESTAMP WHERE id=1'), db.query('UPDATE agentes_ia SET is_active=true, activated_at=CURRENT_TIMESTAMP WHERE id=2')])
@@ -36,6 +42,7 @@ it('atomically enqueues Meta and Uazapi messages once, in the correct clinic', a
     INSERT INTO mensagens(conversation_id,sender,provider_message_id) VALUES(11,'cliente','meta-1'),(22,'cliente','uaz-1'),(33,'cliente','evo-1');
     INSERT INTO mensagens(conversation_id,sender,provider_message_id) VALUES(11,'cliente','meta-1') ON CONFLICT DO NOTHING;`)
   expect((await db.query('SELECT company_id,conversation_id FROM bot_runs ORDER BY company_id')).rows).toEqual([{ company_id: 1, conversation_id: 11 }, { company_id: 2, conversation_id: 22 }])
+  expect((await db.query('SELECT count(*)::int AS n FROM bot_runs WHERE updated_at IS NOT NULL')).rows).toEqual([{ n: 2 }])
   await db.exec(`BEGIN; INSERT INTO mensagens(conversation_id,sender,provider_message_id) VALUES(11,'cliente','rollback'); ROLLBACK;`)
   expect((await db.query('SELECT count(*)::int AS n FROM bot_runs')).rows).toEqual([{ n: 2 }])
 })

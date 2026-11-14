@@ -40,8 +40,8 @@ CREATE INDEX IF NOT EXISTS bot_runs_status_created_at_idx ON bot_runs(status, cr
 CREATE INDEX IF NOT EXISTS bot_runs_company_id_agent_id_created_at_idx ON bot_runs(company_id, agent_id, created_at);
 
 -- Preservar atendimentos humanos iniciados antes desta implantação.
-INSERT INTO bot_sessions(conversation_id, company_id, paused, reason)
-  SELECT c.id, c.company_id, true, 'manual' FROM conversas c
+INSERT INTO bot_sessions(conversation_id, company_id, paused, reason, updated_at)
+  SELECT c.id, c.company_id, true, 'manual', CURRENT_TIMESTAMP FROM conversas c
   WHERE EXISTS(SELECT 1 FROM mensagens m WHERE m.conversation_id = c.id AND m.sender::text = 'profissional')
   ON CONFLICT(conversation_id) DO NOTHING;
 
@@ -51,8 +51,8 @@ DECLARE clinic INTEGER; bot INTEGER; enabled_at TIMESTAMP(3);
 BEGIN
   SELECT c.company_id INTO clinic FROM conversas c WHERE c.id = NEW.conversation_id;
   IF NEW.sender::text = 'profissional' THEN
-    INSERT INTO bot_sessions(conversation_id, company_id, paused, reason, state)
-      VALUES(NEW.conversation_id, clinic, true, 'manual', '{}'::jsonb)
+    INSERT INTO bot_sessions(conversation_id, company_id, paused, reason, state, updated_at)
+      VALUES(NEW.conversation_id, clinic, true, 'manual', '{}'::jsonb, CURRENT_TIMESTAMP)
       ON CONFLICT(conversation_id) DO UPDATE SET paused = true, reason = 'manual', state = '{}'::jsonb, updated_at = CURRENT_TIMESTAMP;
     UPDATE conversas SET agent_id = NULL WHERE id = NEW.conversation_id;
     RETURN NEW;
@@ -64,8 +64,8 @@ BEGIN
     WHERE a.company_id = clinic AND a.is_active AND b.verified_at IS NOT NULL
       AND e.is_active AND e.whatsapp_provider IN ('meta','uazapi');
   IF bot IS NULL OR NEW.created_at < enabled_at THEN RETURN NEW; END IF;
-  INSERT INTO bot_runs(company_id, agent_id, conversation_id, message_id)
-    VALUES(clinic, bot, NEW.conversation_id, NEW.id) ON CONFLICT(message_id) DO NOTHING;
+  INSERT INTO bot_runs(company_id, agent_id, conversation_id, message_id, updated_at)
+    VALUES(clinic, bot, NEW.conversation_id, NEW.id, CURRENT_TIMESTAMP) ON CONFLICT(message_id) DO NOTHING;
   RETURN NEW;
 END $$;
 DROP TRIGGER IF EXISTS sellclin_bot_message_received ON mensagens;
