@@ -6,7 +6,7 @@ test('all clinics receive five functional roles without duplicates or overwritin
   const roles: any[] = []
   const permissions: any[] = []
   const db: any = {
-    module: { findMany: async () => [{ id: 1 }, { id: 2 }] },
+    module: { findMany: async () => [{ id: 1, code: 'clientes' }, { id: 2, code: 'funnel' }] },
     role: { upsert: async ({ where, create, update }: any) => {
       let role = roles.find(r => r.companyId === where.companyId_value.companyId && r.value === where.companyId_value.value)
       if (role) Object.assign(role, update)
@@ -22,7 +22,12 @@ test('all clinics receive five functional roles without duplicates or overwritin
   await ensureDefaultRoles(db, 10, 1)
   await ensureDefaultRoles(db, 20, 2)
   assert.equal(roles.length, 10)
-  assert.ok(permissions.every(permission => permission.hasAccess === false))
+  for (const permission of permissions) {
+    const role = roles.find(r => r.id === permission.roleId);
+    const operational = ['comercial', 'sdr', 'closer'].includes(role.value);
+    assert.equal(permission.hasAccess, permission.moduleId === 2 && operational);
+    if (permission.hasAccess) assert.equal(permission.subPermissions.moverFases, true);
+  }
   for (const companyId of [10, 20]) {
     const clinic = roles.filter(r => r.companyId === companyId)
     assert.deepEqual(clinic.map(r => r.value), ['admin', 'comercial', 'sdr', 'closer', 'admin_specialist'])
@@ -35,8 +40,8 @@ test('all clinics receive five functional roles without duplicates or overwritin
   const oldSDR = roles.find(r => r.companyId === 10 && r.value === 'sdr')
   oldSDR.name = 'Pré-vendas personalizado'
   oldSDR.isCloser = true
-  permissions.find(p => p.roleId === oldSDR.id).hasAccess = false
-  permissions.find(p => p.roleId === oldSDR.id).subPermissions = { excluirContatos: false }
+  permissions.find(p => p.roleId === oldSDR.id && p.moduleId === 2).hasAccess = false
+  permissions.find(p => p.roleId === oldSDR.id && p.moduleId === 2).subPermissions = { moverFases: false }
   const before = structuredClone({ roles, permissions })
   await ensureDefaultRoles(db, 10, 1)
   assert.deepEqual({ roles, permissions }, before)

@@ -78,6 +78,16 @@ beforeEach(() => {
 });
 
 describe('funnel transactions and access', () => {
+  it('creates a lead assigned to the active clinic role, not the primary clinic role', async()=>{
+    state.db.empresa.findUnique=vi.fn().mockResolvedValue({ownerId:7,leadRoutingMode:'manual'});
+    state.db.lead.findFirst.mockResolvedValue(null);
+    state.db.lead.create=vi.fn(async({data})=>({id:100,...data}));
+    state.db.usuario.findUnique.mockResolvedValue({id:5,name:'Pessoa',companyId:9,role:{isCloser:true}});
+    state.db.userCompanyAccess.findUnique.mockResolvedValue({isActive:true,role:{isSDR:true}});
+    const response=await call('post','/',{name:'Novo lead',phone:'11987654321',status:'prospect_lead',sdrId:'random'});
+    expect(response.code).toBe(201);
+    expect(state.db.lead.create).toHaveBeenCalledWith({data:expect.objectContaining({companyId:2,sdrId:5,closerId:undefined})});
+  });
   it('uses the active clinic role and explicit historical grants over a global admin role', async () => {
     const where = await leadVisibility(state.db, user, 2);
     expect(where).toMatchObject({ companyId: 2, OR: expect.arrayContaining([

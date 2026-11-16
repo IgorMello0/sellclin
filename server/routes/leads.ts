@@ -210,16 +210,21 @@ router.post('/', auth(), async (req, res) => {
         where: { id: req.user.id },
         include: { role: true }
       });
-      if (criador?.role) {
-        const isSdrPuro = criador.role.isSDR && !criador.role.isAdmin && !criador.role.isManager;
+      const acesso = companyId ? await prisma.userCompanyAccess.findUnique({
+        where: { userId_companyId: { userId: req.user.id, companyId } },
+        include: { role: true },
+      }) : null;
+      const cargoAtivo = acesso?.role || (criador?.companyId === companyId ? criador.role : null);
+      if (cargoAtivo) {
+        const isSdrPuro = cargoAtivo.isSDR && !cargoAtivo.isAdmin && !cargoAtivo.isManager;
 
         if (isSdrPuro) {
           sdrId = req.user.id; // SDR puro nÃ£o pode delegar, sempre vai para ele
-        } else if (criador.role.isSDR && requestedSdrId === undefined) {
+        } else if (cargoAtivo.isSDR && requestedSdrId === undefined) {
           sdrId = req.user.id; // Para quem tambÃ©m Ã© admin, mas nÃ£o enviou sdrId
         }
 
-        if (criador.role.isCloser) closerId = req.user.id;
+        if (cargoAtivo.isCloser) closerId = req.user.id;
       }
     }
 

@@ -4,6 +4,7 @@ import { createErrorResponse } from '../utils/response.js'
 import { prisma } from '../prisma.js'
 import { canCompanyAccessModule } from '../services/billing.js'
 import { getJwtSecret } from '../config/security.js'
+import { resolveRoleSubPermissions } from '../config/commercial-role-permissions.js'
 
 export type AuthUser = {
   id: number
@@ -452,7 +453,7 @@ export function requirePermission(moduleCode: string, permissionKey: string) {
         }
 
         // Se tem acesso ao módulo principal, verifica a sub-permissão granular
-        const subPerms = rolePermission?.subPermissions as Record<string, boolean> | null
+        const subPerms = resolveRoleSubPermissions(activeRole, moduleCode, rolePermission?.subPermissions)
         const hasSubAccess = subPerms?.[permissionKey] === true
 
         if (!hasSubAccess) {

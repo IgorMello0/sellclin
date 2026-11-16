@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { ownerSubPermissions } from '../config/permission-keys.js'
+import { resolveRoleSubPermissions } from '../config/commercial-role-permissions.js'
 import { prisma } from '../prisma.js'
 import { auth, requireCompanyOwner } from '../middleware/auth.js'
 import { createErrorResponse, createSuccessResponse } from '../utils/response.js'
@@ -369,7 +370,8 @@ router.get('/my-permissions', auth(), async (req, res) => {
       })
 
       const activeAccess = user?.companyAccess?.[0]
-      const rolePermissions = activeAccess?.role?.permissions || (user?.companyId === req.user.companyId ? user?.role?.permissions : []) || []
+      const activeRole = activeAccess?.role || (user?.companyId === req.user.companyId ? user?.role : null)
+      const rolePermissions = activeRole?.permissions || []
       const userPermissions = await prisma.userCompanyPermission.findMany({
         where: { userId: req.user.id, companyId: req.user.companyId || -1 },
       })
@@ -377,7 +379,8 @@ router.get('/my-permissions', auth(), async (req, res) => {
       const permissions = allModules.map((module) => {
         const individual = userPermissions.find((permission) => permission.moduleId === module.id)
         const rolePermission = rolePermissions.find((permission) => permission.moduleId === module.id)
-        return withPlan(module, individual?.hasAccess ?? rolePermission?.hasAccess ?? false, rolePermission?.subPermissions)
+        return withPlan(module, individual?.hasAccess ?? rolePermission?.hasAccess ?? false,
+          resolveRoleSubPermissions(activeRole, module.code, rolePermission?.subPermissions))
       })
 
       return res.json(createSuccessResponse(permissions))
