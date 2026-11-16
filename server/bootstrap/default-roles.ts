@@ -5,6 +5,7 @@ export const DEFAULT_ROLES = [
   { name: 'Comercial', value: 'comercial', flags: {} },
   { name: 'SDR', value: 'sdr', flags: { isSDR: true } },
   { name: 'Closer', value: 'closer', flags: { isCloser: true } },
+  { name: 'Administrador + Especialista', value: 'admin_specialist', flags: { isAdmin: true, isSpecialist: true } },
 ] as const
 
 export function isDefaultRole(value: string) {
