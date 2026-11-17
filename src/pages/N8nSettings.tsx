@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
 
 function unwrap(r: any) { if (!r.success) throw new Error(r.error?.message || 'Não foi possível concluir.'); return r.data }
-const empty = { executionMode: 'n8n', n8nWebhookUrl: '', n8nSecret: '', n8nTimeoutSeconds: 20, hasN8nSecret: false, verifiedAt: null, playgroundAt: null }
+const empty = { executionMode: 'n8n', n8nWebhookUrl: '', n8nSecret: '', n8nTimeoutSeconds: 60, hasN8nSecret: false, verifiedAt: null, playgroundAt: null }
 export default function N8nSettings() {
   const { toast } = useToast()
   const [agent, setAgent] = useState<any>(null)
@@ -64,7 +64,7 @@ export default function N8nSettings() {
         setConfig((c: any) => ({ ...c, verifiedAt: new Date().toISOString() }))
       }
       const result = unwrap(await aiAgentsApi.playground(agent.id, text, chat, state))
-      setChat([...chat, { role: 'user', content: text }, { role: 'assistant', content: result.reply }])
+      setChat([...chat, { role: 'user', content: text }, ...(result.messages?.length ? result.messages : [result.reply]).map((content: string) => ({ role: 'assistant' as const, content }))])
       setState(result.state || {}); setHandoff(Boolean(result.handoff)); setMessage('')
       setConfig((c: any) => ({ ...c, playgroundAt: new Date().toISOString() }))
     })

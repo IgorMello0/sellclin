@@ -35,8 +35,9 @@ export async function resolveIntegrationTarget(value: string | URL, resolve = (h
 
 export async function fetchIntegration(value: string | URL, init: RequestInit = {}, dependencies: Dependencies = {
   lookup: host => lookup(host, { all: true, verbatim: true }), request: requestPinned,
-}, policy: { publicOnly?: boolean; maxResponseBytes?: number } = {}): Promise<Response> {
-  const signal = AbortSignal.any([AbortSignal.timeout(30_000), ...(init.signal ? [init.signal] : [])])
+}, policy: { publicOnly?: boolean; maxResponseBytes?: number; timeoutMs?: number } = {}): Promise<Response> {
+  const timeoutMs = Math.min(120_000, Math.max(1000, policy.timeoutMs || 30_000))
+  const signal = AbortSignal.any([AbortSignal.timeout(timeoutMs), ...(init.signal ? [init.signal] : [])])
   signal.throwIfAborted()
   const bounded = async <T>(operation: Promise<T>) => {
     let abort: () => void
@@ -57,7 +58,7 @@ export async function fetchIntegration(value: string | URL, init: RequestInit = 
   delete headers.host
   delete headers['content-length']
   const result = await bounded(dependencies.request(target.url, target.address, {
-    maxBytes: policy.maxResponseBytes || MAX_RESPONSE_BYTES, timeoutMs: 30_000, headers, method: request.method, body, signal,
+    maxBytes: policy.maxResponseBytes || MAX_RESPONSE_BYTES, timeoutMs, headers, method: request.method, body, signal,
   }))
   // Do not replay authenticated requests or write operations at another URL.
   if (result.status >= 300 && result.status < 400) throw new Error('Redirecionamento de integração não permitido')

@@ -11,6 +11,32 @@ import { protectCredentialData, readCredentialData } from './integration-encrypt
 import { safeIntegrationOutput } from '../middleware/integration-output.js'
 const config = { executionMode: 'n8n', n8nWebhookUrl: 'https://workflow.example.com/webhook/bot', n8nSecret: 'private-test-token', n8nTimeoutSeconds: 10, knowledge: 'Rua A, 10.', maxResponses: 5, qualifyEnabled: true, bookingEnabled: false, qualificationFields: ['nome'], timezone: 'America/Sao_Paulo' }
 beforeEach(() => transport.fetch.mockReset())
+it('accepts bounded batches, preserves legacy replies and passes the full configured wait to transport', async () => {
+  transport.fetch.mockResolvedValue(Response.json({ action: 'qualify', messages: ['Olá!', 'Como posso ajudar?'] }))
+  const result = await callBotWorkflow({ ...config, n8nTimeoutSeconds: 120 }, {})
+  expect(result.decision.messages).toEqual(['Olá!', 'Como posso ajudar?'])
+  expect(result.decision.reply).toBe('Olá!\n\nComo posso ajudar?')
+  expect(transport.fetch.mock.calls[0][3].timeoutMs).toBe(120000)
+})
+it('rejects empty or oversized batches and prevents batch messages bypassing human and agenda decisions', async () => {
+  for (const payload of [
+    { action: 'answer', messages: [] }, { action: 'answer', messages: [' '] },
+    { action: 'answer', messages: Array(11).fill('part') }, { action: 'answer', messages: ['x'.repeat(3001)] },
+    { action: 'handoff', messages: ['part'] }, { action: 'slots', messages: ['part'] }, { action: 'answer' },
+  ]) {
+    transport.fetch.mockResolvedValueOnce(Response.json(payload))
+    await expect(callBotWorkflow(config, {})).rejects.toThrow('workflow_invalid_response')
+  }
+})
+it('keeps batch safety and qualification validation in the prepared turn', async () => {
+  const input = { agent: { name: 'Recepção', basePrompt: 'Ajude' }, config, companyId: 2, message: 'Olá', history: [], state: {}, responseCount: 0 }
+  transport.fetch.mockResolvedValue(Response.json({ action: 'qualify', messages: ['Olá!', 'Qual serviço deseja?'] }))
+  expect((await prepareBotTurn(input, { db: {}, generate: vi.fn() })).messages).toEqual(['Olá!', 'Qual serviço deseja?'])
+  transport.fetch.mockResolvedValue(Response.json({ action: 'qualify', clinical: true, messages: ['Não enviar', 'Qual medicamento?'] }))
+  const guarded = await prepareBotTurn(input, { db: {}, generate: vi.fn() })
+  expect(guarded.handoff).toBe('clinical_topic')
+  expect(guarded.messages).toBeUndefined()
+})
 it('authenticates using headers, requires public pinned transport and never puts credentials in the event', async () => {
   transport.fetch.mockResolvedValue(Response.json({ action: 'handoff', reply: 'Equipe' }))
   await callBotWorkflow(config, { eventId: 'bot-run-1', mode: 'live' })
@@ -19,7 +45,7 @@ it('authenticates using headers, requires public pinned transport and never puts
   expect(request.headers.Authorization).toBe('Bearer private-test-token')
   expect(request.headers['X-SellClin-Event-Id']).toBe('bot-run-1')
   expect(request.body).not.toContain('private-test-token')
-  expect(policy).toEqual({ publicOnly: true, maxResponseBytes: 65536 })
+  expect(policy).toEqual({ publicOnly: true, maxResponseBytes: 65536, timeoutMs: 10000 })
 })
 it('rejects redirects, forbidden actions, oversized responses, authentication failures and timeouts without replay', async () => {
   for (const response of [new Response('', { status: 302 }), new Response('secret', { status: 401 }), Response.json({ action: 'book', reply: 'Booked' }), Response.json({ action: 'answer', reply: 'x', companyId: 9 }), new Response('x'.repeat(65537))]) {

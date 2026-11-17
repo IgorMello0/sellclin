@@ -8,6 +8,17 @@ import N8nSettings from './N8nSettings'
 const ok = (data: any) => ({ success: true, data })
 beforeEach(() => { vi.clearAllMocks(); api.list.mockResolvedValue(ok([])); api.create.mockResolvedValue(ok({ id: 5, name: 'Atendimento n8n', isActive: false })); api.saveConfig.mockResolvedValue(ok({ saved: true })); api.getConfig.mockResolvedValue(ok({ executionMode: 'n8n', n8nWebhookUrl: 'https://example.com/webhook/clinic', hasN8nSecret: true })); api.testKey.mockResolvedValue(ok({ verified: true })) })
 afterEach(cleanup)
+it('renders each returned batch part as an assistant message', async () => {
+  api.list.mockResolvedValue(ok([{ id: 5, name: 'Existing', isActive: false }]))
+  api.playground.mockResolvedValue(ok({ reply: 'Texto completo', messages: ['Primeira parte', 'Segunda parte'], state: {} }))
+  render(<N8nSettings />)
+  fireEvent.change(await screen.findByLabelText('Mensagem de teste'), { target: { value: 'Olá' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Enviar teste' }))
+  await screen.findByText('Primeira parte', { exact: false })
+  expect(screen.getByText('Segunda parte', { exact: false })).toBeTruthy()
+  expect(screen.queryByText('Texto completo', { exact: false })).toBeNull()
+  expect((screen.getByLabelText('Limite de espera (s)') as HTMLInputElement).max).toBe('120')
+})
 it('validates the saved connection on first send and enables activation only after a reply and approval', async () => {
   api.list.mockResolvedValue(ok([{ id: 5, name: 'Existing', isActive: false }]))
   api.playground.mockResolvedValue(ok({ reply: 'Olá, conexão funcionando!', state: {} }))

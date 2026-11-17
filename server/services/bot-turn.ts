@@ -11,7 +11,7 @@ export async function prepareBotTurn(input: { agent: any; config: any; companyId
   deps = { db: prisma as any, generate: generateBotDecision }) {
   const { agent, config, companyId, message, history, responseCount } = input
   const state = { ...input.state }
-  const result = { reply: '', state, handoff: null as string | null, fields: {} as Record<string, string>, confirmSlot: null as Slot | null, inputTokens: 0, outputTokens: 0, httpStatus: undefined as number | undefined, decisionAction: undefined as string | undefined }
+  const result = { reply: '', messages: undefined as string[] | undefined, state, handoff: null as string | null, fields: {} as Record<string, string>, confirmSlot: null as Slot | null, inputTokens: 0, outputTokens: 0, httpStatus: undefined as number | undefined, decisionAction: undefined as string | undefined }
   const handoff = (reason: string) => ({ ...result, state: { collected: state.collected || {} }, handoff: reason, reply: HANDOFF_REPLY })
   const recentInbound = history.slice(history.map(m => m.role).lastIndexOf('assistant') + 1).filter(m => m.role === 'user').map(m => m.content).join('\n')
   if (needsHuman(`${recentInbound}\n${message}`, Array.isArray(config.handoffTerms) ? config.handoffTerms : [])) return handoff('requested_human')
@@ -60,5 +60,5 @@ export async function prepareBotTurn(input: { agent: any; config: any; companyId
   if (decision.action === 'answer' && !groundedReply(decision, knowledge)) return handoff('knowledge_missing')
   // A qualification action can only ask for information. Factual answers require evidence.
   if (decision.action === 'qualify' && !decision.reply.includes('?')) return { ...result, reply: 'Como posso ajudar? Você pode perguntar sobre a clínica, informar seu serviço de interesse ou pedir um agendamento.' }
-  return { ...result, reply: decision.reply }
+  return { ...result, reply: decision.reply, messages: 'messages' in decision ? decision.messages as string[] | undefined : undefined }
 }

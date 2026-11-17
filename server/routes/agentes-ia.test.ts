@@ -47,6 +47,13 @@ beforeEach(() => {
   })
 })
 async function call(path = '', method = 'GET', data?: any) { const response = await fetch(base+path, { method, headers: { 'Content-Type': 'application/json' }, ...(data ? { body: JSON.stringify(data) } : {}) }); return { status: response.status, body: await response.json() } }
+it('saves a two-minute n8n wait and rejects values beyond the supported bound', async () => {
+  const data = { executionMode: 'n8n', n8nWebhookUrl: 'https://workflow.example.com/webhook/a', n8nSecret: 'workflow-private-token', n8nTimeoutSeconds: 120 }
+  expect((await call('/1/configuracao', 'PUT', data)).status).toBe(200)
+  expect((await call('/1/configuracao')).body.data.n8nTimeoutSeconds).toBe(120)
+  expect((await call('/1/configuracao', 'PUT', { ...data, n8nTimeoutSeconds: 121 })).status).toBe(400)
+  expect(configs[0].n8nTimeoutSeconds).toBe(120)
+})
 it('saves n8n without an AI key, never exposes its token, and invalidates it when changing destinations', async () => {
   const data = { executionMode: 'n8n', n8nWebhookUrl: 'https://workflow.example.com/webhook/a', n8nSecret: 'workflow-private-token' }
   expect((await call('/1/configuracao', 'PUT', data)).status).toBe(200)

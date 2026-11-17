@@ -48,7 +48,7 @@ export async function processBotRun(id: number, deps = botDependencies) {
     if (session.paused) {
       await tx.botRun.update({ where: { id }, data: { status: 'skipped', errorCode: 'human_control' } }); return null
     }
-    await tx.botSession.update({ where: { conversationId: candidate.conversationId }, data: { busyUntil: new Date(Date.now() + 300000), runningRunId: id } })
+    await tx.botSession.update({ where: { conversationId: candidate.conversationId }, data: { busyUntil: new Date(Date.now() + 600000), runningRunId: id } })
     return candidate
   })
   if (!run) return
@@ -82,7 +82,7 @@ export async function processBotRun(id: number, deps = botDependencies) {
     const prepared = rawMedia && config.executionMode !== 'n8n' ? { reply: 'Recebi seu arquivo. Vou encaminhá-lo para a equipe da clínica.', handoff: 'media_requires_human', state: {}, fields: {}, confirmSlot: null, inputTokens: 0, outputTokens: 0, httpStatus: undefined, decisionAction: 'handoff' }
       : await deps.prepare({ agent, config, companyId: run.companyId, conversationId: run.conversationId, eventId: `bot-run-${run.id}`, mode: 'live', providerMessageId: message.providerMessageId || undefined, timestamp: message.createdAt.toISOString(), media: media || undefined, contact: { phone: conversation.phone || undefined }, message: media && message.content === '(midia)' ? '' : message.content, history, state: conversation.botSession?.state || {}, responseCount: conversation.botSession?.responseCount || 0 })
     let appointmentId: number | undefined
-    const expectedSession = await db.$transaction(async (tx: any) => {
+    let expectedSession = await db.$transaction(async (tx: any) => {
       await lockBotConversation(tx, run.companyId, run.conversationId)
       const session = await tx.botSession.findUnique({ where: { conversationId: run.conversationId } })
       const liveAgent = await tx.agenteIa.findFirst({ where: { id: agent.id, companyId: run.companyId, isActive: true } })
@@ -106,23 +106,29 @@ export async function processBotRun(id: number, deps = botDependencies) {
     stage = 'sending'
     if (appointmentId) await deps.sync(appointmentId).catch(() => undefined)
     // A committed sending marker means an interrupted send is never replayed blindly.
-    await db.$transaction(async (tx: any) => {
-      await lockBotConversation(tx, run.companyId, run.conversationId)
-      await tx.$queryRaw`SELECT id FROM agentes_ia WHERE id = ${agent.id} FOR SHARE`
-      const session = await tx.botSession.findUnique({ where: { conversationId: run.conversationId } })
-      const active = await tx.agenteIa.findFirst({ where: { id: agent.id, companyId: run.companyId, isActive: true } })
-      if (session.paused || session.runningRunId !== id || session.updatedAt.getTime() !== expectedSession.getTime() || !active || active.updatedAt.getTime() !== agent.updatedAt.getTime()) throw new Error('human_control')
-      const company = await tx.empresa.findUnique({ where: { id: run.companyId } })
-      if (!company?.isActive) throw new Error('company_inactive')
-      const providerMessageId = await deps.send(conversation, company, prepared.reply)
-      await tx.mensagem.upsert({ where: { providerMessageId_conversationId: { providerMessageId, conversationId: run.conversationId } },
-        create: { conversationId: run.conversationId, sender: 'bot', content: prepared.reply, providerMessageId, deliveryStatus: 'sent', sentAt: new Date(), origin: 'SellClin Bot' },
-        update: { sender: 'bot', content: prepared.reply, origin: 'SellClin Bot' } })
-      await tx.conversa.update({ where: { id: run.conversationId }, data: { agentId: agent.id, lastMessageAt: new Date() } })
-      await tx.botSession.update({ where: { conversationId: run.conversationId }, data: { responseCount: { increment: 1 } } })
-      if (prepared.handoff) await pauseBot(tx, run.companyId, run.conversationId, prepared.handoff)
-      await tx.botRun.update({ where: { id }, data: { status: 'sent', errorCode: prepared.handoff, durationMs: Date.now() - started } })
-    }, { timeout: 45000, maxWait: 10000 })
+    const messages = ('messages' in prepared && prepared.messages?.length) ? prepared.messages : [prepared.reply]
+    const deliveryDeadline = Date.now() + 120_000
+    for (const [index, content] of messages.entries()) {
+      if (Date.now() > deliveryDeadline) throw new Error('batch_timeout')
+      expectedSession = await db.$transaction(async (tx: any) => {
+        await lockBotConversation(tx, run.companyId, run.conversationId)
+        await tx.$queryRaw`SELECT id FROM agentes_ia WHERE id = ${agent.id} FOR SHARE`
+        const session = await tx.botSession.findUnique({ where: { conversationId: run.conversationId } })
+        const active = await tx.agenteIa.findFirst({ where: { id: agent.id, companyId: run.companyId, isActive: true } })
+        if (session.paused || session.runningRunId !== id || session.updatedAt.getTime() !== expectedSession.getTime() || !active || active.updatedAt.getTime() !== agent.updatedAt.getTime()) throw new Error('human_control')
+        const company = await tx.empresa.findUnique({ where: { id: run.companyId } })
+        if (!company?.isActive) throw new Error('company_inactive')
+        const providerMessageId = await deps.send(conversation, company, content)
+        await tx.mensagem.upsert({ where: { providerMessageId_conversationId: { providerMessageId, conversationId: run.conversationId } },
+          create: { conversationId: run.conversationId, sender: 'bot', content, providerMessageId, deliveryStatus: 'sent', sentAt: new Date(), origin: 'SellClin Bot' },
+          update: { sender: 'bot', content, origin: 'SellClin Bot' } })
+        await tx.conversa.update({ where: { id: run.conversationId }, data: { agentId: agent.id, lastMessageAt: new Date() } })
+        const updated = await tx.botSession.update({ where: { conversationId: run.conversationId }, data: { responseCount: { increment: index === 0 ? 1 : 0 } } })
+        if (prepared.handoff) await pauseBot(tx, run.companyId, run.conversationId, prepared.handoff)
+        await tx.botRun.update({ where: { id }, data: { status: index === messages.length - 1 ? 'sent' : 'sending', errorCode: prepared.handoff, durationMs: Date.now() - started } })
+        return updated.updatedAt
+      }, { timeout: 45000, maxWait: 10000 })
+    }
   } catch (error) {
     const known = error instanceof BotProviderError ? error.code : error instanceof Error && ['human_control', 'daily_limit', 'bot_unavailable', 'subscription_unavailable'].includes(error.message) ? error.message : 'execution_failed'
     await db.$transaction(async (tx: any) => {
@@ -139,7 +145,7 @@ export async function botWorkerTick() {
   if (workerRunning) return
   workerRunning = true
   try {
-    const stale = await prisma.botRun.findMany({ where: { status: { in: ['processing', 'sending'] }, updatedAt: { lt: new Date(Date.now() - 180000) } }, take: 20 })
+    const stale = await prisma.botRun.findMany({ where: { status: { in: ['processing', 'sending'] }, updatedAt: { lt: new Date(Date.now() - 600000) } }, take: 20 })
     for (const run of stale) await prisma.$transaction(async tx => {
       if (!run.conversationId) return
       await lockBotConversation(tx, run.companyId, run.conversationId)

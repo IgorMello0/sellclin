@@ -20,7 +20,7 @@ const aiLimit = rateLimit({ windowMs: 60000, limit: 12, standardHeaders: 'draft-
 const agentSchema = z.object({ name: z.string().trim().min(1).max(120), basePrompt: z.string().trim().min(1).max(20000), temperature: z.number().min(0).max(2).default(0.7), mode: z.string().max(40).nullable().optional() })
 const configSchema = z.object({ provider: z.enum(['openai', 'anthropic']).default('openai'), model: z.string().trim().max(150).default(''), apiKey: z.string().trim().max(1000).optional(), removeKey: z.boolean().optional(),
   flowDefinition: flowSchema.nullable().optional(),
-  executionMode: z.enum(['native', 'n8n']).default('native'), n8nWebhookUrl: z.string().max(2000).optional(), n8nSecret: z.string().trim().max(1000).optional(), removeN8nSecret: z.boolean().optional(), n8nTimeoutSeconds: z.number().int().min(5).max(25).default(20),
+  executionMode: z.enum(['native', 'n8n']).default('native'), n8nWebhookUrl: z.string().max(2000).optional(), n8nSecret: z.string().trim().max(1000).optional(), removeN8nSecret: z.boolean().optional(), n8nTimeoutSeconds: z.number().int().min(5).max(120).default(60),
   knowledge: z.string().max(40000).default(''), maxResponses: z.number().int().min(1).max(100).default(10), dailyLimit: z.number().int().min(1).max(10000).default(200),
   qualificationFields: z.array(z.string().trim().min(1).max(60)).max(12).default(['nome', 'email', 'interesse']), handoffTerms: z.array(z.string().trim().min(1).max(100)).max(30).default([]),
   qualifyEnabled: z.boolean().default(true), bookingEnabled: z.boolean().default(true), timezone: z.string().refine(v => { try { new Intl.DateTimeFormat('pt-BR', { timeZone: v }); return true } catch { return false } }).default('America/Sao_Paulo'),
@@ -30,7 +30,7 @@ const historySchema = z.array(z.object({ role: z.enum(['user', 'assistant']), co
 const clinic = (req: any) => Number(req.user?.companyId) || -1
 const safeConfig = (c: any) => c ? { provider: c.provider, model: c.model, knowledge: c.knowledge, maxResponses: c.maxResponses, dailyLimit: c.dailyLimit,
   flowDefinition: c.flowDefinition || null, sharedSettings: Boolean(c.sharedSettings),
-  executionMode: c.executionMode || 'native', n8nWebhookUrl: c.n8nWebhookUrl || '', hasN8nSecret: Boolean(c.n8nSecret), n8nTimeoutSeconds: c.n8nTimeoutSeconds || 20,
+  executionMode: c.executionMode || 'native', n8nWebhookUrl: c.n8nWebhookUrl || '', hasN8nSecret: Boolean(c.n8nSecret), n8nTimeoutSeconds: c.n8nTimeoutSeconds || 60,
   qualificationFields: c.qualificationFields || ['nome', 'email', 'interesse'], handoffTerms: c.handoffTerms || [], qualifyEnabled: c.qualifyEnabled, bookingEnabled: c.bookingEnabled,
   timezone: c.timezone, workingDays: c.workingDays || [1, 2, 3, 4, 5], hasApiKey: Boolean(c.apiKey), verifiedAt: c.verifiedAt, playgroundAt: c.playgroundAt } : null
 // Static routes precede /:id so settings can be configured before the first flow.
@@ -183,7 +183,7 @@ router.post('/:id/playground', manage, aiLimit, async (req, res) => {
     if (result.confirmSlot) { result.reply = `[Simulação] Agendamento confirmado: ${result.confirmSlot.label}. Nenhum agendamento foi gravado.`; result.state = {} }
     await prisma.botRun.create({ data: { companyId: clinic(req), agentId: res.locals.bot.id, executionMode: config.executionMode || 'native', httpStatus: result.httpStatus, decisionAction: result.decisionAction, mode: 'playground', status: 'sent', inputTokens: result.inputTokens, outputTokens: result.outputTokens, durationMs: Date.now() - started, errorCode: result.handoff } })
     await prisma.botConfiguracao.updateMany({ where: { agentId: config.agentId, updatedAt: config.updatedAt }, data: { playgroundAt: new Date() } })
-    res.json(createSuccessResponse({ reply: result.reply, state: result.state, handoff: result.handoff, collected: result.fields }))
+    res.json(createSuccessResponse({ reply: result.reply, messages: result.messages, state: result.state, handoff: result.handoff, collected: result.fields }))
   } catch (error) {
     await prisma.botRun.create({ data: { companyId: clinic(req), agentId: res.locals.bot.id, executionMode: config.executionMode || 'native', httpStatus: error instanceof BotProviderError ? error.httpStatus : undefined, mode: 'playground', status: 'failed', errorCode: error instanceof BotProviderError ? error.code : 'provider_error', durationMs: Date.now() - started } })
     res.status(502).json(createErrorResponse(providerErrorMessage(error instanceof BotProviderError ? error.code : ''), 502))

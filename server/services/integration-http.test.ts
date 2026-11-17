@@ -6,6 +6,15 @@ import { fetchIntegration, resolveIntegrationTarget, trustedIntegrationOrigins }
 import { requestPinned } from './public-download.js'
 
 const lookup = async () => [{ address: '8.8.8.8', family: 4 }]
+test('extended workflow waits reach the pinned request and remain capped at two minutes', async () => {
+  for (const [configured, expected] of [[undefined, 30000], [120000, 120000], [999999, 120000]]) {
+    await fetchIntegration('https://api.example.com', {}, { lookup, request: async (_url, _address, options) => {
+      assert.equal(options.timeoutMs, expected)
+      assert.equal(options.signal?.aborted, false)
+      return { status: 200, headers: {}, buffer: Buffer.from('{}') }
+    } }, { timeoutMs: configured })
+  }
+})
 test('integration targets reject private DNS, unsafe schemes, credentials and unapproved ports', async () => {
   for (const url of ['file:///etc/passwd', 'http://api.example.com', 'https://user:pass@api.example.com', 'https://api.example.com:8443', 'https://127.0.0.1', 'https://[::ffff:127.0.0.1]', 'https://2130706433']) {
     await assert.rejects(resolveIntegrationTarget(url, lookup, []))

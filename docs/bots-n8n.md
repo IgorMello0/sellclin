@@ -2,7 +2,7 @@
 
 Aplique `database/bot-configuracoes.sql` (instalação inicial) e depois `database/bot-n8n.sql`, com backup e `psql -v ON_ERROR_STOP=1`, antes de iniciar a imagem. A segunda migração é repetível e preserva bots nativos. Não altera o webhook do WhatsApp.
 
-Em Bots de atendimento, escolha Workflow n8n, cadastre a URL HTTPS pública de produção, token e espera de 5 a 25 segundos. URLs com credenciais, query string, redirecionamentos, porta não padrão ou endereço privado são recusadas. Mesmo origens privadas autorizadas para outras integrações não são permitidas aqui. Use o domínio HTTPS público do n8n, inclusive quando ele estiver na mesma VPS.
+Em Bots de atendimento, escolha Workflow n8n, cadastre a URL HTTPS pública de produção, token e espera de 5 a 120 segundos (padrão de novas conexões: 60 segundos; conexões existentes mantêm o valor salvo). URLs com credenciais, query string, redirecionamentos, porta não padrão ou endereço privado são recusadas. Mesmo origens privadas autorizadas para outras integrações não são permitidas aqui. Use o domínio HTTPS público do n8n, inclusive quando ele estiver na mesma VPS.
 
 O token é criptografado no servidor; não retorna na API. Campo vazio preserva o token salvo. Mudar a URL exige informar o token novamente. Salvar desativa o bot e invalida o Playground. Trocar conexão exige nova validação. O índice existente garante um único bot ativo por clínica, somando nativos e externos.
 
@@ -29,6 +29,27 @@ Retorne HTTP 200 com um objeto JSON, sem envelope, HTML, array ou bloco Markdown
 ```
 
 O valor deve constar literalmente na mensagem atual e o campo precisa estar permitido. Nome e email atualizam o lead; outros campos ficam no histórico. Não crie leads diretamente pelo workflow.
+
+### Mensagens fracionadas
+
+Devolva todas as partes em **uma única resposta HTTP**. Use `messages` em vez de `reply`, com até 10 textos de até 3.000 caracteres cada. O limite total da resposta continua sendo 64 KiB. As partes são enviadas e registradas separadamente no SellClin, na ordem. O lote conta como uma rodada de atendimento. `answer` continua exigindo `evidence`; `qualify` continua destinado a perguntas de qualificação. `slots` e `handoff` usam a resposta única do sistema.
+
+```json
+{"action":"qualify","messages":["Olá!","Qual serviço deseja conhecer?"]}
+```
+
+No fluxo existente, substitua `Loop → Wait → Respond to Webhook` por `separaItensParaEnvio1 → Code → Respond to Webhook`. Configure Code como **Run Once for All Items**:
+
+```js
+const messages = $input.all().map(item => item.json.mensagem);
+return [{ json: { action: 'qualify', messages } }];
+```
+
+Use `Respond With: JSON`, corpo em modo Expression `{{ $json }}` e HTTP 200. O Webhook de entrada deve estar em `Using Respond to Webhook Node`. Execute Respond apenas uma vez, depois de reunir as partes. Não use este nó para enviar cada item dentro do loop. Este contrato recebe um lote completo; não recebe callbacks ou streaming de partes posteriores.
+
+Em **Configurações → Atendimento n8n**, altere o limite de espera para até **120 segundos**, salve, teste e reative. Configurações já salvas com 20 segundos continuam com 20 até serem alteradas. A nova imagem aumenta o proxy do SellClin para 180 segundos; proxies externos também devem permitir o tempo escolhido. Não é necessária migração de banco para esta mudança.
+
+Se uma parte falhar, as anteriores permanecem registradas e a conversa é encaminhada à equipe sem repetição automática. O controle humano é revalidado entre partes; assumir a conversa interrompe os próximos envios. O lote tem um prazo adicional de entrega de 120 segundos e a recuperação de execuções interrompidas aguarda 10 minutos, evitando competir com chamadas longas legítimas. O novo lote suporta texto; envio de mídias exige um contrato específico.
 
 Para horários, use IDs recebidos no catálogo e data pedida pela pessoa:
 

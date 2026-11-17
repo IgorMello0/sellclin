@@ -3,6 +3,16 @@ import { integrationHttpClient } from './integration-http.js'
 import { botDecisionSchema } from './bot-policy.js'
 import { BotProviderError } from './bot-provider.js'
 import { validateFlow } from './bot-flow-definition.js'
+import { z } from 'zod'
+
+// A webhook has one HTTP response. Multiple WhatsApp messages travel as one bounded batch.
+export const workflowDecisionSchema = botDecisionSchema.extend({
+  reply: botDecisionSchema.shape.reply.optional(),
+  messages: z.array(z.string().trim().min(1).max(3000)).min(1).max(10).optional(),
+}).superRefine((value, ctx) => {
+  if (!value.reply && !value.messages) ctx.addIssue({ code: 'custom', message: 'reply ou messages é obrigatório' })
+  if (value.messages && !['answer', 'qualify'].includes(value.action)) ctx.addIssue({ code: 'custom', message: 'Lote permitido somente para answer ou qualify' })
+}).transform(value => ({ ...value, reply: value.messages?.join('\n\n') || value.reply! }))
 
 export function validWorkflowUrl(value: string) {
   try {
@@ -34,18 +44,18 @@ export function workflowPayload(payload: Record<string, any>, eventId: string) {
 export async function callBotWorkflow(config: any, payload: Record<string, unknown>) {
   if (!validWorkflowUrl(config.n8nWebhookUrl || '') || !config.n8nSecret) throw new BotProviderError('workflow_configuration')
   const eventId = String(payload.eventId || `test-${randomUUID()}`)
-  const timeout = Math.min(25, Math.max(5, Number(config.n8nTimeoutSeconds) || 20))
+  const timeout = Math.min(120, Math.max(5, Number(config.n8nTimeoutSeconds) || 60))
   const signal = AbortSignal.timeout(timeout * 1000)
   try {
     const response = await integrationHttpClient.fetch(config.n8nWebhookUrl, {
       method: 'POST', signal,
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.n8nSecret}`, 'X-SellClin-Event-Id': eventId, 'X-SellClin-Schema-Version': '1.0' },
       body: JSON.stringify(workflowPayload(payload, eventId)),
-    }, undefined, { publicOnly: true, maxResponseBytes: 65536 })
+    }, undefined, { publicOnly: true, maxResponseBytes: 65536, timeoutMs: timeout * 1000 })
     if (!response.ok) throw new BotProviderError(response.status === 401 || response.status === 403 ? 'workflow_auth' : 'workflow_unavailable', response.status)
     const text = await response.text()
     if (Buffer.byteLength(text) > 65536) throw new BotProviderError('workflow_invalid_response')
-    const decision = botDecisionSchema.parse(JSON.parse(text))
+    const decision = workflowDecisionSchema.parse(JSON.parse(text))
     return { decision, inputTokens: 0, outputTokens: 0, httpStatus: response.status }
   } catch (error) {
     if (error instanceof BotProviderError) throw error
