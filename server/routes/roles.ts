@@ -3,6 +3,7 @@ import { prisma } from '../prisma.js'
 import { auth, requireCompanyOwner } from '../middleware/auth.js'
 import { createErrorResponse, createSuccessResponse } from '../utils/response.js'
 import { isDefaultRole } from '../bootstrap/default-roles.js'
+import { resolveRoleSubPermissions } from '../config/commercial-role-permissions.js'
 
 export const router = Router()
 
@@ -25,7 +26,9 @@ router.get('/', auth(), async (req, res) => {
       orderBy: { name: 'asc' }
     })
 
-    res.json(createSuccessResponse(roles))
+    res.json(createSuccessResponse(roles.map(role => ({ ...role, permissions: role.permissions.map(permission => ({
+      ...permission, subPermissions: resolveRoleSubPermissions(role, permission.module.code, permission.subPermissions),
+    })) }))))
   } catch (error: any) {
     console.error('[Roles] Erro ao listar:', error)
     res.status(500).json(createErrorResponse(error.message, 500))

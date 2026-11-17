@@ -13,6 +13,7 @@ vi.mock('../prisma.js',()=>({prisma:{
  appointment:{findFirst:async()=>null},
 }}));
 import { actionPermissions, ownerConfiguration } from './action-permissions';
+import { requireModule } from './auth';
 beforeEach(()=>{state.sub={};state.moduleAccess=true;state.owner=true});
 function response(){return {code:200,status(n:number){this.code=n;return this},json(){return this}} as any}
 const cases:[string,string,string,any,string][]=[
@@ -59,6 +60,26 @@ it.each(['POST','PUT','DELETE'])('restricts configuration %s to the verified own
 });
 it('preserves reading of funnel options for team members',async()=>{
  const next=vi.fn();await ownerConfiguration({method:'GET',user:{type:'usuario'}} as any,response(),next);expect(next).toHaveBeenCalledOnce();
+});
+it.each(['GET', 'POST'])('allows Comercial %s without access to the separate Leads tab', async(method)=>{
+ state.sub={verLeads:false,verClientes:false};
+ const req:any={user:{id:5,type:'usuario',companyId:2},method,path:'/',body:{name:'Lead',status:'prospect_lead'}};
+ const res=response(), moduleAllowed=vi.fn(), next=vi.fn();
+ await requireModule('funnel')(req,res,moduleAllowed);
+ expect(moduleAllowed).toHaveBeenCalledOnce();
+ await actionPermissions('funnel')(req,res,next);
+ expect(next).toHaveBeenCalledOnce();expect(res.code).toBe(200);
+});
+it('still denies Comercial when the active clinic module permission is disabled',async()=>{
+ state.moduleAccess=false;state.sub={verLeads:true};
+ const next=vi.fn(),res=response();
+ await requireModule('funnel')({user:{id:5,type:'usuario',companyId:2}} as any,res,next);
+ expect(res.code).toBe(403);expect(next).not.toHaveBeenCalled();
+});
+it('keeps the separate client workspace restricted',async()=>{
+ state.sub={verClientes:false};const next=vi.fn(),res=response();
+ await actionPermissions('clientes')({user:{id:5,type:'usuario',companyId:2},method:'GET',path:'/'} as any,res,next);
+ expect(res.code).toBe(403);expect(next).not.toHaveBeenCalled();
 });
 it('allows editing a task without changing its assignee when delegation is disabled',async()=>{
  state.sub={atribuirParaOutros:false};const next=vi.fn();

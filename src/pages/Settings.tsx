@@ -51,6 +51,7 @@ import DiscountSettingsView from './settings/DiscountSettingsView';
 import { useAuth } from '@/contexts/AuthContext';
 import { catalogsApi, professionalsApi, usuariosApi, permissionsApi, empresasApi, rolesApi, modulesApi, billingApi, type BillingStatus, type BillingUsage } from '@/lib/api';
 import { LeadTransfer } from '@/components/team/LeadTransfer';
+import { RoleHelp } from '@/components/team/RoleHelp';
 import Profile from './Profile';
 
 // -- CARGOS HELPERS REMOVIDOS (Agora vêm do banco) --
@@ -638,7 +639,7 @@ const EquipeView = ({ isSpecialistMode = false }: { isSpecialistMode?: boolean }
               <Input type="email" value={newMember.email} onChange={e => setNewMember({...newMember, email: e.target.value})} placeholder="maria@clinica.com" />
             </div>
             <div className="space-y-2">
-              <Label>Cargo / Função</Label>
+              <div className="flex items-center gap-1"><Label>Cargo / Função</Label>{validRoles.find(r => String(r.id) === newMember.roleId) && <RoleHelp role={validRoles.find(r => String(r.id) === newMember.roleId)!} />}</div>
               <Select value={newMember.roleId} onValueChange={v => setNewMember({...newMember, roleId: v})}>
                 <SelectTrigger className="h-9 text-sm bg-background">
                   <SelectValue placeholder="Selecione um cargo...">
@@ -718,6 +719,7 @@ const EquipeView = ({ isSpecialistMode = false }: { isSpecialistMode?: boolean }
               </div>
               <div className="flex items-center gap-2">
                 {getRoleBadge(u.role?.name)}
+                {u.role && <RoleHelp role={u.role} />}
                 {(!u.isActive || !u.emailVerified) && (
                   <Button
                     variant="outline"
@@ -1421,6 +1423,7 @@ const CargosView = () => {
                 <span className="text-[10px] font-bold px-2.5 py-1 rounded-full border bg-primary/10 text-primary border-primary/20">
                   {role.name}
                 </span>
+                <RoleHelp role={role} />
                 <span className="text-xs text-muted-foreground font-mono">{role.value}</span>
                 <span className="text-[10px] text-muted-foreground/70 hidden sm:inline-block font-normal ml-2">
                   (clique para ver/configurar permissões)

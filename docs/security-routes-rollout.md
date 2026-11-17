@@ -3,7 +3,7 @@
 ## Decisões aprovadas
 
 - Categorias, catálogo e modelos de fichas são exclusivos de cada clínica, inclusive quando o proprietário é o mesmo.
-- Ausência de permissão implica bloqueio. O proprietário verificado conserva acesso aos módulos da própria clínica liberados pelo plano.
+- Ausência de permissão implica bloqueio, com uma base operacional explícita no Comercial: quando o módulo está liberado, SDR, Closer e Comercial podem mover fases e criar propostas; Closer e Comercial também podem aprovar propostas. Essa base preenche somente ações ausentes, preservando negativas explícitas. O proprietário verificado conserva acesso aos módulos da própria clínica liberados pelo plano.
 - Permissões antigas implícitas são materializadas uma única vez, preservando negativas explícitas. Isso mantém acessos legados, mas não equivale a uma revisão humana do menor privilégio de cada cargo.
 
 ## Matriz e barreira central
@@ -48,7 +48,7 @@ Na imagem Docker compilada, o comando equivalente é `node dist-server/scripts/m
 
 Uma falha antes do commit desfaz as alterações da transação; sequências PostgreSQL podem avançar. Após o commit, a reversão exige procedimento de restauração planejado: não há down migration que una cadastros que já possam ter sido editados separadamente. Guardar backup até a homologação e o aceite operacional.
 
-Os cargos criados futuramente começam sem acesso; a tela de cargos permite liberar os módulos e ações explicitamente. A inicialização não reativa negativas gravadas. Revisar o cargo `Acessos legados — revisar` quando ele for criado pela migração para usuários sem cargo local.
+Os cargos padrão SDR, Closer e Comercial criados futuramente recebem acesso inicial ao Comercial e suas ações básicas. Os demais módulos e cargos continuam sem acesso inicial; a tela de cargos permite ajustar módulos e ações explicitamente. A inicialização não reativa negativas gravadas. As mesmas ações efetivas são usadas na autorização, na API da sessão e na edição dos cargos. Revisar o cargo `Acessos legados — revisar` quando ele for criado pela migração para usuários sem cargo local.
 
 ## Verificação e limites
 

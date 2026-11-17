@@ -2,11 +2,11 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { ensureDefaultRoles, isDefaultRole } from './default-roles.js'
 
-test('all clinics receive four functional roles without duplicates or overwriting customization', async () => {
+test('all clinics receive five functional roles without duplicates or overwriting customization', async () => {
   const roles: any[] = []
   const permissions: any[] = []
   const db: any = {
-    module: { findMany: async () => [{ id: 1 }, { id: 2 }] },
+    module: { findMany: async () => [{ id: 1, code: 'clientes' }, { id: 2, code: 'funnel' }] },
     role: { upsert: async ({ where, create, update }: any) => {
       let role = roles.find(r => r.companyId === where.companyId_value.companyId && r.value === where.companyId_value.value)
       if (role) Object.assign(role, update)
@@ -21,11 +21,18 @@ test('all clinics receive four functional roles without duplicates or overwritin
   }
   await ensureDefaultRoles(db, 10, 1)
   await ensureDefaultRoles(db, 20, 2)
-  assert.equal(roles.length, 8)
-  assert.ok(permissions.every(permission => permission.hasAccess === false))
+  assert.equal(roles.length, 10)
+  for (const permission of permissions) {
+    const role = roles.find(r => r.id === permission.roleId);
+    const operational = ['comercial', 'sdr', 'closer'].includes(role.value);
+    assert.equal(permission.hasAccess, permission.moduleId === 2 && operational);
+    if (permission.hasAccess) assert.equal(permission.subPermissions.moverFases, true);
+  }
   for (const companyId of [10, 20]) {
     const clinic = roles.filter(r => r.companyId === companyId)
-    assert.deepEqual(clinic.map(r => r.value), ['admin', 'comercial', 'sdr', 'closer'])
+    assert.deepEqual(clinic.map(r => r.value), ['admin', 'comercial', 'sdr', 'closer', 'admin_specialist'])
+    assert.equal(clinic.find(r => r.value === 'admin_specialist').isAdmin, true)
+    assert.equal(clinic.find(r => r.value === 'admin_specialist').isSpecialist, true)
     assert.equal(clinic.find(r => r.value === 'admin').isAdmin, true)
     assert.equal(clinic.find(r => r.value === 'sdr').isSDR, true)
     assert.equal(clinic.find(r => r.value === 'closer').isCloser, true)
@@ -33,15 +40,15 @@ test('all clinics receive four functional roles without duplicates or overwritin
   const oldSDR = roles.find(r => r.companyId === 10 && r.value === 'sdr')
   oldSDR.name = 'Pré-vendas personalizado'
   oldSDR.isCloser = true
-  permissions.find(p => p.roleId === oldSDR.id).hasAccess = false
-  permissions.find(p => p.roleId === oldSDR.id).subPermissions = { excluirContatos: false }
+  permissions.find(p => p.roleId === oldSDR.id && p.moduleId === 2).hasAccess = false
+  permissions.find(p => p.roleId === oldSDR.id && p.moduleId === 2).subPermissions = { moverFases: false }
   const before = structuredClone({ roles, permissions })
   await ensureDefaultRoles(db, 10, 1)
   assert.deepEqual({ roles, permissions }, before)
-  assert.equal(permissions.length, 16)
+  assert.equal(permissions.length, 20)
 })
 
-test('only the four standard values are protected from deletion', () => {
-  for (const value of ['admin', 'comercial', 'sdr', 'closer']) assert.equal(isDefaultRole(value), true)
+test('only the five standard values are protected from deletion', () => {
+  for (const value of ['admin', 'comercial', 'sdr', 'closer', 'admin_specialist']) assert.equal(isDefaultRole(value), true)
   assert.equal(isDefaultRole('gerente_personalizado'), false)
 })

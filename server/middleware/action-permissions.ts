@@ -22,7 +22,9 @@ export function actionPermissions(module: string) {
     const check = (key: string, scope = module) => checks.push([scope, key])
     const write = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)
     if (module === 'clientes') check('verClientes')
-    if (module === 'funnel') check('verLeads', 'clientes')
+    // The Comercial workspace is authorized by requireModule('funnel').
+    // clientes.verLeads controls the separate Leads tab, not CRM operations.
+    // Record visibility and write actions remain checked by the funnel routes.
     if (module === 'metas' && !write) check('verMetasEquipe')
     if (module === 'agendamentos' && /^\/\d+\/?$/.test(path) && !await hasActionPermission(req, module, 'verAgendamentosAlheios')) {
       const id = Number(path.split('/')[1])

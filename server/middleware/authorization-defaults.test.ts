@@ -10,6 +10,7 @@ vi.mock('../prisma.js', () => ({ prisma: {
   usuario: { findUnique: async () => ({ companyId: state.globalCompanyId, role: { permissions: state.permission ? [state.permission] : [] } }) },
 } }))
 import { requireModule, requirePermission } from './auth.js'
+import { resolveRoleSubPermissions } from '../config/commercial-role-permissions.js'
 beforeEach(() => { state.permission = null; state.individual = null; state.activeRole = null; state.globalCompanyId = 1; state.moduleActive = true })
 async function call(granular = false, user: any = { id: 1, type: 'usuario', companyId: 1, role: 'admin' }) {
   const next = vi.fn()
@@ -43,4 +44,37 @@ it('preserves verified owner access, not arbitrary professional access', async (
   expect((await call(true, { ...user, isCompanyOwner: false })).accepted).toBe(false)
   state.moduleActive = false
   expect((await call(false, user)).accepted).toBe(false)
+})
+
+it.each([{isSDR:true}, {isCloser:true}, {value:'comercial'}, {isSDR:true,isCloser:true}])('restores basic Comercial actions for an enabled operational role %j with legacy empty permissions', async flags => {
+  for (const stored of [null, {}]) {
+    state.activeRole={...flags,permissions:[{hasAccess:true,subPermissions:stored}]};
+    const next=vi.fn(),res:any={status(){return this},json(){return this}};
+    await requirePermission('funnel','moverFases')({user:{id:1,type:'usuario',companyId:1}} as any,res,next);
+    expect(next).toHaveBeenCalledOnce();
+    expect(resolveRoleSubPermissions(state.activeRole,'funnel',stored).criarPropostas).toBe(true);
+  }
+})
+it('preserves explicit action denials, individual module blocks and clinic boundaries', async()=>{
+  const check=async()=>{
+    const next=vi.fn(),res:any={status(){return this},json(){return this}};
+    await requirePermission('funnel','moverFases')({user:{id:1,type:'usuario',companyId:1}} as any,res,next);
+    return next.mock.calls.length;
+  };
+  state.activeRole={isSDR:true,permissions:[{hasAccess:true,subPermissions:{moverFases:false}}]};
+  expect(await check()).toBe(0);
+  state.activeRole.permissions[0].subPermissions=null;state.individual={hasAccess:false};
+  expect(await check()).toBe(0);
+  state.individual=null;state.activeRole=null;state.globalCompanyId=2;
+  state.permission={hasAccess:true,subPermissions:{moverFases:true}};
+  expect(await check()).toBe(0);
+})
+it('does not grant SDRs closing, deletion, unknown actions or other modules',()=>{
+  const sdr={isSDR:true};
+  const defaults=resolveRoleSubPermissions(sdr,'funnel',null);
+  expect(defaults.aprovarPropostas).toBeUndefined();
+  expect(defaults.excluirOportunidades).toBeUndefined();
+  expect(defaults.unknown).toBeUndefined();
+  expect(resolveRoleSubPermissions(sdr,'clientes',null)).toEqual({});
+  expect(resolveRoleSubPermissions({isCloser:true},'funnel',null).aprovarPropostas).toBe(true);
 })

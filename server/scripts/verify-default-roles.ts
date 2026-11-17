@@ -16,7 +16,9 @@ async function main() {
         const company = await tx.empresa.create({ data: { name: 'Teste cargos (rollback)', ownerId: owner.id }, select: { id: true } })
         await ensureDefaultRoles(tx, company.id, owner.id)
         const roles = await tx.role.findMany({ where: { companyId: company.id }, orderBy: { value: 'asc' } })
-        assert.deepEqual(roles.map(role => role.value), ['admin', 'closer', 'comercial', 'sdr'])
+        assert.deepEqual(roles.map(role => role.value), ['admin', 'admin_specialist', 'closer', 'comercial', 'sdr'])
+        assert.equal(roles.find(role => role.value === 'admin_specialist')?.isAdmin, true)
+        assert.equal(roles.find(role => role.value === 'admin_specialist')?.isSpecialist, true)
         assert.equal(roles.find(role => role.value === 'admin')?.isAdmin, true)
         assert.equal(roles.find(role => role.value === 'sdr')?.isSDR, true)
         assert.equal(roles.find(role => role.value === 'closer')?.isCloser, true)
@@ -25,7 +27,7 @@ async function main() {
         await tx.rolePermission.updateMany({ where: { roleId: sdr.id }, data: { hasAccess: false } })
         const before = await tx.rolePermission.findMany({ where: { roleId: sdr.id }, orderBy: { id: 'asc' } })
         await ensureDefaultRoles(tx, company.id, owner.id)
-        assert.equal(await tx.role.count({ where: { companyId: company.id } }), 4)
+        assert.equal(await tx.role.count({ where: { companyId: company.id } }), 5)
         assert.equal((await tx.role.findUniqueOrThrow({ where: { id: sdr.id } })).name, 'Pré-vendas personalizado')
         assert.deepEqual(await tx.rolePermission.findMany({ where: { roleId: sdr.id }, orderBy: { id: 'asc' } }), before)
       }
@@ -35,7 +37,7 @@ async function main() {
   assert.ok(ownerId)
   assert.equal(await db.professional.count({ where: { id: ownerId } }), 0)
   assert.equal(await db.empresa.count({ where: { ownerId } }), 0)
-  console.log('OK: quatro cargos por clínica, funções corretas, sem duplicidade e permissões preservadas. Dados de teste revertidos.')
+  console.log('OK: cinco cargos por clínica, funções corretas, sem duplicidade e permissões preservadas. Dados de teste revertidos.')
 }
 main().catch((error: unknown) => {
   console.error('FALHOU: conferência de cargos não concluída. Código:', error && typeof error === 'object' && 'code' in error ? String(error.code) : 'TEST_ERROR')
