@@ -29,6 +29,13 @@ it('preserves the SDR on edit and restores automatic assignment for a new lead',
   Object.assign(context.formData, { name: 'Novo', phone: '11999990000' });
   await context.save();
   expect(api.create).toHaveBeenCalledWith(expect.objectContaining({ sdrId: 'random' }));
+  context.open();
+  Object.assign(context.formData, { name: 'Sem telefone', phone: '' });
+  await context.save();
+  expect(api.create).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'Sem telefone', phone: null }));
+  context.open({ ...lead, phone: null });
+  await context.save();
+  expect(api.update).toHaveBeenLastCalledWith(9, expect.objectContaining({ phone: null }));
 });
 
 // Execute the actual page loaders with simulated APIs; never connect to a database.

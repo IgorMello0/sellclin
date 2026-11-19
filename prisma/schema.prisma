@@ -136,7 +136,7 @@ model Lead {
   origin               String?
   avatar               String?
   status               String
-  phone                String
+  phone                String?
   email                String?
   responsible          String?
   isScheduled          Boolean        @default(false) @map("is_scheduled")

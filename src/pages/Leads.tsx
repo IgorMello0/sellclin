@@ -397,10 +397,10 @@ const Leads = () => {
   };
 
   const handleSave = async () => {
-    if (!formData.name || !formData.phone) {
+    if (!formData.name.trim()) {
       toast({
         title: "Erro",
-        description: "Nome e telefone são obrigatórios.",
+        description: "O nome do lead é obrigatório.",
         variant: "destructive",
       });
       return;
@@ -594,7 +594,7 @@ const Leads = () => {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Telefone *</Label>
+                      <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Telefone (opcional)</Label>
                       <Input
                         value={formData.phone}
                         onChange={(e) => setFormData({ ...formData, phone: formatPhone(e.target.value) })}

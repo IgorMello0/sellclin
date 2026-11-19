@@ -78,6 +78,23 @@ beforeEach(() => {
 });
 
 describe('funnel transactions and access', () => {
+  it.each([undefined,null,'','   '])('creates multiple leads without a phone (%j)',async phone=>{
+    state.db.empresa.findUnique=vi.fn().mockResolvedValue({ownerId:7,leadRoutingMode:'manual'});
+    state.db.lead.create=vi.fn(async({data})=>({id:100,...data}));
+    for (const name of ['Primeiro','Segundo']) {
+      const response=await call('post','/',{name,phone,status:'prospect_lead'});
+      expect(response.code).toBe(201);
+    }
+    expect(state.db.lead.create).toHaveBeenCalledTimes(2);
+    expect(state.db.lead.create).toHaveBeenLastCalledWith({data:expect.objectContaining({phone:null})});
+    expect(state.db.lead.findFirst).not.toHaveBeenCalled();
+  });
+  it('allows clearing a lead phone and normalizes a phone added later',async()=>{
+    await call('put','/:id',{phone:''});
+    expect(lead.phone).toBeNull();
+    await call('put','/:id',{phone:'(11) 98765-4321'});
+    expect(lead.phone).toBe('11987654321');
+  });
   it('creates a lead assigned to the active clinic role, not the primary clinic role', async()=>{
     state.db.empresa.findUnique=vi.fn().mockResolvedValue({ownerId:7,leadRoutingMode:'manual'});
     state.db.lead.findFirst.mockResolvedValue(null);

@@ -1714,7 +1714,7 @@ const SalesFunnel = () => {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="phone" className="text-xs font-bold uppercase tracking-widest text-slate-400">WhatsApp / Celular</Label>
+                <Label htmlFor="phone" className="text-xs font-bold uppercase tracking-widest text-slate-400">WhatsApp / Celular (opcional)</Label>
                 <Input 
                   id="phone" 
                   placeholder="(00) 00000-0000" 

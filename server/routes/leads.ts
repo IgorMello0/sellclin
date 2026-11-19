@@ -158,7 +158,7 @@ router.get('/:id', auth(), async (req, res) => {
 router.post('/', auth(), async (req, res) => {
   try {
     const { name, value, origin, status, avatar, phone: rawPhone, email, notes, responsible, tags, sdrId: requestedSdrId, closerId: requestedCloserId, especialistaId: requestedEspecialistaId } = req.body
-    const phone = rawPhone ? String(rawPhone).replace(/\D/g, '') : rawPhone
+    const phone = rawPhone == null ? null : String(rawPhone).replace(/\D/g, '') || null
 
     if (!name) {
       return res.status(400).json(createErrorResponse('O nome Ã© obrigatÃ³rio', 400))
@@ -370,7 +370,7 @@ router.post('/import', auth(), async (req, res) => {
     for (const leadData of leads) {
       if (!leadData.name) continue;
 
-      const cleanPhone = leadData.phone ? String(leadData.phone).replace(/\D/g, '') : null;
+      const cleanPhone = leadData.phone ? String(leadData.phone).replace(/\D/g, '') || null : null;
 
       let existingLead = null;
       if (cleanPhone) {
@@ -693,8 +693,8 @@ router.put('/:id', auth(), async (req, res) => {
     if (data.especialistaId !== undefined) {
       prismaData.especialistaId = data.especialistaId === null ? null : Number(data.especialistaId);
     }
-    if (prismaData.phone) {
-      prismaData.phone = String(prismaData.phone).replace(/\D/g, '');
+    if (prismaData.phone !== undefined) {
+      prismaData.phone = prismaData.phone == null ? null : String(prismaData.phone).replace(/\D/g, '') || null;
     }
     if (data.is_scheduled !== undefined) {
       prismaData.isScheduled = Boolean(data.is_scheduled)
