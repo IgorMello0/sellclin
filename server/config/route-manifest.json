@@ -125,6 +125,26 @@
     ]
   },
   {
+    "method": "DELETE",
+    "path": "/api/agentes-ia/:id/agenda/token",
+    "source": "server/routes/agentes-ia.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')",
+      "manage"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/agentes-ia/:id/agenda/token",
+    "source": "server/routes/agentes-ia.ts",
+    "guards": [
+      "auth()",
+      "requireModule('conversas')",
+      "manage"
+    ]
+  },
+  {
     "method": "POST",
     "path": "/api/agentes-ia/:id/ativar",
     "source": "server/routes/agentes-ia.ts",
@@ -194,6 +214,14 @@
       "auth()",
       "requireModule('conversas')",
       "manage"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/agentes-ia/agenda/disponibilidade",
+    "source": "server/routes/agentes-ia.ts",
+    "guards": [
+      "agendaLimit"
     ]
   },
   {

@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { createHash, randomBytes } from 'node:crypto'
 import { z } from 'zod'
 import { rateLimit } from 'express-rate-limit'
 import { prisma } from '../prisma.js'
@@ -6,13 +7,52 @@ import { auth, requireCompanyOwner, requireModule } from '../middleware/auth.js'
 import { createErrorResponse, createSuccessResponse, parsePagination } from '../utils/response.js'
 import { generateBotDecision, BotProviderError, providerErrorMessage } from '../services/bot-provider.js'
 import { prepareBotTurn } from '../services/bot-turn.js'
-import { canCompanyAccessModule } from '../services/billing.js'
+import { canCompanyAccessModule, getCompanyModuleEntitlements, OPERATIONAL_SUBSCRIPTION_STATUSES } from '../services/billing.js'
 import { botConnectionReady, callBotWorkflow, validWorkflowUrl } from '../services/bot-n8n.js'
 import { clinicBotSchema, effectiveBotConfig } from '../services/bot-clinic-settings.js'
 import { botIdentity } from '../services/bot-identity.js'
 import { flowSchema, flowTemplate, validateFlow } from '../services/bot-flow-definition.js'
+import { availableBotSlots } from '../services/bot-agenda.js'
 
 export const router = Router()
+const hashAgendaToken = (token: string) => createHash('sha256').update(token).digest('hex')
+const agendaLimit = rateLimit({ windowMs: 60000, limit: 120, standardHeaders: 'draft-8', legacyHeaders: false })
+const agendaQuery = z.object({
+  serviceId: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive().max(2147483647)),
+  specialistId: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive().max(2147483647)).optional(),
+  date: z.string().date(),
+}).strict()
+
+router.get('/agenda/disponibilidade', agendaLimit, async (req, res) => {
+  res.set('Cache-Control', 'no-store')
+  const token = /^Bearer (sca_[A-Za-z0-9_-]{43})$/i.exec(req.get('Authorization') || '')?.[1]
+  if (!token) return res.status(401).json(createErrorResponse('Token de agenda inválido.', 401))
+
+  const stored = await prisma.botConfiguracao.findUnique({
+    where: { agendaTokenHash: hashAgendaToken(token) },
+    select: { executionMode: true, bookingEnabled: true, timezone: true, workingDays: true, agent: { select: { companyId: true, company: { select: { isActive: true } } } } },
+  })
+  if (stored?.executionMode !== 'n8n' || !stored.agent.company.isActive) {
+    return res.status(401).json(createErrorResponse('Token de agenda inválido.', 401))
+  }
+  const query = agendaQuery.safeParse(req.query)
+  if (!query.success) return res.status(400).json(createErrorResponse('Informe serviceId, date (AAAA-MM-DD) e, se necessário, specialistId.', 400))
+
+  const companyId = stored.agent.companyId
+  const [config, entitlements] = await Promise.all([
+    effectiveBotConfig(companyId, stored),
+    getCompanyModuleEntitlements(companyId),
+  ])
+  if (!config.bookingEnabled || !OPERATIONAL_SUBSCRIPTION_STATUSES.has(entitlements.subscriptionStatus)
+    || !entitlements.moduleCodes.has('agendamentos') || !entitlements.moduleCodes.has('conversas')) {
+    return res.status(403).json(createErrorResponse('Consulta de agenda indisponível para esta clínica.', 403))
+  }
+
+  const { serviceId, date, specialistId } = query.data
+  const slots = await availableBotSlots(companyId, serviceId, date, config, prisma, new Date(), specialistId ?? null)
+  return res.json(createSuccessResponse(slots.map(({ start, end, label }) => ({ start, end, label }))))
+})
+
 router.use(auth(), requireModule('conversas'))
 const manage = requireCompanyOwner()
 const aiLimit = rateLimit({ windowMs: 60000, limit: 12, standardHeaders: 'draft-8', legacyHeaders: false,
@@ -31,6 +71,7 @@ const clinic = (req: any) => Number(req.user?.companyId) || -1
 const safeConfig = (c: any) => c ? { provider: c.provider, model: c.model, knowledge: c.knowledge, maxResponses: c.maxResponses, dailyLimit: c.dailyLimit,
   flowDefinition: c.flowDefinition || null, sharedSettings: Boolean(c.sharedSettings),
   executionMode: c.executionMode || 'native', n8nWebhookUrl: c.n8nWebhookUrl || '', hasN8nSecret: Boolean(c.n8nSecret), n8nTimeoutSeconds: c.n8nTimeoutSeconds || 60,
+  hasAgendaToken: Boolean(c.agendaTokenHash),
   qualificationFields: c.qualificationFields || ['nome', 'email', 'interesse'], handoffTerms: c.handoffTerms || [], qualifyEnabled: c.qualifyEnabled, bookingEnabled: c.bookingEnabled,
   timezone: c.timezone, workingDays: c.workingDays || [1, 2, 3, 4, 5], hasApiKey: Boolean(c.apiKey), verifiedAt: c.verifiedAt, playgroundAt: c.playgroundAt } : null
 // Static routes precede /:id so settings can be configured before the first flow.
@@ -123,7 +164,7 @@ router.post('/:id/duplicate', manage, async (req, res) => {
     const item = await tx.agenteIa.create({ data: { companyId: clinic(req), name: `${original.name.slice(0, 110)} (cópia)`, basePrompt: original.basePrompt, temperature: original.temperature, mode: original.mode, isActive: false } })
     const config = await tx.botConfiguracao.findUnique({ where: { agentId: original.id } })
     if (config) {
-      const { agentId, updatedAt, verifiedAt, playgroundAt, qualificationFields, handoffTerms, workingDays, ...settings } = config
+      const { agentId, updatedAt, verifiedAt, playgroundAt, qualificationFields, handoffTerms, workingDays, agendaTokenHash: _agendaTokenHash, ...settings } = config
       await tx.botConfiguracao.create({ data: { ...settings, agentId: item.id, qualificationFields: qualificationFields || [], handoffTerms: handoffTerms || [], workingDays: workingDays || [1, 2, 3, 4, 5] } })
     }
     return item
@@ -132,6 +173,20 @@ router.post('/:id/duplicate', manage, async (req, res) => {
 })
 router.get('/:id/configuracao', manage, async (req, res) => {
   res.json(createSuccessResponse(safeConfig(await effectiveBotConfig(clinic(req), await prisma.botConfiguracao.findUnique({ where: { agentId: res.locals.bot.id } })))))
+})
+router.post('/:id/agenda/token', manage, async (_req, res) => {
+  res.set('Cache-Control', 'no-store')
+  const token = `sca_${randomBytes(32).toString('base64url')}`
+  const { count } = await prisma.botConfiguracao.updateMany({
+    where: { agentId: res.locals.bot.id, executionMode: 'n8n' },
+    data: { agendaTokenHash: hashAgendaToken(token) },
+  })
+  if (!count) return res.status(409).json(createErrorResponse('Salve a conexão n8n antes de gerar o token de agenda.', 409))
+  return res.status(201).json(createSuccessResponse({ token }))
+})
+router.delete('/:id/agenda/token', manage, async (_req, res) => {
+  await prisma.botConfiguracao.updateMany({ where: { agentId: res.locals.bot.id }, data: { agendaTokenHash: null } })
+  return res.json(createSuccessResponse({ revoked: true }))
 })
 router.put('/:id/configuracao', manage, async (req, res) => {
   const parsed = configSchema.safeParse(req.body)
@@ -147,6 +202,7 @@ router.put('/:id/configuracao', manage, async (req, res) => {
     // A flow cannot overwrite the clinic's shared credential or knowledge.
     const shared = await tx.botClinicSettings.findUnique({ where: { companyId: clinic(req) } })
     const data: any = { ...settings, ...keyChange, ...workflowKey, playgroundAt: null, ...(reset ? { verifiedAt: null } : {}) }
+    if (previous?.executionMode === 'n8n' && (settings.executionMode !== 'n8n' || settings.n8nWebhookUrl !== previous.n8nWebhookUrl)) data.agendaTokenHash = null
     if (shared) { for (const key of Object.keys(clinicBotSchema.shape)) delete data[key]; delete data.apiKey }
     if (data.flowDefinition === null) delete data.flowDefinition
     await tx.botConfiguracao.upsert({ where: { agentId: res.locals.bot.id }, create: { agentId: res.locals.bot.id, ...data }, update: data })

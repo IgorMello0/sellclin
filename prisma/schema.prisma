@@ -744,6 +744,7 @@ model BotConfiguracao {
   executionMode String @default("native") @map("execution_mode")
   n8nWebhookUrl String? @map("n8n_webhook_url")
   n8nSecret String? @map("n8n_secret") @db.Text
+  agendaTokenHash String? @unique(map: "bot_configuracoes_agenda_token_hash_key") @map("agenda_token_hash") @db.VarChar(64)
   n8nTimeoutSeconds Int @default(20) @map("n8n_timeout_seconds")
   contractVersion String @default("1.0") @map("contract_version")
   agentId       Int      @id @map("agent_id")

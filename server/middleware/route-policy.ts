@@ -12,6 +12,7 @@ export const SESSION_EXCEPTIONS = new Set([
   'POST /api/auth/reset-password', 'POST /api/auth/team-invite/accept', 'GET /api/auth/verify-email',
   'GET /api/google-calendar/callback', 'GET /api/whatsapp/meta/callback',
   'GET /api/campaigns/media/:campaignId/:index',
+  'GET /api/agentes-ia/agenda/disponibilidade',
   'POST /api/webhooks/abacate-pay', 'POST /api/webhooks/evolution',
   'POST /api/webhooks/evolution/:token', 'POST /api/webhooks/uazapi/:token',
   'POST /api/webhooks/leads/:apiKey', 'GET /api/webhooks/meta', 'POST /api/webhooks/meta',

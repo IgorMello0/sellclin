@@ -2,7 +2,7 @@ import type { RequestHandler } from 'express'
 
 const privateKeys = new Set(['n8nSecret', 'apiKeyHash', 'passwordHash', 'apiKey', 'apikey', 'metaToken', 'metaTwoStepPin', 'uazapiToken', 'accessToken', 'refreshToken', 'access_token', 'refresh_token'])
 const ownerKeys = new Set(['webhookToken', 'metaWebhookVerifyToken', 'webhookVerifyToken', 'webhookUrl', 'webhookCallbackUrl', 'callbackUrl', 'reportedCallbackUrl'])
-const normalizedPrivateKeys = new Set([...privateKeys, 'password', 'passwordStamp', 'clientSecret', 'appSecret', 'adminToken', 'authorization'].map(key => key.replace(/_/g, '').toLowerCase()))
+const normalizedPrivateKeys = new Set([...privateKeys, 'agendaTokenHash', 'password', 'passwordStamp', 'clientSecret', 'appSecret', 'adminToken', 'authorization'].map(key => key.replace(/_/g, '').toLowerCase()))
 const normalizedOwnerKeys = new Set([...ownerKeys, 'diagnostics', 'qrcode', 'pairingCode'].map(key => key.replace(/_/g, '').toLowerCase()))
 
 export function safeIntegrationOutput(value: unknown, owner: boolean): unknown {

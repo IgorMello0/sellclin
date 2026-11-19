@@ -47,6 +47,53 @@ beforeEach(() => {
   })
 })
 async function call(path = '', method = 'GET', data?: any) { const response = await fetch(base+path, { method, headers: { 'Content-Type': 'application/json' }, ...(data ? { body: JSON.stringify(data) } : {}) }); return { status: response.status, body: await response.json() } }
+it('issues, scopes, rotates and revokes an n8n agenda token without exposing its hash', async () => {
+  const config = configs[0]
+  Object.assign(config, { executionMode: 'n8n', bookingEnabled: true, timezone: 'America/Sao_Paulo', workingDays: [0, 1, 2, 3, 4, 5, 6] })
+  state.db.botConfiguracao.findUnique.mockImplementation(async ({ where }: any) => {
+    const selected = configs.find(row => matches(row, where))
+    if (!selected || !where.agendaTokenHash) return selected
+    return { ...selected, agent: { companyId: 2, company: { isActive: true } } }
+  })
+  state.db.companySubscription = { findUnique: vi.fn().mockResolvedValue({ status: 'trialing', planCode: 'pro', trialEndsAt: new Date(Date.now() + 86400000) }) }
+  state.db.planModule = { findMany: vi.fn().mockResolvedValue(['agendamentos', 'conversas'].map(code => ({ module: { code } }))) }
+  state.db.empresa.findUnique.mockResolvedValue({ openHour: '09:00', closeHour: '10:00' })
+  state.db.catalogItem = { findMany: vi.fn().mockResolvedValue([{ id: 8, professionalId: 7, name: 'Avaliação', durationMinutes: 30, professional: { name: 'Equipe' } }]) }
+  state.db.appointment = { findMany: vi.fn().mockResolvedValue([]), create: vi.fn() }
+  const date = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10)
+  const slots = (token?: string, query = `serviceId=8&date=${date}`) => fetch(`${base}/agenda/disponibilidade?${query}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+
+  expect((await slots()).status).toBe(401)
+  expect((await call('/3/agenda/token', 'POST')).status).toBe(404)
+  state.owner = false
+  expect((await call('/1/agenda/token', 'POST')).status).toBe(403)
+  state.owner = true
+  const issued = await call('/1/agenda/token', 'POST')
+  expect(issued.status).toBe(201)
+  const token = issued.body.data.token
+  expect(config.agendaTokenHash).toMatch(/^[a-f0-9]{64}$/)
+  expect(config.agendaTokenHash).not.toBe(token)
+  const settings = (await call('/1/configuracao')).body.data
+  expect(settings.hasAgendaToken).toBe(true)
+  expect(settings).not.toHaveProperty('agendaTokenHash')
+  expect((await slots(token, `serviceId=8&date=${date}&companyId=9`)).status).toBe(400)
+  expect((await slots(token, 'serviceId=8&date=2026-11-31')).status).toBe(400)
+  const result = await slots(token)
+  expect(result.status).toBe(200)
+  expect(result.headers.get('cache-control')).toBe('no-store')
+  expect((await result.json()).data).toHaveLength(2)
+  expect(state.db.appointment.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ companyId: 2 }) }))
+  expect(state.db.appointment.create).not.toHaveBeenCalled()
+  config.bookingEnabled = false
+  expect((await slots(token)).status).toBe(403)
+  config.bookingEnabled = true
+
+  const nextToken = (await call('/1/agenda/token', 'POST')).body.data.token
+  expect((await slots(token)).status).toBe(401)
+  expect((await slots(nextToken)).status).toBe(200)
+  expect((await call('/1/agenda/token', 'DELETE')).status).toBe(200)
+  expect((await slots(nextToken)).status).toBe(401)
+})
 it('saves a two-minute n8n wait and rejects values beyond the supported bound', async () => {
   const data = { executionMode: 'n8n', n8nWebhookUrl: 'https://workflow.example.com/webhook/a', n8nSecret: 'workflow-private-token', n8nTimeoutSeconds: 120 }
   expect((await call('/1/configuracao', 'PUT', data)).status).toBe(200)

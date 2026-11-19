@@ -38,14 +38,16 @@ Devolva todas as partes em **uma única resposta HTTP**. Use `messages` em vez d
 {"action":"qualify","messages":["Olá!","Qual serviço deseja conhecer?"]}
 ```
 
-No fluxo existente, substitua `Loop → Wait → Respond to Webhook` por `separaItensParaEnvio1 → Code → Respond to Webhook`. Configure Code como **Run Once for All Items**:
+No fluxo existente, substitua `Loop → Wait → Respond to Webhook` por `separaItensParaEnvio1 → Code → Respond to Webhook`. No Split Out, use `output.messages` em **Fields To Split Out** e `output` em **Destination Field Name**. Configure Code como **Run Once for All Items**. Exemplo para uma pergunta de qualificação:
 
 ```js
-const messages = $input.all().map(item => item.json.mensagem);
+const messages = $input.all().map(item => item.json.output);
 return [{ json: { action: 'qualify', messages } }];
 ```
 
-Use `Respond With: JSON`, corpo em modo Expression `{{ $json }}` e HTTP 200. O Webhook de entrada deve estar em `Using Respond to Webhook Node`. Execute Respond apenas uma vez, depois de reunir as partes. Não use este nó para enviar cada item dentro do loop. Este contrato recebe um lote completo; não recebe callbacks ou streaming de partes posteriores.
+Para respostas informativas, preserve `action: 'answer'` e `evidence` do agente ao reunir as partes. Com **No Other Fields** no Split Out, esses campos precisam vir do nó anterior à divisão. A evidência deve ser um trecho literal da base ou catálogo.
+
+Use `Respond With: First Incoming Item` e HTTP 200 para devolver o único objeto criado pelo Code. O Webhook de entrada deve estar em `Using Respond to Webhook Node`. Execute Respond apenas uma vez, depois de reunir as partes. Não use este nó para enviar cada item dentro do loop. Este contrato recebe um lote completo; não recebe callbacks ou streaming de partes posteriores.
 
 Em **Configurações → Atendimento n8n**, altere o limite de espera para até **120 segundos**, salve, teste e reative. Configurações já salvas com 20 segundos continuam com 20 até serem alteradas. A nova imagem aumenta o proxy do SellClin para 180 segundos; proxies externos também devem permitir o tempo escolhido. Não é necessária migração de banco para esta mudança.
 
@@ -58,6 +60,14 @@ Para horários, use IDs recebidos no catálogo e data pedida pela pessoa:
 ```
 
 O SellClin consulta os horários reais, mostra as opções, exige escolha e CONFIRMAR e revalida a reserva. Não existe ação book no contrato. Para encaminhar: `{"action":"handoff","reply":"Vou encaminhar para a equipe."}`. Temas clínicos devem trazer `clinical:true` e handoff.
+
+### Consultar a agenda como ferramenta do agente
+
+Aplique `database/patches/20261118-bot-agenda-token.sql` antes de publicar a imagem. Em **Configurações → Atendimento n8n**, selecione a conexão, clique em **Gerar token de agenda** e copie o token para uma credencial Header Auth do n8n (`Authorization` com valor `Bearer SEU_TOKEN`). A credencial pertence à conexão e só consulta a agenda da clínica dela. Gerar outro token invalida o anterior.
+
+No agente agendador, configure a ferramenta HTTP com método **GET** e URL `https://sellclin.com/api/agentes-ia/agenda/disponibilidade`. Selecione a credencial Header Auth e envie `serviceId` e `date` (`AAAA-MM-DD`) como query parameters. Na ferramenta conectada ao agente, use `{{ $fromAI('serviceId', 'ID numérico do serviço no catálogo do SellClin', 'number') }}` e `{{ $fromAI('date', 'Data consultada no formato AAAA-MM-DD no fuso da clínica', 'string') }}`. Omita `specialistId` quando não houver preferência. Use apenas IDs de `body.services` e `body.specialists` do Webhook do SellClin. Se o agente for um subworkflow, passe esses dados, `body.clinic.currentDate` e `body.clinic.timezone` junto do pedido.
+
+O resultado em `data` lista `start`, `end` e `label`. Uma lista vazia significa que a consulta não encontrou opções para os dados informados. Para comparar dias, consulte cada data separadamente. Quando a data for escolhida, devolva a ação `slots` diretamente ao Respond to Webhook, antes dos formatadores de texto, e deixe o SellClin oferecer as opções e confirmar a reserva. Retire as ferramentas de gravação do Google Calendar desse caminho. [Parâmetros de ferramentas com `$fromAI`](https://docs.n8n.io/build/integrate-ai/ai-examples/use-ai-for-parameters.md).
 
 Não retorne companyId, credenciais, SQL ou instruções de execução. O SellClin valida tudo usando a clínica da conversa, verifica controle humano novamente e executa ações permitidas.
 

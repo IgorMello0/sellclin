@@ -11,6 +11,7 @@ const empty = { executionMode: 'n8n', n8nWebhookUrl: '', n8nSecret: '', n8nTimeo
 export default function N8nSettings() {
   const { toast } = useToast()
   const [agent, setAgent] = useState<any>(null)
+  const [agendaToken, setAgendaToken] = useState('')
   const [config, setConfig] = useState<any>(empty)
   const [choices, setChoices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -26,6 +27,7 @@ export default function N8nSettings() {
   function resetChat() { setChat([]); setState({}); setHandoff(false); setApproved(false) }
   async function select(item: any, c?: any) {
     const settings = c || unwrap(await aiAgentsApi.getConfig(item.id))
+    setAgendaToken('')
     setAgent(item); setConfig({ ...empty, ...settings, executionMode: 'n8n', n8nSecret: '', removeN8nSecret: false }); setDirty(false); resetChat()
   }
   async function load() {
@@ -69,6 +71,22 @@ export default function N8nSettings() {
       setConfig((c: any) => ({ ...c, playgroundAt: new Date().toISOString() }))
     })
   }
+  async function issueAgendaToken() {
+    if (config.hasAgendaToken && !window.confirm('Gerar outro token invalida o token de agenda atual. Continuar?')) return
+    await act(async () => {
+      const result = unwrap(await aiAgentsApi.issueAgendaToken(agent.id))
+      setAgendaToken(result.token)
+      setConfig((current: any) => ({ ...current, hasAgendaToken: true }))
+    })
+  }
+  async function revokeAgendaToken() {
+    if (!window.confirm('Revogar o acesso do workflow à consulta de agenda?')) return
+    await act(async () => {
+      unwrap(await aiAgentsApi.revokeAgendaToken(agent.id))
+      setAgendaToken('')
+      setConfig((current: any) => ({ ...current, hasAgendaToken: false }))
+    })
+  }
   return <div className="mx-auto max-w-4xl space-y-5">
     <header className="flex items-start gap-3"><div className="rounded-xl bg-primary/10 p-3"><Workflow className="h-6 w-6 text-primary" /></div><div><h2 className="text-2xl font-semibold">Atendimento com n8n</h2><p className="mt-2 text-sm text-muted-foreground">Conecte o workflow desta clínica. O SellClin recebe as mensagens e envia as respostas pelo WhatsApp.</p></div></header>
     {loading ? <p role="status">Carregando conexão…</p> : error ? <div role="alert" className="space-y-3 rounded-xl border border-destructive/30 p-4"><p>{error}</p><Button variant="outline" onClick={() => void load()}>Tentar novamente</Button></div> : <>
@@ -76,6 +94,18 @@ export default function N8nSettings() {
       {actionError && <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">{actionError}</div>}
       <WorkflowConnection config={config} dirty={dirty} busy={busy} n8nOnly change={change} test={() => void act(async () => { unwrap(await aiAgentsApi.testKey(agent.id)); setConfig((c: any) => ({ ...c, verifiedAt: new Date().toISOString() })); toast({ title: 'Workflow validado' }) })} />
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4"><p className="text-sm text-muted-foreground">{dirty ? 'Alterações não salvas. Salvar desativa este atendimento até você validá-lo novamente.' : 'O token salvo não volta a ser exibido.'}</p><Button disabled={busy || !config.n8nWebhookUrl || (!config.hasN8nSecret && !config.n8nSecret) || (!dirty && Boolean(agent))} onClick={() => void act(save)}><Save className="mr-2 h-4 w-4" />Salvar conexão</Button></div>
+      {agent && config.hasN8nSecret && <section className="space-y-3 rounded-xl border bg-card p-5">
+        <h3 className="font-semibold">Consulta de agenda pelo n8n</h3>
+        <p className="text-sm text-muted-foreground">Use este token na credencial HTTP do n8n para consultar os horários livres desta clínica.</p>
+        <code className="block break-all text-sm">GET /api/agentes-ia/agenda/disponibilidade</code>
+        {agendaToken && <label className="grid gap-2 text-sm">Token de agenda (exibido uma vez)
+          <Input readOnly value={agendaToken} onFocus={event => event.currentTarget.select()} autoComplete="off" />
+        </label>}
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" disabled={busy || dirty} onClick={() => void issueAgendaToken()}>{config.hasAgendaToken ? 'Gerar novo token' : 'Gerar token de agenda'}</Button>
+          {config.hasAgendaToken && <Button variant="outline" disabled={busy || dirty} onClick={() => void revokeAgendaToken()}>Revogar token de agenda</Button>}
+        </div>
+      </section>}
       <section className="space-y-4 rounded-xl border bg-card p-5"><h3 className="flex items-center gap-2 font-semibold"><FlaskConical className="h-4 w-4" />Teste de conversa</h3><p className="text-sm text-muted-foreground">Depois de salvar, envie uma mensagem. A conexão será validada automaticamente no primeiro envio. Esta simulação não envia WhatsApp nem altera o CRM. O workflow deve respeitar o modo de teste.</p>
         <div aria-live="polite" className="max-h-80 min-h-24 space-y-3 overflow-auto rounded-lg bg-muted/30 p-3">{chat.length === 0 && <p className="text-sm text-muted-foreground">Envie uma mensagem para conferir o retorno do workflow.</p>}{chat.map((m, i) => <p key={i} className={`whitespace-pre-wrap rounded-lg border p-3 text-sm ${m.role === 'user' ? 'ml-8 bg-primary/5' : 'mr-8 bg-background'}`}><strong>{m.role === 'user' ? 'Você' : 'n8n'}: </strong>{m.content}</p>)}</div>
         {handoff && <p className="text-sm text-amber-700">O workflow transferiu esta conversa à equipe. Reinicie para testar novamente.</p>}
